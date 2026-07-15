@@ -1,0 +1,1709 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: KhataPro CRM API — digital ledger platform for small businesses
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Authentication
+  - name: businesses
+    description: Business management
+  - name: customers
+    description: Customer ledger management
+  - name: transactions
+    description: Ledger transactions
+  - name: reports
+    description: Business reports and analytics
+  - name: reminders
+    description: Payment reminders
+  - name: admin
+    description: Admin panel operations
+  - name: subscriptions
+    description: Subscription management
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  # ─── AUTH ───────────────────────────────────────────────────────────────────
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Admin / staff login with email + password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+
+  /auth/send-otp:
+    post:
+      operationId: sendOtp
+      tags: [auth]
+      summary: Send OTP to phone number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OtpInput"
+      responses:
+        "200":
+          description: OTP sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/verify-otp:
+    post:
+      operationId: verifyOtp
+      tags: [auth]
+      summary: Verify OTP and get auth token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OtpVerifyInput"
+      responses:
+        "200":
+          description: OTP verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Invalid or expired OTP
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout current user
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ─── BUSINESSES ─────────────────────────────────────────────────────────────
+
+  /businesses:
+    get:
+      operationId: listBusinesses
+      tags: [businesses]
+      summary: List all businesses (optionally filtered by owner)
+      parameters:
+        - name: owner_id
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of businesses
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessListResponse"
+    post:
+      operationId: createBusiness
+      tags: [businesses]
+      summary: Create a new business
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BusinessInput"
+      responses:
+        "201":
+          description: Business created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Business"
+
+  /businesses/{id}:
+    get:
+      operationId: getBusiness
+      tags: [businesses]
+      summary: Get business by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Business details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Business"
+        "404":
+          description: Not found
+    put:
+      operationId: updateBusiness
+      tags: [businesses]
+      summary: Update business
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BusinessUpdate"
+      responses:
+        "200":
+          description: Updated business
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Business"
+
+  /businesses/{id}/stats:
+    get:
+      operationId: getBusinessStats
+      tags: [businesses]
+      summary: Get summary stats for a business (total collect, pay, net)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Business stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BusinessStats"
+
+  /businesses/{id}/staff:
+    post:
+      operationId: addStaff
+      tags: [businesses]
+      summary: Add a staff member to a business
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffInput"
+      responses:
+        "201":
+          description: Staff added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffMember"
+
+  # ─── CUSTOMERS ──────────────────────────────────────────────────────────────
+
+  /customers:
+    get:
+      operationId: listCustomers
+      tags: [customers]
+      summary: List customers for a business
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [customer, supplier]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of customers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerListResponse"
+    post:
+      operationId: createCustomer
+      tags: [customers]
+      summary: Create a customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerInput"
+      responses:
+        "201":
+          description: Customer created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+
+  /customers/{id}:
+    get:
+      operationId: getCustomer
+      tags: [customers]
+      summary: Get customer with ledger summary
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Customer detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "404":
+          description: Not found
+    put:
+      operationId: updateCustomer
+      tags: [customers]
+      summary: Update customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerUpdate"
+      responses:
+        "200":
+          description: Updated customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+    delete:
+      operationId: deleteCustomer
+      tags: [customers]
+      summary: Delete a customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ─── TRANSACTIONS ────────────────────────────────────────────────────────────
+
+  /transactions:
+    get:
+      operationId: listTransactions
+      tags: [transactions]
+      summary: List transactions for a business with optional filters
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: customer_id
+          in: query
+          schema:
+            type: integer
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum: [today, week, month, all]
+            default: all
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [you_gave, you_got]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of transactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionListResponse"
+    post:
+      operationId: createTransaction
+      tags: [transactions]
+      summary: Add a ledger entry (you gave / you got)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransactionInput"
+      responses:
+        "201":
+          description: Transaction created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+
+  /transactions/{id}:
+    get:
+      operationId: getTransaction
+      tags: [transactions]
+      summary: Get a single transaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+    put:
+      operationId: updateTransaction
+      tags: [transactions]
+      summary: Update a transaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransactionUpdate"
+      responses:
+        "200":
+          description: Updated transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+    delete:
+      operationId: deleteTransaction
+      tags: [transactions]
+      summary: Delete a transaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ─── REPORTS ─────────────────────────────────────────────────────────────────
+
+  /reports/summary:
+    get:
+      operationId: getReportSummary
+      tags: [reports]
+      summary: Business summary — total to collect, total to pay, net balance
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Summary report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportSummary"
+
+  /reports/top-customers:
+    get:
+      operationId: getTopCustomers
+      tags: [reports]
+      summary: Top customers by outstanding balance
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Top customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TopCustomer"
+
+  /reports/daybook:
+    get:
+      operationId: getDaybook
+      tags: [reports]
+      summary: All transactions grouped by date (daybook)
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Daybook entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DaybookEntry"
+
+  /reports/cashbook:
+    get:
+      operationId: getCashbook
+      tags: [reports]
+      summary: Cashbook — income vs expense summary
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Cashbook
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CashbookReport"
+
+  # ─── REMINDERS ───────────────────────────────────────────────────────────────
+
+  /reminders:
+    get:
+      operationId: listReminders
+      tags: [reminders]
+      summary: List reminders for a business
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, sent, failed]
+      responses:
+        "200":
+          description: Reminders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Reminder"
+    post:
+      operationId: createReminder
+      tags: [reminders]
+      summary: Schedule a payment reminder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReminderInput"
+      responses:
+        "201":
+          description: Reminder created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reminder"
+
+  /reminders/{id}/send:
+    post:
+      operationId: sendReminder
+      tags: [reminders]
+      summary: Immediately send a reminder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Reminder sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ─── ADMIN ───────────────────────────────────────────────────────────────────
+
+  /admin/analytics:
+    get:
+      operationId: getAdminAnalytics
+      tags: [admin]
+      summary: Platform-wide KPIs and growth metrics
+      responses:
+        "200":
+          description: Admin analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAnalytics"
+
+  /admin/businesses:
+    get:
+      operationId: listAdminBusinesses
+      tags: [admin]
+      summary: List all businesses on the platform (admin view)
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, suspended]
+        - name: plan
+          in: query
+          schema:
+            type: string
+            enum: [free, pro, premium]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Businesses list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBusinessListResponse"
+
+  /admin/businesses/{id}/status:
+    put:
+      operationId: updateBusinessStatus
+      tags: [admin]
+      summary: Suspend or activate a business
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatusUpdate"
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/users:
+    get:
+      operationId: listAdminUsers
+      tags: [admin]
+      summary: List all users on the platform (admin view)
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [owner, staff, admin]
+        - name: is_active
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Users list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserListResponse"
+
+  /admin/users/{id}/status:
+    put:
+      operationId: updateUserStatus
+      tags: [admin]
+      summary: Activate or suspend a user account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatusUpdate"
+      responses:
+        "200":
+          description: User status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/subscriptions:
+    get:
+      operationId: listSubscriptions
+      tags: [admin]
+      summary: List all subscriptions
+      parameters:
+        - name: plan
+          in: query
+          schema:
+            type: string
+            enum: [free, pro, premium]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, expired, cancelled]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Subscriptions list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionListResponse"
+
+  /admin/subscriptions/{id}:
+    put:
+      operationId: updateSubscription
+      tags: [admin]
+      summary: Manually upgrade/downgrade a subscription
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscriptionUpdate"
+      responses:
+        "200":
+          description: Subscription updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+
+  /admin/audit-logs:
+    get:
+      operationId: listAuditLogs
+      tags: [admin]
+      summary: List audit logs
+      parameters:
+        - name: business_id
+          in: query
+          schema:
+            type: integer
+        - name: user_id
+          in: query
+          schema:
+            type: integer
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditLogListResponse"
+
+  /admin/broadcast:
+    post:
+      operationId: broadcastNotification
+      tags: [admin]
+      summary: Broadcast a notification to all or segmented users
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BroadcastInput"
+      responses:
+        "200":
+          description: Broadcast queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+# ─── SCHEMAS ─────────────────────────────────────────────────────────────────
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    # ── Auth ──────────────────────────────────────────────────────────────────
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+
+        password:
+          type: string
+
+    OtpInput:
+      type: object
+      required: [phone]
+      properties:
+        phone:
+          type: string
+
+    OtpVerifyInput:
+      type: object
+      required: [phone, otp]
+      properties:
+        phone:
+          type: string
+        otp:
+          type: string
+
+    AuthResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+
+    # ── User ──────────────────────────────────────────────────────────────────
+
+    User:
+      type: object
+      required: [id, name, phone, role, is_active, created_at]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: ["string", "null"]
+        role:
+          type: string
+          enum: [owner, staff, admin]
+        profile_image:
+          type: ["string", "null"]
+        is_active:
+          type: boolean
+        language_pref:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    UserListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    # ── Business ──────────────────────────────────────────────────────────────
+
+    Business:
+      type: object
+      required: [id, owner_id, business_name, business_type, currency, created_at]
+      properties:
+        id:
+          type: integer
+        owner_id:
+          type: integer
+        business_name:
+          type: string
+        business_type:
+          type: string
+        gstin:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        logo_url:
+          type: ["string", "null"]
+        currency:
+          type: string
+          default: INR
+        financial_year_start:
+          type: ["string", "null"]
+          format: date
+        is_active:
+          type: boolean
+        plan:
+          type: string
+          enum: [free, pro, premium]
+        created_at:
+          type: string
+          format: date-time
+
+    BusinessInput:
+      type: object
+      required: [business_name, business_type]
+      properties:
+        business_name:
+          type: string
+        business_type:
+          type: string
+        gstin:
+          type: string
+        address:
+          type: string
+        logo_url:
+          type: string
+        currency:
+          type: string
+          default: INR
+        financial_year_start:
+          type: string
+          format: date
+
+    BusinessUpdate:
+      type: object
+      properties:
+        business_name:
+          type: string
+        business_type:
+          type: string
+        gstin:
+          type: string
+        address:
+          type: string
+        logo_url:
+          type: string
+        currency:
+          type: string
+        financial_year_start:
+          type: string
+          format: date
+
+    BusinessStats:
+      type: object
+      required: [total_to_collect, total_to_pay, net_balance, customer_count, transaction_count]
+      properties:
+        total_to_collect:
+          type: number
+        total_to_pay:
+          type: number
+        net_balance:
+          type: number
+        customer_count:
+          type: integer
+        transaction_count:
+          type: integer
+
+    BusinessListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Business"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    AdminBusinessListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminBusiness"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    AdminBusiness:
+      type: object
+      required: [id, business_name, business_type, owner_name, plan, is_active, created_at]
+      properties:
+        id:
+          type: integer
+        business_name:
+          type: string
+        business_type:
+          type: string
+        owner_name:
+          type: string
+        owner_phone:
+          type: string
+        plan:
+          type: string
+          enum: [free, pro, premium]
+        is_active:
+          type: boolean
+        customer_count:
+          type: integer
+        transaction_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    StaffInput:
+      type: object
+      required: [user_id, permissions]
+      properties:
+        user_id:
+          type: integer
+        permissions:
+          $ref: "#/components/schemas/StaffPermissions"
+
+    StaffMember:
+      type: object
+      required: [id, business_id, user_id, permissions]
+      properties:
+        id:
+          type: integer
+        business_id:
+          type: integer
+        user_id:
+          type: integer
+        user:
+          $ref: "#/components/schemas/User"
+        permissions:
+          $ref: "#/components/schemas/StaffPermissions"
+
+    StaffPermissions:
+      type: object
+      properties:
+        add_entry:
+          type: boolean
+        delete_entry:
+          type: boolean
+        view_reports:
+          type: boolean
+        manage_customers:
+          type: boolean
+
+    StatusUpdate:
+      type: object
+      required: [is_active]
+      properties:
+        is_active:
+          type: boolean
+
+    # ── Customer ──────────────────────────────────────────────────────────────
+
+    Customer:
+      type: object
+      required: [id, business_id, name, phone, current_balance, category, created_at]
+      properties:
+        id:
+          type: integer
+        business_id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        opening_balance:
+          type: number
+        opening_balance_type:
+          type: string
+          enum: [credit, debit]
+        current_balance:
+          type: number
+        category:
+          type: string
+          enum: [customer, supplier]
+        profile_image:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    CustomerInput:
+      type: object
+      required: [business_id, name, phone, category]
+      properties:
+        business_id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        address:
+          type: string
+        opening_balance:
+          type: number
+          default: 0
+        opening_balance_type:
+          type: string
+          enum: [credit, debit]
+          default: credit
+        category:
+          type: string
+          enum: [customer, supplier]
+          default: customer
+
+    CustomerUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        address:
+          type: string
+        category:
+          type: string
+          enum: [customer, supplier]
+
+    CustomerListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Customer"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    # ── Transaction ───────────────────────────────────────────────────────────
+
+    Transaction:
+      type: object
+      required: [id, business_id, customer_id, type, amount, balance_after, entry_date, created_at]
+      properties:
+        id:
+          type: integer
+        business_id:
+          type: integer
+        customer_id:
+          type: integer
+        customer_name:
+          type: string
+        type:
+          type: string
+          enum: [you_gave, you_got]
+        amount:
+          type: number
+        balance_after:
+          type: number
+        description:
+          type: ["string", "null"]
+        bill_image_url:
+          type: ["string", "null"]
+        payment_mode:
+          type: string
+          enum: [cash, online, cheque, upi]
+        entry_date:
+          type: string
+          format: date
+        due_date:
+          type: ["string", "null"]
+          format: date
+        created_by:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    TransactionInput:
+      type: object
+      required: [business_id, customer_id, type, amount, entry_date]
+      properties:
+        business_id:
+          type: integer
+        customer_id:
+          type: integer
+        type:
+          type: string
+          enum: [you_gave, you_got]
+        amount:
+          type: number
+        description:
+          type: string
+        bill_image_url:
+          type: string
+        payment_mode:
+          type: string
+          enum: [cash, online, cheque, upi]
+          default: cash
+        entry_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+
+    TransactionUpdate:
+      type: object
+      properties:
+        amount:
+          type: number
+        description:
+          type: string
+        payment_mode:
+          type: string
+          enum: [cash, online, cheque, upi]
+        entry_date:
+          type: string
+          format: date
+        due_date:
+          type: string
+          format: date
+
+    TransactionListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transaction"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    # ── Reports ───────────────────────────────────────────────────────────────
+
+    ReportSummary:
+      type: object
+      required: [total_to_collect, total_to_pay, net_balance, total_customers, total_transactions]
+      properties:
+        total_to_collect:
+          type: number
+        total_to_pay:
+          type: number
+        net_balance:
+          type: number
+        total_customers:
+          type: integer
+        total_transactions:
+          type: integer
+        today_collection:
+          type: number
+        today_payment:
+          type: number
+        week_collection:
+          type: number
+        week_payment:
+          type: number
+
+    TopCustomer:
+      type: object
+      required: [id, name, phone, current_balance, transaction_count]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+        current_balance:
+          type: number
+        transaction_count:
+          type: integer
+
+    DaybookEntry:
+      type: object
+      required: [date, transactions, total_gave, total_got]
+      properties:
+        date:
+          type: string
+          format: date
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transaction"
+        total_gave:
+          type: number
+        total_got:
+          type: number
+
+    CashbookReport:
+      type: object
+      required: [total_income, total_expense, net, entries]
+      properties:
+        total_income:
+          type: number
+        total_expense:
+          type: number
+        net:
+          type: number
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/CashbookEntry"
+
+    CashbookEntry:
+      type: object
+      required: [date, income, expense]
+      properties:
+        date:
+          type: string
+          format: date
+        income:
+          type: number
+        expense:
+          type: number
+
+    # ── Reminders ─────────────────────────────────────────────────────────────
+
+    Reminder:
+      type: object
+      required: [id, business_id, customer_id, reminder_date, channel, status, created_at]
+      properties:
+        id:
+          type: integer
+        business_id:
+          type: integer
+        customer_id:
+          type: integer
+        customer_name:
+          type: string
+        transaction_id:
+          type: ["integer", "null"]
+        reminder_date:
+          type: string
+          format: date
+        channel:
+          type: string
+          enum: [sms, whatsapp, push]
+        status:
+          type: string
+          enum: [pending, sent, failed]
+        amount:
+          type: ["number", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    ReminderInput:
+      type: object
+      required: [business_id, customer_id, reminder_date, channel]
+      properties:
+        business_id:
+          type: integer
+        customer_id:
+          type: integer
+        transaction_id:
+          type: integer
+        reminder_date:
+          type: string
+          format: date
+        channel:
+          type: string
+          enum: [sms, whatsapp, push]
+
+    # ── Admin ─────────────────────────────────────────────────────────────────
+
+    AdminAnalytics:
+      type: object
+      required: [total_businesses, active_businesses, total_users, total_transactions, total_transaction_volume, monthly_growth]
+      properties:
+        total_businesses:
+          type: integer
+        active_businesses:
+          type: integer
+        total_users:
+          type: integer
+        total_transactions:
+          type: integer
+        total_transaction_volume:
+          type: number
+        monthly_growth:
+          type: array
+          items:
+            $ref: "#/components/schemas/MonthlyGrowthPoint"
+        plan_breakdown:
+          $ref: "#/components/schemas/PlanBreakdown"
+        recent_signups:
+          type: array
+          items:
+            $ref: "#/components/schemas/Business"
+
+    MonthlyGrowthPoint:
+      type: object
+      required: [month, businesses, users, transactions]
+      properties:
+        month:
+          type: string
+        businesses:
+          type: integer
+        users:
+          type: integer
+        transactions:
+          type: integer
+
+    PlanBreakdown:
+      type: object
+      required: [free, pro, premium]
+      properties:
+        free:
+          type: integer
+        pro:
+          type: integer
+        premium:
+          type: integer
+
+    # ── Subscriptions ─────────────────────────────────────────────────────────
+
+    Subscription:
+      type: object
+      required: [id, business_id, plan, status, start_date, end_date]
+      properties:
+        id:
+          type: integer
+        business_id:
+          type: integer
+        business_name:
+          type: string
+        plan:
+          type: string
+          enum: [free, pro, premium]
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [active, expired, cancelled]
+        payment_ref:
+          type: ["string", "null"]
+
+    SubscriptionUpdate:
+      type: object
+      required: [plan, status]
+      properties:
+        plan:
+          type: string
+          enum: [free, pro, premium]
+        status:
+          type: string
+          enum: [active, expired, cancelled]
+        end_date:
+          type: string
+          format: date
+
+    SubscriptionListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Subscription"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    # ── Audit ─────────────────────────────────────────────────────────────────
+
+    AuditLog:
+      type: object
+      required: [id, action, entity_type, created_at]
+      properties:
+        id:
+          type: integer
+        business_id:
+          type: ["integer", "null"]
+        user_id:
+          type: ["integer", "null"]
+        user_name:
+          type: ["string", "null"]
+        action:
+          type: string
+        entity_type:
+          type: string
+        entity_id:
+          type: ["integer", "null"]
+        old_value:
+          type: ["string", "null"]
+        new_value:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    AuditLogListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditLog"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    BroadcastInput:
+      type: object
+      required: [title, body, channel]
+      properties:
+        title:
+          type: string
+        body:
+          type: string
+        channel:
+          type: string
+          enum: [push, sms, all]
+        target_plan:
+          type: string
+          enum: [free, pro, premium, all]
+          default: all

@@ -1,0 +1,2 @@
+- [Imported repo with pre-built artifact.toml but unregistered](imported-artifact-registration.md) — re-sync via verifyAndReplaceArtifactToml, don't call createArtifact.
+- [Orval hooks + monorepo typecheck gotchas](orval-hooks-and-monorepo-typecheck.md) — queryKey required alongside enabled; build lib dist before trusting new consumer's tsc errors; sibling deps aren't hoisted.

@@ -1,0 +1,284 @@
+📒 KhataPro CRM — Full Build Specification & Prompt
+(Khata Book Alternative — React Native App + Node.js Backend + MySQL + Admin Panel)
+Use this document as a single master prompt to hand to a developer, dev team, or an AI coding assistant (Claude Code, Cursor, etc.) to build the full product end-to-end.
+1. PROJECT OVERVIEW
+Build a full-stack digital ledger / Khata Book CRM for small businesses to track customer credit (udhaar) and payments (jama), manage inventory-light transactions, send payment reminders, and generate business reports — with a mobile app for shop owners and a web-based admin panel for platform management.
+Core value proposition: Replace paper ledgers with a mobile-first digital khata that tracks who owes the business money, who the business owes, due dates, reminders, and reports — plus a SaaS admin panel to manage all merchants/businesses on the platform.
+2. TECH STACK
+Layer	Technology
+Mobile App	React Native (CLI or Expo), TypeScript
+State Management	Redux Toolkit / Zustand
+Admin Panel	React.js (Vite) + TypeScript + TailwindCSS
+Backend API	Node.js + Express.js (or NestJS for structure)
+Database	MySQL 8
+ORM	Sequelize or Prisma
+Auth	JWT + OTP (mobile), bcrypt password hashing
+File Storage	AWS S3 / local storage (for receipts, business logo, ID proof)
+Notifications	Firebase Cloud Messaging (push), Twilio/MSG91 (SMS), WhatsApp Business API
+Reports	PDFKit / ExcelJS for export
+Caching/Queue	Redis (OTP throttling, reminder queue)
+Hosting	AWS EC2 / DigitalOcean, Nginx reverse proxy, PM2
+CI/CD	GitHub Actions
+3. SYSTEM ARCHITECTURE
+┌─────────────────┐      ┌─────────────────┐
+│ React Native App │◄────►│                 │
+│ (Business Owner)│      │   REST API      │      ┌──────────┐
+└─────────────────┘      │  (Node/Express) │◄────►│  MySQL   │
+┌─────────────────┐      │                 │      └──────────┘
+│  Admin Panel     │◄────►│                 │
+│  (React Web)     │      └─────────────────┘
+└─────────────────┘             │
+                                 ▼
+                    ┌───────────────────────┐
+                    │ Redis / SMS / FCM /    │
+                    │ WhatsApp / S3 Storage  │
+                    └───────────────────────┘
+Multi-tenant design: every business (business_id) is isolated; one owner account can manage multiple businesses.
+4. DATABASE SCHEMA (MySQL)
+4.1 users (business owners / staff)
+Field	Type
+id	BIGINT PK
+name	VARCHAR
+phone	VARCHAR UNIQUE
+email	VARCHAR NULLABLE
+password_hash	VARCHAR
+role	ENUM('owner','staff','admin')
+profile_image	VARCHAR
+is_active	BOOLEAN
+language_pref	VARCHAR
+created_at, updated_at	TIMESTAMP
+4.2 businesses
+Field	Type
+id	BIGINT PK
+owner_id	FK → users.id
+business_name	VARCHAR
+business_type	VARCHAR
+gstin	VARCHAR NULLABLE
+address	TEXT
+logo_url	VARCHAR
+currency	VARCHAR default 'INR'
+financial_year_start	DATE
+created_at, updated_at	TIMESTAMP
+4.3 staff_business_map (role-based access per business)
+| id | business_id | user_id | permissions (JSON: add_entry, delete_entry, view_reports, manage_customers) |
+4.4 customers
+Field	Type
+id	BIGINT PK
+business_id	FK
+name	VARCHAR
+phone	VARCHAR
+email	VARCHAR NULLABLE
+address	TEXT
+opening_balance	DECIMAL(12,2)
+opening_balance_type	ENUM('credit','debit')
+current_balance	DECIMAL(12,2)
+category	VARCHAR (customer/supplier)
+profile_image	VARCHAR
+created_at, updated_at	TIMESTAMP
+4.5 transactions (the core khata ledger)
+Field	Type
+id	BIGINT PK
+business_id	FK
+customer_id	FK
+type	ENUM('you_gave','you_got') — i.e. debit/credit
+amount	DECIMAL(12,2)
+balance_after	DECIMAL(12,2)
+description	TEXT
+bill_image_url	VARCHAR NULLABLE
+payment_mode	ENUM('cash','online','cheque','upi')
+entry_date	DATE
+due_date	DATE NULLABLE
+created_by	FK → users.id
+created_at, updated_at	TIMESTAMP
+4.6 reminders
+| id | business_id | customer_id | transaction_id | reminder_date | channel (sms/whatsapp/push) | status (pending/sent/failed) |
+4.7 categories (expense/income tagging, optional)
+| id | business_id | name | type (income/expense) |
+4.8 expenses (optional cashbook module)
+| id | business_id | category_id | amount | note | date | created_by |
+4.9 notifications
+| id | user_id | title | body | is_read | type | created_at |
+4.10 subscriptions (SaaS billing, for admin panel)
+| id | business_id | plan (free/pro/premium) | start_date | end_date | status | payment_ref |
+4.11 audit_logs
+| id | business_id | user_id | action | entity_type | entity_id | old_value | new_value | created_at |
+4.12 otp_verifications
+| id | phone | otp_code | expires_at | is_verified |
+Indexes: customers(business_id, phone), transactions(customer_id, entry_date), transactions(business_id, entry_date) for fast ledger + report queries.
+5. BACKEND API (Node.js + Express)
+Auth
+POST /api/auth/send-otp
+POST /api/auth/verify-otp
+POST /api/auth/login (password, for admin/staff)
+POST /api/auth/refresh-token
+POST /api/auth/logout
+Business
+POST /api/business — create business
+GET /api/business/:id
+PUT /api/business/:id
+GET /api/business/user/:userId — list businesses for owner
+POST /api/business/:id/staff — add staff with permissions
+Customers
+POST /api/customers
+GET /api/customers?business_id=
+GET /api/customers/:id (with full ledger)
+PUT /api/customers/:id
+DELETE /api/customers/:id
+GET /api/customers/:id/statement?from=&to= (PDF/Excel)
+Transactions (Ledger Entries)
+POST /api/transactions — add "you gave / you got" entry
+PUT /api/transactions/:id
+DELETE /api/transactions/:id
+GET /api/transactions/customer/:customerId
+GET /api/transactions/business/:businessId?filter=today|week|month|custom
+Reports
+GET /api/reports/summary?business_id= — total to collect, total to pay, net balance
+GET /api/reports/export?type=pdf|excel&from=&to=
+GET /api/reports/top-customers
+GET /api/reports/cashbook
+Reminders
+POST /api/reminders
+GET /api/reminders/pending
+POST /api/reminders/send-now/:id
+Cron job: auto-send due-date reminders daily via SMS/WhatsApp/push
+Admin Panel APIs
+GET /api/admin/businesses — list/search all businesses
+GET /api/admin/users — list/search all users
+PUT /api/admin/users/:id/status — activate/suspend
+GET /api/admin/subscriptions
+PUT /api/admin/subscriptions/:id
+GET /api/admin/analytics — platform-wide KPIs
+GET /api/admin/audit-logs
+POST /api/admin/broadcast-notification
+Standards: JWT auth middleware, role/permission middleware, request validation (Joi/Zod), rate limiting (express-rate-limit), centralized error handler, pagination on all list endpoints, soft-delete pattern (deleted_at).
+6. MOBILE APP (React Native) — SCREENS & FEATURES
+Onboarding
+Splash → Phone OTP login → Business setup (name, type, logo) → Home
+Home / Dashboard
+Total "To Collect" and "To Pay" cards (color coded red/green)
+Search customers
+Recent transactions list
+Floating "+" to add customer or entry
+Quick filters: Today / This Week / This Month
+Customer Ledger Screen
+Running balance at top
+Chronological transaction list ("You Gave ₹X" / "You Got ₹X")
+Two large buttons: "You Gave" (red) / "You Got" (green)
+Attach bill photo, add note, set due date + reminder
+Call / WhatsApp customer button
+Share ledger as PDF
+Reports Screen
+Daybook (all transactions by date)
+Cashbook (expenses/income)
+Customer-wise outstanding report
+Export to PDF/Excel, share via WhatsApp/Email
+Reminders Screen
+Upcoming due payments
+Auto/manual reminder trigger
+Reminder history log
+Business Management
+Multi-business switcher
+Staff management (add staff, assign permissions)
+Business profile edit (logo, GSTIN, address)
+Settings
+Language selection (multi-language support)
+Backup & restore
+App lock (PIN/biometric)
+Theme (light/dark)
+Subscription/plan info
+Help & support
+Offline Support
+Local SQLite cache with background sync queue when connectivity returns (important for khata-book style usage in low-network areas)
+7. ADMIN PANEL (React.js Web)
+Dashboard
+Total businesses, active users, transaction volume, revenue (if SaaS), growth charts
+Business Management
+List/search/filter all registered businesses
+View business details, ledger stats, subscription status
+Suspend/activate business
+User Management
+List/search users, view login history
+Reset password, suspend account
+Role management (owner/staff/admin)
+Subscription & Billing
+Plan management (Free/Pro/Premium)
+Payment history
+Manual upgrade/downgrade
+Reports & Analytics
+Platform-wide transaction volume trends
+Most active businesses
+Churn/retention metrics
+Notifications
+Broadcast push/SMS notification to all or segmented users
+Audit & Support
+Audit log viewer
+Support ticket / complaint management (optional module)
+System settings (SMS/WhatsApp API keys, feature flags)
+8. CORE FEATURE CHECKLIST (Khata Book Parity + Enhancements)
+[x] OTP-based secure login
+[x] Multi-business, multi-staff with role-based permissions
+[x] Customer/supplier ledger with running balance
+[x] "You Gave / You Got" quick entry with photo attachment
+[x] Due date + automated payment reminders (SMS/WhatsApp/Push)
+[x] PDF/Excel statement export & sharing
+[x] Daybook, cashbook, business reports & analytics dashboard
+[x] Multi-language support
+[x] Offline-first sync
+[x] App lock (PIN/biometric)
+[x] Data backup & restore
+[x] Admin panel for platform-wide management & analytics
+[x] Subscription/plan management (for SaaS monetization)
+[x] Audit logs for all critical actions
+9. NON-FUNCTIONAL REQUIREMENTS
+Security: HTTPS everywhere, JWT with short-lived access + refresh tokens, bcrypt password hashing, input sanitization, rate-limited OTP, SQL injection protection via ORM parameterized queries
+Scalability: stateless API servers behind load balancer, MySQL read replicas for reporting queries, Redis caching for dashboard summaries
+Performance: paginated APIs, indexed queries, lazy-loaded lists in RN
+Reliability: daily automated DB backups, error monitoring (Sentry)
+Compliance: data isolation per business_id (multi-tenant), GDPR-style data export/delete on request
+10. SUGGESTED FOLDER STRUCTURE
+khata-crm/
+├── backend/
+│   ├── src/
+│   │   ├── config/
+│   │   ├── models/
+│   │   ├── controllers/
+│   │   ├── routes/
+│   │   ├── middlewares/
+│   │   ├── services/
+│   │   ├── jobs/ (cron reminders)
+│   │   ├── utils/
+│   │   └── app.js
+│   └── package.json
+├── mobile-app/
+│   ├── src/
+│   │   ├── screens/
+│   │   ├── components/
+│   │   ├── navigation/
+│   │   ├── redux/ (or store/)
+│   │   ├── services/ (api calls)
+│   │   ├── offline/ (sqlite sync)
+│   │   └── utils/
+│   └── package.json
+├── admin-panel/
+│   ├── src/
+│   │   ├── pages/
+│   │   ├── components/
+│   │   ├── store/
+│   │   ├── services/
+│   │   └── App.tsx
+│   └── package.json
+└── docs/
+    └── api-spec.md
+11. BUILD SEQUENCE (Recommended Order)
+Set up MySQL schema + Sequelize/Prisma models (Section 4)
+Build backend auth (OTP + JWT) and business/customer CRUD APIs
+Build transaction/ledger APIs with balance calculation logic
+Build reminders cron job + SMS/WhatsApp integration
+Build React Native app: auth flow → dashboard → customer ledger → add entry
+Add reports/export module (mobile)
+Build admin panel: dashboard → business/user management → analytics
+Add offline sync (SQLite + queue) to mobile app
+Add subscription/billing module
+QA, security audit, load testing, deploy (Nginx + PM2 + CI/CD)
+12. HOW TO USE THIS PROMPT
+Paste this entire document into your AI coding assistant (Claude Code, Cursor, etc.) one module at a time — e.g., start with "Using the spec below, scaffold the MySQL schema and Sequelize models for Section 4" — rather than asking for everything in one shot. Build backend → mobile → admin panel in that order for the smoothest path to a working MVP.
