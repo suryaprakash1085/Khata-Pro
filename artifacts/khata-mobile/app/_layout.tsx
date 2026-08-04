@@ -76,30 +76,34 @@ function RootLayoutNav() {
   }
 
   const stackNav = (
-    <Stack screenOptions={{ headerBackTitle: 'Back' }}>
-      <Stack.Screen name="login" options={{ headerShown: false, gestureEnabled: false }} />
-      <Stack.Screen name="business-setup" options={{ headerShown: false, gestureEnabled: false }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="customer/[id]" options={{ title: 'Ledger', headerShadowVisible: false }} />
-      <Stack.Screen
-        name="add-customer"
-        options={{
-          presentation: 'formSheet',
-          sheetAllowedDetents: [0.8, 1],
-          sheetGrabberVisible: true,
-          title: 'New Customer',
-        }}
-      />
-      <Stack.Screen
-        name="add-transaction"
-        options={{
-          presentation: 'formSheet',
-          sheetAllowedDetents: [0.9, 1],
-          sheetGrabberVisible: true,
-          title: 'Add Entry',
-        }}
-      />
-    </Stack>
+   <Stack screenOptions={{ headerBackTitle: 'Back' }}>
+  <Stack.Screen name="login" options={{ headerShown: false, gestureEnabled: false }} />
+  <Stack.Screen name="business-setup" options={{ headerShown: false, gestureEnabled: false }} />
+  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+  <Stack.Screen name="customer/[id]" options={{ title: 'Ledger', headerShadowVisible: false }} />
+  <Stack.Screen name="all-products" options={{ headerShown: false }} />
+  <Stack.Screen name="out-of-stock-products" options={{ headerShown: false }} />
+  <Stack.Screen name="product-list" options={{ headerShown: false }} />
+  <Stack.Screen name="add-product" options={{ headerShown: false }} />
+  <Stack.Screen
+    name="add-customer"
+    options={{
+      presentation: 'formSheet',
+      sheetAllowedDetents: [0.8, 1],
+      sheetGrabberVisible: true,
+      title: 'New Customer',
+    }}
+  />
+  <Stack.Screen
+    name="add-transaction"
+    options={{
+      presentation: 'formSheet',
+      sheetAllowedDetents: [0.9, 1],
+      sheetGrabberVisible: true,
+      title: 'Add Entry',
+    }}
+  />
+</Stack>
   );
 
   // Web nav only shows once the user is logged in and has completed business

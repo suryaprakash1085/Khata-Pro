@@ -226,7 +226,7 @@
 
 import { Router, type IRouter } from "express";
 import { db, businessesTable, customersTable, transactionsTable, subscriptionsTable, usersTable, staffBusinessMapTable } from "@workspace/db";
-import { eq, and, ilike, count, sql, desc } from "drizzle-orm";
+import { eq, and, ilike, count, sql, desc, inArray } from "drizzle-orm";
 import { requireAuth, AuthPayload } from "../middlewares/auth";
 import {
   CreateBusinessBody,
@@ -246,12 +246,24 @@ router.get("/businesses", requireAuth, async (req, res): Promise<void> => {
   const limit = parseInt(req.query.limit as string) || 20;
   const offset = (page - 1) * limit;
   const ownerId = req.query.owner_id ? parseInt(req.query.owner_id as string) : undefined;
+  const staffUserId = req.query.staff_user_id ? parseInt(req.query.staff_user_id as string) : undefined; // ← new
   const search = req.query.search as string | undefined;
 
   let query = db.select().from(businessesTable);
   const conditions = [];
   if (ownerId) conditions.push(eq(businessesTable.ownerId, ownerId));
   if (search) conditions.push(ilike(businessesTable.businessName, `%${search}%`));
+
+  // A staff account has no owned business row — instead, look up which
+  // business(es) they're linked to via staffBusinessMapTable and filter on those ids.
+  if (staffUserId) {
+    const staffLinks = await db.select({ businessId: staffBusinessMapTable.businessId })
+      .from(staffBusinessMapTable)
+      .where(eq(staffBusinessMapTable.userId, staffUserId));
+    const businessIds = staffLinks.map((s) => Number(s.businessId));
+    conditions.push(businessIds.length ? inArray(businessesTable.id, businessIds) : sql`false`);
+  }
+
   if (conditions.length) query = (query as any).where(and(...conditions));
 
   const [businesses, totalResult] = await Promise.all([
@@ -479,6 +491,7 @@ const [txCount] = await db.select({ count: count() }).from(transactionsTable)
 // });
 
 // POST /businesses/:id/staff
+// POST /businesses/:id/staff
 router.post("/businesses/:id/staff", requireAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const businessId = parseInt(raw, 10);
@@ -493,6 +506,13 @@ router.post("/businesses/:id/staff", requireAuth, async (req, res): Promise<void
     userId: parsed.data.user_id,
     permissions: parsed.data.permissions ?? {},
   }).returning();
+
+  // A user linked to a business as staff should no longer be treated as a
+  // platform admin — downgrade their role to "staff" so the admin panel,
+  // the mobile sidebar/tab permission checks, etc. all see them correctly.
+  await db.update(usersTable)
+    .set({ role: "staff" })
+    .where(eq(usersTable.id, parsed.data.user_id));
 
   res.status(201).json({
     id: Number(staff.id),

@@ -15,6 +15,11 @@ import {
 
 const router: IRouter = Router();
 
+function normalizePhone(raw: string): string {
+  const digits = raw.replace(/[^\d]/g, "");
+  return digits.slice(-10);
+}
+
 // POST /auth/login — email + password for admin/staff
 router.post("/auth/login", async (req, res): Promise<void> => {
   const parsed = LoginBody.safeParse(req.body);
@@ -58,23 +63,24 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     return;
   }
   const { name, phone, email, password } = parsed.data;
+  const normalizedPhone = normalizePhone(phone);
 
   const [existingByEmail] = await db.select().from(usersTable).where(eq(usersTable.email, email));
-  if (existingByEmail) {
-    res.status(409).json({ error: "Email already in use" });
-    return;
-  }
-  const [existingByPhone] = await db.select().from(usersTable).where(eq(usersTable.phone, phone));
-  if (existingByPhone) {
-    res.status(409).json({ error: "Phone number already in use" });
-    return;
-  }
+if (existingByEmail) {
+  res.status(409).json({ error: "Email already in use" });
+  return;
+}
+const [existingByPhone] = await db.select().from(usersTable).where(eq(usersTable.phone, phone));
+if (existingByPhone) {
+  res.status(409).json({ error: "Phone number already in use" });
+  return;
+}
 
   const passwordHash = await bcrypt.hash(password, 10);
 
   const [user] = await db.insert(usersTable).values({
     name,
-    phone,
+    phone: normalizedPhone,
     email,
     passwordHash,
     role: "admin",
@@ -106,7 +112,7 @@ router.post("/auth/send-otp", async (req, res): Promise<void> => {
     return;
   }
   // In production this would send a real OTP via SMS
-  req.log.info({ phone: parsed.data.phone }, "OTP requested");
+  req.log.info({ phone: normalizePhone(parsed.data.phone) }, "OTP requested");
   res.json({ message: "OTP sent successfully" });
 });
 
@@ -118,6 +124,7 @@ router.post("/auth/verify-otp", async (req, res): Promise<void> => {
     return;
   }
   const { phone, otp } = parsed.data;
+  const normalizedPhone = normalizePhone(phone);
   // In dev mode accept otp "123456"
   if (otp !== "123456") {
     res.status(400).json({ error: "Invalid OTP" });
@@ -128,7 +135,7 @@ router.post("/auth/verify-otp", async (req, res): Promise<void> => {
     // Create new user on first login
     const [newUser] = await db.insert(usersTable).values({
       name: "New User",
-      phone,
+      phone: normalizedPhone,
       role: "owner",
     }).returning();
     user = newUser;
