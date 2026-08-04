@@ -1,3 +1,5 @@
+
+
 import { pgTable, bigserial, bigint, varchar, text, timestamp, decimal, date, boolean, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -15,6 +17,9 @@ export const transactionsTable = pgTable("transactions", {
   description: text("description"),
   billImageUrl: varchar("bill_image_url", { length: 500 }),
   paymentMode: paymentModeEnum("payment_mode").notNull().default("cash"),
+  tax: decimal("tax", { precision: 12, scale: 2 }).notNull().default("0"),
+  gstRate: decimal("gst_rate", { precision: 5, scale: 2 }).notNull().default("0"),
+  invoiceNo: varchar("invoice_no", { length: 50 }),
   entryDate: date("entry_date", { mode: "string" }).notNull(),
   dueDate: date("due_date", { mode: "string" }),
   createdBy: bigint("created_by", { mode: "number" }).notNull(),

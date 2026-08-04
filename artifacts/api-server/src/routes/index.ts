@@ -7,6 +7,14 @@ import transactionsRouter from "./transactions";
 import reportsRouter from "./reports";
 import remindersRouter from "./reminders";
 import adminRouter from "./admin";
+import productsRouter from "./products";
+import vendorsRouter from "./vendors";
+import purchasesRouter from "./purchases";
+import driversRouter from "./drivers";
+import deliveriesRouter from "./deliveries";
+import expensesRouter from "./expenses";
+import salesOrdersRouter from "./sales-orders";
+import returnsRouter from './returns';
 
 const router: IRouter = Router();
 
@@ -18,5 +26,13 @@ router.use(transactionsRouter);
 router.use(reportsRouter);
 router.use(remindersRouter);
 router.use(adminRouter);
+router.use(productsRouter);
+router.use(vendorsRouter);
+router.use(purchasesRouter);
+router.use(driversRouter);
+router.use(deliveriesRouter);
+router.use(expensesRouter);
+router.use(salesOrdersRouter);
+router.use(returnsRouter);
 
 export default router;

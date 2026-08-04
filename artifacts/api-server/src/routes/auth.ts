@@ -6,6 +6,7 @@ import { signToken, requireAuth, AuthPayload } from "../middlewares/auth";
 import {
   LoginBody,
   LoginResponse,
+  RegisterBody,
   SendOtpBody,
   VerifyOtpBody,
   GetMeResponse,
@@ -34,6 +35,54 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   }
   const token = signToken({ userId: Number(user.id), role: user.role });
   res.json(LoginResponse.parse({
+    token,
+    user: {
+      id: Number(user.id),
+      name: user.name,
+      phone: user.phone,
+      email: user.email,
+      role: user.role,
+      profile_image: user.profileImage,
+      is_active: user.isActive,
+      language_pref: user.languagePref,
+      created_at: user.createdAt,
+    },
+  }));
+});
+
+// POST /auth/register — create a new admin/staff account with email + password
+router.post("/auth/register", async (req, res): Promise<void> => {
+  const parsed = RegisterBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const { name, phone, email, password } = parsed.data;
+
+  const [existingByEmail] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+  if (existingByEmail) {
+    res.status(409).json({ error: "Email already in use" });
+    return;
+  }
+  const [existingByPhone] = await db.select().from(usersTable).where(eq(usersTable.phone, phone));
+  if (existingByPhone) {
+    res.status(409).json({ error: "Phone number already in use" });
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  const [user] = await db.insert(usersTable).values({
+    name,
+    phone,
+    email,
+    passwordHash,
+    role: "admin",
+    languagePref: "en",
+  }).returning();
+
+  const token = signToken({ userId: Number(user.id), role: user.role });
+  res.status(201).json(LoginResponse.parse({
     token,
     user: {
       id: Number(user.id),

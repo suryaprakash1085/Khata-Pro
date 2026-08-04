@@ -7,6 +7,7 @@
  */
 import type { TransactionInputPaymentMode } from './transactionInputPaymentMode';
 import type { TransactionInputType } from './transactionInputType';
+import type { TransactionItemInput } from './transactionItemInput';
 
 export interface TransactionInput {
   business_id: number;
@@ -16,6 +17,10 @@ export interface TransactionInput {
   description?: string;
   bill_image_url?: string;
   payment_mode?: TransactionInputPaymentMode;
+  tax?: number;
+  gst_rate?: number;
+  invoice_no?: string;
   entry_date: Date;
   due_date?: Date;
+  items?: TransactionItemInput[];
 }

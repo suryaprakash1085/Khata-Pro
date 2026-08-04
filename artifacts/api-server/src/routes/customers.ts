@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, customersTable } from "@workspace/db";
-import { eq, and, ilike, count, desc } from "drizzle-orm";
+import { eq, and, or, ilike, count, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import {
   CreateCustomerBody,
@@ -43,7 +43,14 @@ router.get("/customers", requireAuth, async (req, res): Promise<void> => {
   const category = req.query.category as string | undefined;
 
   const conditions: any[] = [eq(customersTable.businessId, businessId), eq(customersTable.isDeleted, false)];
-  if (search) conditions.push(ilike(customersTable.name, `%${search}%`));
+  if (search) {
+  conditions.push(
+    or(
+      ilike(customersTable.name, `%${search}%`),
+      ilike(customersTable.phone, `%${search}%`),
+    ),
+  );
+}
   if (category) conditions.push(eq(customersTable.category, category as any));
 
   const [customers, totalResult] = await Promise.all([

@@ -1,9 +1,9 @@
-import { pgTable, bigserial, bigint, varchar, text, boolean, timestamp, decimal, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, bigserial, bigint, varchar, text, numeric, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const customerCategoryEnum = pgEnum("customer_category", ["customer", "supplier"]);
 export const balanceTypeEnum = pgEnum("balance_type", ["credit", "debit"]);
+export const customerCategoryEnum = pgEnum("customer_category", ["customer", "supplier"]);
 
 export const customersTable = pgTable("customers", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
@@ -12,9 +12,9 @@ export const customersTable = pgTable("customers", {
   phone: varchar("phone", { length: 20 }).notNull(),
   email: varchar("email", { length: 255 }),
   address: text("address"),
-  openingBalance: decimal("opening_balance", { precision: 12, scale: 2 }).notNull().default("0"),
+  openingBalance: numeric("opening_balance", { precision: 12, scale: 2 }).notNull().default("0"),
   openingBalanceType: balanceTypeEnum("opening_balance_type").notNull().default("credit"),
-  currentBalance: decimal("current_balance", { precision: 12, scale: 2 }).notNull().default("0"),
+  currentBalance: numeric("current_balance", { precision: 12, scale: 2 }).notNull().default("0"),
   category: customerCategoryEnum("category").notNull().default("customer"),
   profileImage: varchar("profile_image", { length: 500 }),
   isDeleted: boolean("is_deleted").notNull().default(false),

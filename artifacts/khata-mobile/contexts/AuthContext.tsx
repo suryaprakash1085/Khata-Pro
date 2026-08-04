@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setAuthTokenGetter } from '@workspace/api-client-react';
 import type { User } from '@workspace/api-client-react';
@@ -22,6 +22,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
 
+  // Updated synchronously during render, so it's always current before any
+  // effect (parent or child) fires after this commit — avoids the race where
+  // a dependent query (e.g. BusinessContext) fires with a stale/null token
+  // because AuthContext's own effect hadn't re-registered the getter yet.
+  const tokenRef = useRef<string | null>(token);
+  tokenRef.current = token;
+
+  useEffect(() => {
+    // Register once — always reads the live ref, not a stale closure over `token`.
+    setAuthTokenGetter(() => tokenRef.current);
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
@@ -38,10 +50,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })();
   }, []);
-
-  useEffect(() => {
-    setAuthTokenGetter(() => token);
-  }, [token]);
 
   const signIn = useCallback(async (newToken: string, newUser: User) => {
     await AsyncStorage.setItem(TOKEN_KEY, newToken);

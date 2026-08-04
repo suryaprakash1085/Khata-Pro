@@ -45,15 +45,16 @@ export function Sidebar() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground w-64 border-r border-sidebar-border shadow-lg">
-      <div className="p-6">
-        <h1 className="text-2xl font-bold tracking-tight text-sidebar-foreground flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary rounded flex items-center justify-center text-primary-foreground">
+    <div className="flex h-full min-h-screen flex-col bg-sidebar text-sidebar-foreground w-52 sm:w-56 lg:w-64 border-r border-sidebar-border shadow-lg">
+      <div className="p-5">
+        <h1 className="text-xl font-bold tracking-tight text-sidebar-foreground flex items-center gap-2">
+          <div className="w-7 h-7 bg-primary rounded flex items-center justify-center text-primary-foreground">
             K
           </div>
-          KhataPro<span className="text-primary">.</span>
+          <span>KhataPro</span>
+          <span className="text-primary">.</span>
         </h1>
-        <p className="text-xs text-sidebar-foreground/60 mt-1 uppercase tracking-wider font-semibold">Admin Console</p>
+        <p className="text-[11px] text-sidebar-foreground/60 mt-1 uppercase tracking-wider font-semibold">Admin Console</p>
       </div>
 
       <nav className="flex-1 space-y-1 px-4 py-4 overflow-y-auto">

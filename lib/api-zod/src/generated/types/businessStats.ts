@@ -10,6 +10,7 @@ export interface BusinessStats {
   total_to_collect: number;
   total_to_pay: number;
   net_balance: number;
+  today_sales: number;
   customer_count: number;
   transaction_count: number;
 }

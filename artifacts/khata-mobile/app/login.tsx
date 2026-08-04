@@ -9,7 +9,11 @@ import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollV
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSendOtp, useVerifyOtp, type AuthResponse } from '@workspace/api-client-react';
+import {
+  useSendOtp,
+  useVerifyOtp,
+  type AuthResponse,
+} from "@workspace/api-client-react";
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { FormField } from '@/components/FormField';
 

@@ -16,6 +16,18 @@ tags:
     description: Business management
   - name: customers
     description: Customer ledger management
+  - name: products
+    description: Product and inventory management
+  - name: vendors
+    description: Vendor and supplier management
+  - name: purchases
+    description: Purchase records from vendors
+  - name: sales-orders
+    description: Online sales orders (pre-billing customer orders)
+  - name: drivers
+    description: Delivery driver management
+  - name: deliveries
+    description: Delivery tracking
   - name: transactions
     description: Ledger transactions
   - name: reports
@@ -26,7 +38,7 @@ tags:
     description: Admin panel operations
   - name: subscriptions
     description: Subscription management
-
+  
 paths:
   /healthz:
     get:
@@ -63,6 +75,27 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           description: Invalid credentials
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new admin / staff account with email + password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "409":
+          description: Email or phone already in use
 
   /auth/send-otp:
     post:
@@ -387,6 +420,817 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
 
+  # ─── PRODUCTS ────────────────────────────────────────────────────────────────
+
+  /products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List products for a business
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: low_stock
+          in: query
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of products
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductListResponse"
+    post:
+      operationId: createProduct
+      tags: [products]
+      summary: Create a product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        "201":
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+
+  /products/{id}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get product by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Product detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Not found
+    put:
+      operationId: updateProduct
+      tags: [products]
+      summary: Update product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductUpdate"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+    delete:
+      operationId: deleteProduct
+      tags: [products]
+      summary: Delete a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /products/barcode/{barcode}:
+    get:
+      operationId: getProductByBarcode
+      tags: [products]
+      summary: Look up a product by barcode (for billing scan)
+      parameters:
+        - name: barcode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Product found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Not found
+
+  # ─── VENDORS ─────────────────────────────────────────────────────────────────
+
+  /vendors:
+    get:
+      operationId: listVendors
+      tags: [vendors]
+      summary: List vendors for a business
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of vendors
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VendorListResponse"
+    post:
+      operationId: createVendor
+      tags: [vendors]
+      summary: Create a vendor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorInput"
+      responses:
+        "201":
+          description: Vendor created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+
+  /vendors/{id}:
+    get:
+      operationId: getVendor
+      tags: [vendors]
+      summary: Get vendor by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Vendor detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+        "404":
+          description: Not found
+    put:
+      operationId: updateVendor
+      tags: [vendors]
+      summary: Update vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorUpdate"
+      responses:
+        "200":
+          description: Updated vendor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+    delete:
+      operationId: deleteVendor
+      tags: [vendors]
+      summary: Delete a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+# ─── PURCHASES ───────────────────────────────────────────────────────────────
+
+  /purchases:
+    get:
+      operationId: listPurchases
+      tags: [purchases]
+      summary: List purchases for a business
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: vendor_id
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [paid, pending, partial]
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of purchases
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseListResponse"
+    post:
+      operationId: createPurchase
+      tags: [purchases]
+      summary: Record a purchase from a vendor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurchaseInput"
+      responses:
+        "201":
+          description: Purchase created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Purchase"
+
+  /purchases/{id}:
+    get:
+      operationId: getPurchase
+      tags: [purchases]
+      summary: Get a purchase by ID, including line items
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Purchase detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Purchase"
+        "404":
+          description: Not found
+    put:
+      operationId: updatePurchase
+      tags: [purchases]
+      summary: Update purchase payment/status/meta
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurchaseUpdate"
+      responses:
+        "200":
+          description: Updated purchase
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Purchase"
+    delete:
+      operationId: deletePurchase
+      tags: [purchases]
+      summary: Delete a purchase
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+  # ─── SALES ORDERS ────────────────────────────────────────────────────────────
+
+  /sales-orders:
+    get:
+      operationId: listSalesOrders
+      tags: [sales-orders]
+      summary: List sales orders for a business
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: customer_id
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, confirmed, packed, shipped, invoiced, cancelled]
+        - name: channel
+          in: query
+          schema:
+            type: string
+            enum: [online, store, phone]
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of sales orders
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesOrderListResponse"
+    post:
+      operationId: createSalesOrder
+      tags: [sales-orders]
+      summary: Create a sales order (online order, starts in pending status)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SalesOrderInput"
+      responses:
+        "201":
+          description: Sales order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesOrder"
+
+  /sales-orders/{id}:
+    get:
+      operationId: getSalesOrder
+      tags: [sales-orders]
+      summary: Get a sales order by ID, including line items
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Sales order detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesOrder"
+        "404":
+          description: Not found
+    put:
+      operationId: updateSalesOrder
+      tags: [sales-orders]
+      summary: Update sales order meta (address/description)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SalesOrderUpdate"
+      responses:
+        "200":
+          description: Updated sales order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesOrder"
+    delete:
+      operationId: deleteSalesOrder
+      tags: [sales-orders]
+      summary: Delete / cancel a sales order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /sales-orders/{id}/status:
+    put:
+      operationId: updateSalesOrderStatus
+      tags: [sales-orders]
+      summary: Move sales order through status stages (pending → confirmed → packed → shipped → invoiced)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SalesOrderStatusUpdate"
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesOrder"
+  # ─── DRIVERS ─────────────────────────────────────────────────────────────────
+
+  /drivers:
+    get:
+      operationId: listDrivers
+      tags: [drivers]
+      summary: List drivers for a business
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [available, busy, offline]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of drivers
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriverListResponse"
+    post:
+      operationId: createDriver
+      tags: [drivers]
+      summary: Create a driver
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriverInput"
+      responses:
+        "201":
+          description: Driver created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Driver"
+
+  /drivers/{id}:
+    get:
+      operationId: getDriver
+      tags: [drivers]
+      summary: Get driver by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Driver detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Driver"
+        "404":
+          description: Not found
+    put:
+      operationId: updateDriver
+      tags: [drivers]
+      summary: Update driver
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriverUpdate"
+      responses:
+        "200":
+          description: Updated driver
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Driver"
+    delete:
+      operationId: deleteDriver
+      tags: [drivers]
+      summary: Delete a driver
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ─── DELIVERIES ──────────────────────────────────────────────────────────────
+
+  /deliveries:
+    get:
+      operationId: listDeliveries
+      tags: [deliveries]
+      summary: List deliveries for a business
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, assigned, picked_up, in_transit, delivered, cancelled]
+        - name: driver_id
+          in: query
+          schema:
+            type: integer
+        - name: customer_id
+          in: query
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of deliveries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryListResponse"
+    post:
+      operationId: createDelivery
+      tags: [deliveries]
+      summary: Create a delivery (starts in pending status)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeliveryInput"
+      responses:
+        "201":
+          description: Delivery created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Delivery"
+
+  /deliveries/{id}:
+    get:
+      operationId: getDelivery
+      tags: [deliveries]
+      summary: Get delivery by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Delivery detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Delivery"
+        "404":
+          description: Not found
+    put:
+      operationId: updateDelivery
+      tags: [deliveries]
+      summary: Update delivery address/notes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeliveryUpdate"
+      responses:
+        "200":
+          description: Updated delivery
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Delivery"
+
+  /deliveries/{id}/assign:
+    post:
+      operationId: assignDriver
+      tags: [deliveries]
+      summary: Assign a driver to a delivery
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignDriverInput"
+      responses:
+        "200":
+          description: Driver assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Delivery"
+
+  /deliveries/{id}/status:
+    put:
+      operationId: updateDeliveryStatus
+      tags: [deliveries]
+      summary: Update delivery status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeliveryStatusUpdate"
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Delivery"
+
   # ─── TRANSACTIONS ────────────────────────────────────────────────────────────
 
   /transactions:
@@ -615,6 +1459,103 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CashbookReport"
+
+  /reports/payment-methods:
+    get:
+      operationId: getPaymentMethodsReport
+      tags: [reports]
+      summary: Payment-method-wise sales/collection breakdown
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [you_got, you_gave]
+            default: you_got
+      responses:
+        "200":
+          description: Payment method breakdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentMethodsReport"
+
+  /reports/employee-performance:
+    get:
+      operationId: getEmployeePerformance
+      tags: [reports]
+      summary: Bills and sales total per staff member
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Employee performance list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmployeePerformance"
+
+  /reports/product-sales:
+    get:
+      operationId: getProductSalesReport
+      tags: [reports]
+      summary: Per-product qty sold, sales amount and profit
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Product sales report
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductSalesItem"
 
   # ─── REMINDERS ───────────────────────────────────────────────────────────────
 
@@ -964,6 +1905,19 @@ components:
         password:
           type: string
 
+    RegisterInput:
+      type: object
+      required: [name, phone, email, password]
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+
     OtpInput:
       type: object
       required: [phone]
@@ -1108,13 +2062,15 @@ components:
 
     BusinessStats:
       type: object
-      required: [total_to_collect, total_to_pay, net_balance, customer_count, transaction_count]
+      required: [total_to_collect, total_to_pay, net_balance, today_sales, customer_count, transaction_count]
       properties:
         total_to_collect:
           type: number
         total_to_pay:
           type: number
         net_balance:
+          type: number
+        today_sales:
           type: number
         customer_count:
           type: integer
@@ -1311,6 +2267,645 @@ components:
         limit:
           type: integer
 
+    # ── Product ───────────────────────────────────────────────────────────────
+
+    Product:
+      type: object
+      required: [id, business_id, name, unit, gst_rate, cost_price, selling_price, stock_qty, created_at]
+      properties:
+        id:
+          type: integer
+        business_id:
+          type: integer
+        name:
+          type: string
+        barcode:
+          type: ["string", "null"]
+        sku:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        brand:
+          type: ["string", "null"]
+        unit:
+          type: string
+          enum: [pcs, kg, g, l, ml, pkt, box, bottle, dozen]
+        hsn_code:
+          type: ["string", "null"]
+        gst_rate:
+          type: number
+        cost_price:
+          type: number
+        selling_price:
+          type: number
+        stock_qty:
+          type: integer
+        low_stock_alert:
+          type: integer
+        image:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    ProductInput:
+      type: object
+      required: [business_id, name, unit, selling_price]
+      properties:
+        business_id:
+          type: integer
+        name:
+          type: string
+        barcode:
+          type: string
+        sku:
+          type: string
+        category:
+          type: string
+        brand:
+          type: string
+        unit:
+          type: string
+          enum: [pcs, kg, g, l, ml, pkt, box, bottle, dozen]
+          default: pcs
+        hsn_code:
+          type: string
+        gst_rate:
+          type: number
+          default: 0
+        cost_price:
+          type: number
+          default: 0
+        selling_price:
+          type: number
+        stock_qty:
+          type: integer
+          default: 0
+        low_stock_alert:
+          type: integer
+          default: 5
+        image:
+          type: string
+
+    ProductUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        barcode:
+          type: string
+        sku:
+          type: string
+        category:
+          type: string
+        brand:
+          type: string
+        unit:
+          type: string
+          enum: [pcs, kg, g, l, ml, pkt, box, bottle, dozen]
+        hsn_code:
+          type: string
+        gst_rate:
+          type: number
+        cost_price:
+          type: number
+        selling_price:
+          type: number
+        stock_qty:
+          type: integer
+        low_stock_alert:
+          type: integer
+        image:
+          type: string
+
+    ProductListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    # ── Vendor ────────────────────────────────────────────────────────────────
+
+    Vendor:
+      type: object
+      required: [id, business_id, name, created_at]
+      properties:
+        id:
+          type: integer
+        business_id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        gst_number:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    VendorInput:
+      type: object
+      required: [business_id, name]
+      properties:
+        business_id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        address:
+          type: string
+        gst_number:
+          type: string
+
+    VendorUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        address:
+          type: string
+        gst_number:
+          type: string
+
+    VendorListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Vendor"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+# ── Purchase ──────────────────────────────────────────────────────────────  
+
+    Purchase:
+      type: object
+      required: [id, business_id, vendor_id, amount, tax, amount_paid, status, entry_date, created_at]
+      properties:
+        id:
+          type: integer
+        business_id:
+          type: integer
+        vendor_id:
+          type: integer
+        vendor_name:
+          type: string
+        product_names:
+          type: array
+          items:
+            type: string
+        invoice_no:
+          type: ["string", "null"]
+        amount:
+          type: number
+        tax:
+          type: number
+        amount_paid:
+          type: number
+        status:
+          type: string
+          enum: [paid, pending, partial]
+        bill_image_url:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        entry_date:
+          type: string
+          format: date
+        product_count:
+          type: integer
+        created_by:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PurchaseItem"
+
+    PurchaseInput:
+      type: object
+      required: [business_id, vendor_id, items]
+      properties:
+        business_id:
+          type: integer
+        vendor_id:
+          type: integer
+        invoice_no:
+          type: string
+        tax:
+          type: number
+          default: 0
+        amount_paid:
+          type: number
+          default: 0
+        bill_image_url:
+          type: string
+        description:
+          type: string
+        entry_date:
+          type: string
+          format: date
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PurchaseItemInput"
+
+    PurchaseUpdate:
+      type: object
+      properties:
+        invoice_no:
+          type: string
+        tax:
+          type: number
+        amount_paid:
+          type: number
+        bill_image_url:
+          type: string
+        description:
+          type: string
+        entry_date:
+          type: string
+          format: date
+
+    PurchaseListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Purchase"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    PurchaseItemInput:
+      type: object
+      required: [product_id, qty, unit_cost]
+      properties:
+        product_id:
+          type: integer
+        qty:
+          type: number
+        unit_cost:
+          type: number
+
+    PurchaseItem:
+      type: object
+      required: [id, product_id, product_name, qty, unit_cost]
+      properties:
+        id:
+          type: integer
+        product_id:
+          type: integer
+        product_name:
+          type: string
+        qty:
+          type: number
+        unit_cost:
+          type: number
+    # ── Sales Order ───────────────────────────────────────────────────────────
+
+    SalesOrder:
+      type: object
+      required: [id, business_id, customer_id, channel, status, amount, tax, entry_date, created_at]
+      properties:
+        id:
+          type: integer
+        business_id:
+          type: integer
+        customer_id:
+          type: integer
+        customer_name:
+          type: string
+        channel:
+          type: string
+          enum: [online, store, phone]
+        status:
+          type: string
+          enum: [pending, confirmed, packed, shipped, invoiced, cancelled]
+        amount:
+          type: number
+        tax:
+          type: number
+        description:
+          type: ["string", "null"]
+        shipping_address:
+          type: ["string", "null"]
+        entry_date:
+          type: string
+          format: date
+        transaction_id:
+          type: ["integer", "null"]
+        item_count:
+          type: integer
+        created_by:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SalesOrderItem"
+
+    SalesOrderInput:
+      type: object
+      required: [business_id, customer_id, items]
+      properties:
+        business_id:
+          type: integer
+        customer_id:
+          type: integer
+        channel:
+          type: string
+          enum: [online, store, phone]
+          default: online
+        tax:
+          type: number
+          default: 0
+        description:
+          type: string
+        shipping_address:
+          type: string
+        entry_date:
+          type: string
+          format: date
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SalesOrderItemInput"
+
+    SalesOrderUpdate:
+      type: object
+      properties:
+        description:
+          type: string
+        shipping_address:
+          type: string
+        entry_date:
+          type: string
+          format: date
+
+    SalesOrderStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [pending, confirmed, packed, shipped, invoiced, cancelled]
+
+    SalesOrderListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SalesOrder"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    SalesOrderItemInput:
+      type: object
+      required: [product_id, qty, unit_price]
+      properties:
+        product_id:
+          type: integer
+        qty:
+          type: number
+        unit_price:
+          type: number
+
+    SalesOrderItem:
+      type: object
+      required: [id, product_id, product_name, qty, unit_price]
+      properties:
+        id:
+          type: integer
+        product_id:
+          type: integer
+        product_name:
+          type: string
+        qty:
+          type: number
+        unit_price:
+          type: number
+    # ── Driver ────────────────────────────────────────────────────────────────
+
+    Driver:
+      type: object
+      required: [id, business_id, name, phone, vehicle_type, status, created_at]
+      properties:
+        id:
+          type: integer
+        business_id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+        vehicle_number:
+          type: ["string", "null"]
+        vehicle_type:
+          type: string
+          enum: [bike, auto, van, truck]
+        status:
+          type: string
+          enum: [available, busy, offline]
+        last_lat:
+          type: ["string", "null"]
+        last_lng:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    DriverInput:
+      type: object
+      required: [business_id, name, phone]
+      properties:
+        business_id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+        vehicle_number:
+          type: string
+        vehicle_type:
+          type: string
+          enum: [bike, auto, van, truck]
+          default: bike
+        status:
+          type: string
+          enum: [available, busy, offline]
+          default: offline
+
+    DriverUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        vehicle_number:
+          type: string
+        vehicle_type:
+          type: string
+          enum: [bike, auto, van, truck]
+        status:
+          type: string
+          enum: [available, busy, offline]
+        last_lat:
+          type: string
+        last_lng:
+          type: string
+
+    DriverListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Driver"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    # ── Delivery ──────────────────────────────────────────────────────────────
+
+    Delivery:
+      type: object
+      required: [id, business_id, customer_id, pickup_address, drop_address, status, created_at]
+      properties:
+        id:
+          type: integer
+        business_id:
+          type: integer
+        customer_id:
+          type: integer
+        driver_id:
+          type: ["integer", "null"]
+        pickup_address:
+          type: string
+        drop_address:
+          type: string
+        status:
+          type: string
+          enum: [pending, assigned, picked_up, in_transit, delivered, cancelled]
+        notes:
+          type: ["string", "null"]
+        assigned_at:
+          type: ["string", "null"]
+          format: date-time
+        picked_up_at:
+          type: ["string", "null"]
+          format: date-time
+        delivered_at:
+          type: ["string", "null"]
+          format: date-time
+        cancelled_at:
+          type: ["string", "null"]
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    DeliveryInput:
+      type: object
+      required: [business_id, customer_id, pickup_address, drop_address]
+      properties:
+        business_id:
+          type: integer
+        customer_id:
+          type: integer
+        pickup_address:
+          type: string
+        drop_address:
+          type: string
+        notes:
+          type: string
+
+    DeliveryUpdate:
+      type: object
+      properties:
+        pickup_address:
+          type: string
+        drop_address:
+          type: string
+        notes:
+          type: string
+
+    AssignDriverInput:
+      type: object
+      required: [driver_id]
+      properties:
+        driver_id:
+          type: integer
+
+    DeliveryStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [pending, assigned, picked_up, in_transit, delivered, cancelled]
+
+    DeliveryListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Delivery"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
     # ── Transaction ───────────────────────────────────────────────────────────
 
     Transaction:
@@ -1339,6 +2934,12 @@ components:
         payment_mode:
           type: string
           enum: [cash, online, cheque, upi]
+        tax:                          # ✅ ADD
+          type: number
+        gst_rate:                     # ✅ ADD
+          type: number
+        invoice_no:                   # ✅ ADD
+          type: ["string", "null"]
         entry_date:
           type: string
           format: date
@@ -1350,6 +2951,10 @@ components:
         created_at:
           type: string
           format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TransactionItem"
 
     TransactionInput:
       type: object
@@ -1372,12 +2977,24 @@ components:
           type: string
           enum: [cash, online, cheque, upi]
           default: cash
+        tax:                          # ✅ ADD
+          type: number
+          default: 0
+        gst_rate:                     # ✅ ADD
+          type: number
+          default: 0
+        invoice_no:                   # ✅ ADD
+          type: string
         entry_date:
           type: string
           format: date
         due_date:
           type: string
           format: date
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TransactionItemInput"
 
     TransactionUpdate:
       type: object
@@ -1492,6 +3109,107 @@ components:
         income:
           type: number
         expense:
+          type: number
+
+    PaymentMethodsReport:
+      type: object
+      required: [type, total_amount, payment_methods]
+      properties:
+        type:
+          type: string
+          enum: [you_got, you_gave]
+        from:
+          type: ["string", "null"]
+          format: date
+        to:
+          type: ["string", "null"]
+          format: date
+        total_amount:
+          type: number
+        payment_methods:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentMethodBreakdown"
+
+    PaymentMethodBreakdown:
+      type: object
+      required: [payment_mode, total_amount, transaction_count]
+      properties:
+        payment_mode:
+          type: string
+          enum: [cash, online, cheque, upi]
+        total_amount:
+          type: number
+        transaction_count:
+          type: integer
+
+    EmployeePerformance:
+      type: object
+      required: [user_id, name, role, bills, sales]
+      properties:
+        user_id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: ["string", "null"]
+        profile_image:
+          type: ["string", "null"]
+        role:
+          type: string
+          enum: [owner, staff, admin]
+        bills:
+          type: integer
+        sales:
+          type: number
+
+    ProductSalesItem:
+      type: object
+      required: [product_id, name, qty_sold, sales_amount, cost_amount, profit]
+      properties:
+        product_id:
+          type: integer
+        name:
+          type: string
+        sku:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        qty_sold:
+          type: number
+        sales_amount:
+          type: number
+        cost_amount:
+          type: number
+        profit:
+          type: number
+
+    TransactionItemInput:
+      type: object
+      required: [product_id, qty, unit_price]
+      properties:
+        product_id:
+          type: integer
+        qty:
+          type: number
+        unit_price:
+          type: number
+
+    TransactionItem:
+      type: object
+      required: [id, product_id, product_name, qty, unit_price, unit_cost]
+      properties:
+        id:
+          type: integer
+        product_id:
+          type: integer
+        product_name:
+          type: string
+        qty:
+          type: number
+        unit_price:
+          type: number
+        unit_cost:
           type: number
 
     # ── Reminders ─────────────────────────────────────────────────────────────

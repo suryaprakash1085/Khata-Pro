@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { isLiquidGlassAvailable } from 'expo-glass-effect';
-import { Tabs } from 'expo-router';
+import { Slot, Tabs } from 'expo-router';
 import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
 import { BlurView } from 'expo-blur';
 import { Platform, StyleSheet, useColorScheme, View } from 'react-native';
@@ -34,7 +35,6 @@ function ClassicTabLayout() {
   const safeAreaInsets = useSafeAreaInsets();
   const isDark = colorScheme === 'dark';
   const isIOS = Platform.OS === 'ios';
-  const isWeb = Platform.OS === 'web';
 
   return (
     <Tabs
@@ -45,17 +45,13 @@ function ClassicTabLayout() {
         tabBarStyle: {
           position: 'absolute',
           backgroundColor: isIOS ? 'transparent' : colors.card,
-          borderTopWidth: isWeb ? 1 : 0,
-          borderTopColor: colors.border,
+          borderTopWidth: 0,
           elevation: 0,
           paddingBottom: safeAreaInsets.bottom,
-          ...(isWeb ? { height: 84 } : {}),
         },
         tabBarBackground: () =>
           isIOS ? (
             <BlurView intensity={100} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-          ) : isWeb ? (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.card }]} />
           ) : null,
       }}
     >
@@ -100,6 +96,13 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
+  // Web now has a persistent left sidebar (added in the root layout) that
+  // handles navigation between Home/Billing/Products/Reports/Profile, so we
+  // skip the bottom tab bar entirely and just render the active screen.
+  if (Platform.OS === 'web') {
+    return <Slot />;
+  }
+
   if (isLiquidGlassAvailable()) {
     return <NativeTabLayout />;
   }

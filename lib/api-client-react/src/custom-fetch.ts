@@ -360,7 +360,13 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  // Disable HTTP caching by default (unless the caller explicitly set one).
+  // Without this, GET requests can come back as a browser-cached 304
+  // response, which silently serves stale data (e.g. old balances/stats)
+  // even after the underlying DB row has changed.
+  const cache = init.cache ?? "no-store";
+
+  const response = await fetch(input, { ...init, method, headers, cache });
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);

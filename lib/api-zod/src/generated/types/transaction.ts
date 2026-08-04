@@ -5,6 +5,7 @@
  * KhataPro CRM API — digital ledger platform for small businesses
  * OpenAPI spec version: 0.1.0
  */
+import type { TransactionItem } from './transactionItem';
 import type { TransactionPaymentMode } from './transactionPaymentMode';
 import type { TransactionType } from './transactionType';
 
@@ -21,9 +22,14 @@ export interface Transaction {
   /** @nullable */
   bill_image_url?: string | null;
   payment_mode?: TransactionPaymentMode;
+  tax?: number;
+  gst_rate?: number;
+  /** @nullable */
+  invoice_no?: string | null;
   entry_date: Date;
   /** @nullable */
   due_date?: Date | null;
   created_by?: number;
   created_at: Date;
+  items?: TransactionItem[];
 }

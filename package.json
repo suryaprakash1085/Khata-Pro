@@ -12,8 +12,11 @@
     "@replit/connectors-sdk": "^0.4.1"
   },
   "devDependencies": {
+    "@babel/traverse": "7.29.7",
     "@rollup/rollup-win32-x64-msvc": "^4.62.2",
+    "@tailwindcss/oxide-win32-x64-msvc": "^4.3.2",
     "lightningcss": "^1.32.0",
+    "lightningcss-win32-x64-msvc": "^1.32.0",
     "prettier": "^3.9.5",
     "typescript": "~5.9.3"
   }

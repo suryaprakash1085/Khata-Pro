@@ -2,6 +2,10 @@
   "extends": "./tsconfig.base.json",
   "compileOnSave": false,
   "files": [],
+  "include": [
+    "lib/**/*",
+    "scripts/**/*"
+  ],
   "references": [
     {
       "path": "./lib/db"

@@ -18,6 +18,13 @@ export interface LoginInput {
   password: string;
 }
 
+export interface RegisterInput {
+  name: string;
+  phone: string;
+  email: string;
+  password: string;
+}
+
 export interface OtpInput {
   phone: string;
 }
@@ -115,6 +122,7 @@ export interface BusinessStats {
   total_to_collect: number;
   total_to_pay: number;
   net_balance: number;
+  today_sales: number;
   customer_count: number;
   transaction_count: number;
 }
@@ -263,6 +271,509 @@ export interface CustomerListResponse {
   limit: number;
 }
 
+export type ProductUnit = typeof ProductUnit[keyof typeof ProductUnit];
+
+
+export const ProductUnit = {
+  pcs: 'pcs',
+  kg: 'kg',
+  g: 'g',
+  l: 'l',
+  ml: 'ml',
+  pkt: 'pkt',
+  box: 'box',
+  bottle: 'bottle',
+  dozen: 'dozen',
+} as const;
+
+export interface Product {
+  id: number;
+  business_id: number;
+  name: string;
+  /** @nullable */
+  barcode?: string | null;
+  /** @nullable */
+  sku?: string | null;
+  /** @nullable */
+  category?: string | null;
+  /** @nullable */
+  brand?: string | null;
+  unit: ProductUnit;
+  /** @nullable */
+  hsn_code?: string | null;
+  gst_rate: number;
+  cost_price: number;
+  selling_price: number;
+  stock_qty: number;
+  low_stock_alert?: number;
+  /** @nullable */
+  image?: string | null;
+  created_at: string;
+}
+
+export type ProductInputUnit = typeof ProductInputUnit[keyof typeof ProductInputUnit];
+
+
+export const ProductInputUnit = {
+  pcs: 'pcs',
+  kg: 'kg',
+  g: 'g',
+  l: 'l',
+  ml: 'ml',
+  pkt: 'pkt',
+  box: 'box',
+  bottle: 'bottle',
+  dozen: 'dozen',
+} as const;
+
+export interface ProductInput {
+  business_id: number;
+  name: string;
+  barcode?: string;
+  sku?: string;
+  category?: string;
+  brand?: string;
+  unit: ProductInputUnit;
+  hsn_code?: string;
+  gst_rate?: number;
+  cost_price?: number;
+  selling_price: number;
+  stock_qty?: number;
+  low_stock_alert?: number;
+  image?: string;
+}
+
+export type ProductUpdateUnit = typeof ProductUpdateUnit[keyof typeof ProductUpdateUnit];
+
+
+export const ProductUpdateUnit = {
+  pcs: 'pcs',
+  kg: 'kg',
+  g: 'g',
+  l: 'l',
+  ml: 'ml',
+  pkt: 'pkt',
+  box: 'box',
+  bottle: 'bottle',
+  dozen: 'dozen',
+} as const;
+
+export interface ProductUpdate {
+  name?: string;
+  barcode?: string;
+  sku?: string;
+  category?: string;
+  brand?: string;
+  unit?: ProductUpdateUnit;
+  hsn_code?: string;
+  gst_rate?: number;
+  cost_price?: number;
+  selling_price?: number;
+  stock_qty?: number;
+  low_stock_alert?: number;
+  image?: string;
+}
+
+export interface ProductListResponse {
+  data: Product[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface Vendor {
+  id: number;
+  business_id: number;
+  name: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  gst_number?: string | null;
+  created_at: string;
+}
+
+export interface VendorInput {
+  business_id: number;
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  gst_number?: string;
+}
+
+export interface VendorUpdate {
+  name?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  gst_number?: string;
+}
+
+export interface VendorListResponse {
+  data: Vendor[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type PurchaseStatus = typeof PurchaseStatus[keyof typeof PurchaseStatus];
+
+
+export const PurchaseStatus = {
+  paid: 'paid',
+  pending: 'pending',
+  partial: 'partial',
+} as const;
+
+export interface PurchaseItem {
+  id: number;
+  product_id: number;
+  product_name: string;
+  qty: number;
+  unit_cost: number;
+}
+
+export interface Purchase {
+  id: number;
+  business_id: number;
+  vendor_id: number;
+  vendor_name?: string;
+  product_names?: string[];
+  /** @nullable */
+  invoice_no?: string | null;
+  amount: number;
+  tax: number;
+  amount_paid: number;
+  status: PurchaseStatus;
+  /** @nullable */
+  bill_image_url?: string | null;
+  /** @nullable */
+  description?: string | null;
+  entry_date: string;
+  product_count?: number;
+  created_by?: number;
+  created_at: string;
+  items?: PurchaseItem[];
+}
+
+export interface PurchaseItemInput {
+  product_id: number;
+  qty: number;
+  unit_cost: number;
+}
+
+export interface PurchaseInput {
+  business_id: number;
+  vendor_id: number;
+  invoice_no?: string;
+  tax?: number;
+  amount_paid?: number;
+  bill_image_url?: string;
+  description?: string;
+  entry_date?: string;
+  items: PurchaseItemInput[];
+}
+
+export interface PurchaseUpdate {
+  invoice_no?: string;
+  tax?: number;
+  amount_paid?: number;
+  bill_image_url?: string;
+  description?: string;
+  entry_date?: string;
+}
+
+export interface PurchaseListResponse {
+  data: Purchase[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type SalesOrderChannel = typeof SalesOrderChannel[keyof typeof SalesOrderChannel];
+
+
+export const SalesOrderChannel = {
+  online: 'online',
+  store: 'store',
+  phone: 'phone',
+} as const;
+
+export type SalesOrderStatus = typeof SalesOrderStatus[keyof typeof SalesOrderStatus];
+
+
+export const SalesOrderStatus = {
+  pending: 'pending',
+  confirmed: 'confirmed',
+  packed: 'packed',
+  shipped: 'shipped',
+  invoiced: 'invoiced',
+  cancelled: 'cancelled',
+} as const;
+
+export interface SalesOrderItem {
+  id: number;
+  product_id: number;
+  product_name: string;
+  qty: number;
+  unit_price: number;
+}
+
+export interface SalesOrder {
+  id: number;
+  business_id: number;
+  customer_id: number;
+  customer_name?: string;
+  channel: SalesOrderChannel;
+  status: SalesOrderStatus;
+  amount: number;
+  tax: number;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  shipping_address?: string | null;
+  entry_date: string;
+  /** @nullable */
+  transaction_id?: number | null;
+  item_count?: number;
+  created_by?: number;
+  created_at: string;
+  items?: SalesOrderItem[];
+}
+
+export type SalesOrderInputChannel = typeof SalesOrderInputChannel[keyof typeof SalesOrderInputChannel];
+
+
+export const SalesOrderInputChannel = {
+  online: 'online',
+  store: 'store',
+  phone: 'phone',
+} as const;
+
+export interface SalesOrderItemInput {
+  product_id: number;
+  qty: number;
+  unit_price: number;
+}
+
+export interface SalesOrderInput {
+  business_id: number;
+  customer_id: number;
+  channel?: SalesOrderInputChannel;
+  tax?: number;
+  description?: string;
+  shipping_address?: string;
+  entry_date?: string;
+  items: SalesOrderItemInput[];
+}
+
+export interface SalesOrderUpdate {
+  description?: string;
+  shipping_address?: string;
+  entry_date?: string;
+}
+
+export type SalesOrderStatusUpdateStatus = typeof SalesOrderStatusUpdateStatus[keyof typeof SalesOrderStatusUpdateStatus];
+
+
+export const SalesOrderStatusUpdateStatus = {
+  pending: 'pending',
+  confirmed: 'confirmed',
+  packed: 'packed',
+  shipped: 'shipped',
+  invoiced: 'invoiced',
+  cancelled: 'cancelled',
+} as const;
+
+export interface SalesOrderStatusUpdate {
+  status: SalesOrderStatusUpdateStatus;
+}
+
+export interface SalesOrderListResponse {
+  data: SalesOrder[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type DriverVehicleType = typeof DriverVehicleType[keyof typeof DriverVehicleType];
+
+
+export const DriverVehicleType = {
+  bike: 'bike',
+  auto: 'auto',
+  van: 'van',
+  truck: 'truck',
+} as const;
+
+export type DriverStatus = typeof DriverStatus[keyof typeof DriverStatus];
+
+
+export const DriverStatus = {
+  available: 'available',
+  busy: 'busy',
+  offline: 'offline',
+} as const;
+
+export interface Driver {
+  id: number;
+  business_id: number;
+  name: string;
+  phone: string;
+  /** @nullable */
+  vehicle_number?: string | null;
+  vehicle_type: DriverVehicleType;
+  status: DriverStatus;
+  /** @nullable */
+  last_lat?: string | null;
+  /** @nullable */
+  last_lng?: string | null;
+  created_at: string;
+}
+
+export type DriverInputVehicleType = typeof DriverInputVehicleType[keyof typeof DriverInputVehicleType];
+
+
+export const DriverInputVehicleType = {
+  bike: 'bike',
+  auto: 'auto',
+  van: 'van',
+  truck: 'truck',
+} as const;
+
+export type DriverInputStatus = typeof DriverInputStatus[keyof typeof DriverInputStatus];
+
+
+export const DriverInputStatus = {
+  available: 'available',
+  busy: 'busy',
+  offline: 'offline',
+} as const;
+
+export interface DriverInput {
+  business_id: number;
+  name: string;
+  phone: string;
+  vehicle_number?: string;
+  vehicle_type?: DriverInputVehicleType;
+  status?: DriverInputStatus;
+}
+
+export type DriverUpdateVehicleType = typeof DriverUpdateVehicleType[keyof typeof DriverUpdateVehicleType];
+
+
+export const DriverUpdateVehicleType = {
+  bike: 'bike',
+  auto: 'auto',
+  van: 'van',
+  truck: 'truck',
+} as const;
+
+export type DriverUpdateStatus = typeof DriverUpdateStatus[keyof typeof DriverUpdateStatus];
+
+
+export const DriverUpdateStatus = {
+  available: 'available',
+  busy: 'busy',
+  offline: 'offline',
+} as const;
+
+export interface DriverUpdate {
+  name?: string;
+  phone?: string;
+  vehicle_number?: string;
+  vehicle_type?: DriverUpdateVehicleType;
+  status?: DriverUpdateStatus;
+  last_lat?: string;
+  last_lng?: string;
+}
+
+export interface DriverListResponse {
+  data: Driver[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export type DeliveryStatus = typeof DeliveryStatus[keyof typeof DeliveryStatus];
+
+
+export const DeliveryStatus = {
+  pending: 'pending',
+  assigned: 'assigned',
+  picked_up: 'picked_up',
+  in_transit: 'in_transit',
+  delivered: 'delivered',
+  cancelled: 'cancelled',
+} as const;
+
+export interface Delivery {
+  id: number;
+  business_id: number;
+  customer_id: number;
+  /** @nullable */
+  driver_id?: number | null;
+  pickup_address: string;
+  drop_address: string;
+  status: DeliveryStatus;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  assigned_at?: string | null;
+  /** @nullable */
+  picked_up_at?: string | null;
+  /** @nullable */
+  delivered_at?: string | null;
+  /** @nullable */
+  cancelled_at?: string | null;
+  created_at: string;
+}
+
+export interface DeliveryInput {
+  business_id: number;
+  customer_id: number;
+  pickup_address: string;
+  drop_address: string;
+  notes?: string;
+}
+
+export interface DeliveryUpdate {
+  pickup_address?: string;
+  drop_address?: string;
+  notes?: string;
+}
+
+export interface AssignDriverInput {
+  driver_id: number;
+}
+
+export type DeliveryStatusUpdateStatus = typeof DeliveryStatusUpdateStatus[keyof typeof DeliveryStatusUpdateStatus];
+
+
+export const DeliveryStatusUpdateStatus = {
+  pending: 'pending',
+  assigned: 'assigned',
+  picked_up: 'picked_up',
+  in_transit: 'in_transit',
+  delivered: 'delivered',
+  cancelled: 'cancelled',
+} as const;
+
+export interface DeliveryStatusUpdate {
+  status: DeliveryStatusUpdateStatus;
+}
+
+export interface DeliveryListResponse {
+  data: Delivery[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export type TransactionType = typeof TransactionType[keyof typeof TransactionType];
 
 
@@ -281,6 +792,15 @@ export const TransactionPaymentMode = {
   upi: 'upi',
 } as const;
 
+export interface TransactionItem {
+  id: number;
+  product_id: number;
+  product_name: string;
+  qty: number;
+  unit_price: number;
+  unit_cost: number;
+}
+
 export interface Transaction {
   id: number;
   business_id: number;
@@ -294,11 +814,16 @@ export interface Transaction {
   /** @nullable */
   bill_image_url?: string | null;
   payment_mode?: TransactionPaymentMode;
+  tax?: number;
+  gst_rate?: number;
+  /** @nullable */
+  invoice_no?: string | null;
   entry_date: string;
   /** @nullable */
   due_date?: string | null;
   created_by?: number;
   created_at: string;
+  items?: TransactionItem[];
 }
 
 export type TransactionInputType = typeof TransactionInputType[keyof typeof TransactionInputType];
@@ -319,6 +844,12 @@ export const TransactionInputPaymentMode = {
   upi: 'upi',
 } as const;
 
+export interface TransactionItemInput {
+  product_id: number;
+  qty: number;
+  unit_price: number;
+}
+
 export interface TransactionInput {
   business_id: number;
   customer_id: number;
@@ -327,8 +858,12 @@ export interface TransactionInput {
   description?: string;
   bill_image_url?: string;
   payment_mode?: TransactionInputPaymentMode;
+  tax?: number;
+  gst_rate?: number;
+  invoice_no?: string;
   entry_date: string;
   due_date?: string;
+  items?: TransactionItemInput[];
 }
 
 export type TransactionUpdatePaymentMode = typeof TransactionUpdatePaymentMode[keyof typeof TransactionUpdatePaymentMode];
@@ -394,6 +929,74 @@ export interface CashbookReport {
   total_expense: number;
   net: number;
   entries: CashbookEntry[];
+}
+
+export type PaymentMethodsReportType = typeof PaymentMethodsReportType[keyof typeof PaymentMethodsReportType];
+
+
+export const PaymentMethodsReportType = {
+  you_got: 'you_got',
+  you_gave: 'you_gave',
+} as const;
+
+export type PaymentMethodBreakdownPaymentMode = typeof PaymentMethodBreakdownPaymentMode[keyof typeof PaymentMethodBreakdownPaymentMode];
+
+
+export const PaymentMethodBreakdownPaymentMode = {
+  cash: 'cash',
+  online: 'online',
+  cheque: 'cheque',
+  upi: 'upi',
+} as const;
+
+export interface PaymentMethodBreakdown {
+  payment_mode: PaymentMethodBreakdownPaymentMode;
+  total_amount: number;
+  transaction_count: number;
+}
+
+export interface PaymentMethodsReport {
+  type: PaymentMethodsReportType;
+  /** @nullable */
+  from?: string | null;
+  /** @nullable */
+  to?: string | null;
+  total_amount: number;
+  payment_methods: PaymentMethodBreakdown[];
+}
+
+export type EmployeePerformanceRole = typeof EmployeePerformanceRole[keyof typeof EmployeePerformanceRole];
+
+
+export const EmployeePerformanceRole = {
+  owner: 'owner',
+  staff: 'staff',
+  admin: 'admin',
+} as const;
+
+export interface EmployeePerformance {
+  user_id: number;
+  name: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  profile_image?: string | null;
+  role: EmployeePerformanceRole;
+  bills: number;
+  sales: number;
+}
+
+export interface ProductSalesItem {
+  product_id: number;
+  name: string;
+  /** @nullable */
+  sku?: string | null;
+  /** @nullable */
+  category?: string | null;
+  qty_sold: number;
+  sales_amount: number;
+  cost_amount: number;
+  profit: number;
 }
 
 export type ReminderChannel = typeof ReminderChannel[keyof typeof ReminderChannel];
@@ -606,6 +1209,111 @@ export const ListCustomersCategory = {
   supplier: 'supplier',
 } as const;
 
+export type ListProductsParams = {
+business_id: number;
+search?: string;
+category?: string;
+low_stock?: boolean;
+page?: number;
+limit?: number;
+};
+
+export type ListVendorsParams = {
+business_id: number;
+search?: string;
+page?: number;
+limit?: number;
+};
+
+export type ListPurchasesParams = {
+business_id: number;
+vendor_id?: number;
+status?: ListPurchasesStatus;
+from?: string;
+to?: string;
+page?: number;
+limit?: number;
+};
+
+export type ListPurchasesStatus = typeof ListPurchasesStatus[keyof typeof ListPurchasesStatus];
+
+
+export const ListPurchasesStatus = {
+  paid: 'paid',
+  pending: 'pending',
+  partial: 'partial',
+} as const;
+
+export type ListSalesOrdersParams = {
+business_id: number;
+customer_id?: number;
+status?: ListSalesOrdersStatus;
+channel?: ListSalesOrdersChannel;
+from?: string;
+to?: string;
+page?: number;
+limit?: number;
+};
+
+export type ListSalesOrdersStatus = typeof ListSalesOrdersStatus[keyof typeof ListSalesOrdersStatus];
+
+
+export const ListSalesOrdersStatus = {
+  pending: 'pending',
+  confirmed: 'confirmed',
+  packed: 'packed',
+  shipped: 'shipped',
+  invoiced: 'invoiced',
+  cancelled: 'cancelled',
+} as const;
+
+export type ListSalesOrdersChannel = typeof ListSalesOrdersChannel[keyof typeof ListSalesOrdersChannel];
+
+
+export const ListSalesOrdersChannel = {
+  online: 'online',
+  store: 'store',
+  phone: 'phone',
+} as const;
+
+export type ListDriversParams = {
+business_id: number;
+search?: string;
+status?: ListDriversStatus;
+page?: number;
+limit?: number;
+};
+
+export type ListDriversStatus = typeof ListDriversStatus[keyof typeof ListDriversStatus];
+
+
+export const ListDriversStatus = {
+  available: 'available',
+  busy: 'busy',
+  offline: 'offline',
+} as const;
+
+export type ListDeliveriesParams = {
+business_id: number;
+status?: ListDeliveriesStatus;
+driver_id?: number;
+customer_id?: number;
+page?: number;
+limit?: number;
+};
+
+export type ListDeliveriesStatus = typeof ListDeliveriesStatus[keyof typeof ListDeliveriesStatus];
+
+
+export const ListDeliveriesStatus = {
+  pending: 'pending',
+  assigned: 'assigned',
+  picked_up: 'picked_up',
+  in_transit: 'in_transit',
+  delivered: 'delivered',
+  cancelled: 'cancelled',
+} as const;
+
 export type ListTransactionsParams = {
 business_id: number;
 customer_id?: number;
@@ -649,6 +1357,33 @@ to?: string;
 };
 
 export type GetCashbookParams = {
+business_id: number;
+from?: string;
+to?: string;
+};
+
+export type GetPaymentMethodsReportParams = {
+business_id: number;
+from?: string;
+to?: string;
+type?: GetPaymentMethodsReportType;
+};
+
+export type GetPaymentMethodsReportType = typeof GetPaymentMethodsReportType[keyof typeof GetPaymentMethodsReportType];
+
+
+export const GetPaymentMethodsReportType = {
+  you_got: 'you_got',
+  you_gave: 'you_gave',
+} as const;
+
+export type GetEmployeePerformanceParams = {
+business_id: number;
+from?: string;
+to?: string;
+};
+
+export type GetProductSalesReportParams = {
 business_id: number;
 from?: string;
 to?: string;
