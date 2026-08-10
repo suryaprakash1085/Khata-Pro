@@ -86,11 +86,13 @@ import OrdersScreen from '../screens/main/OrdersScreen';
 // import OrderSuccessScreen from '../screens/order/OrderSuccessScreen';
 import OrderSuccessScreen from '../screens/order/OrderSuccessScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
-
+// import AddressSelectionScreen from '../screens/checkout/AddressSelectionScreen';
+import AddressSelectionScreen from '../screens/checkout/AddressSelectionScreen';
 const Stack = createNativeStackNavigator();
 
 export default function MainNavigator() {
   return (
+    
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Tabs" component={TabNavigator} />
       <Stack.Screen name="RestaurantDetail" component={RestaurantDetailScreen} />
@@ -107,6 +109,7 @@ export default function MainNavigator() {
             <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
               <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
+      <Stack.Screen name="AddressSelection" component={AddressSelectionScreen} />
 
     </Stack.Navigator>
   );
