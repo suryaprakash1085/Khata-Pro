@@ -5,6 +5,7 @@
  * KhataPro CRM API — digital ledger platform for small businesses
  * OpenAPI spec version: 0.1.0
  */
+import type { DeliveryInputPaymentMethod } from './deliveryInputPaymentMethod';
 
 export interface DeliveryInput {
   business_id: number;
@@ -12,4 +13,6 @@ export interface DeliveryInput {
   pickup_address: string;
   drop_address: string;
   notes?: string;
+  amount?: number;
+  payment_method?: DeliveryInputPaymentMethod;
 }

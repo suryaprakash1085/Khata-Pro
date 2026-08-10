@@ -5,6 +5,7 @@
  * KhataPro CRM API — digital ledger platform for small businesses
  * OpenAPI spec version: 0.1.0
  */
+import type { DeliveryPaymentMethod } from './deliveryPaymentMethod';
 import type { DeliveryStatus } from './deliveryStatus';
 
 export interface Delivery {
@@ -18,6 +19,12 @@ export interface Delivery {
   status: DeliveryStatus;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  amount?: number | null;
+  /** @nullable */
+  payment_method?: DeliveryPaymentMethod;
+  /** @nullable */
+  distance_km?: number | null;
   /** @nullable */
   assigned_at?: Date | null;
   /** @nullable */

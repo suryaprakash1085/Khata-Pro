@@ -8,6 +8,7 @@
 
 export type ListBusinessesParams = {
 owner_id?: number;
+staff_user_id?: number;
 search?: string;
 page?: number;
 limit?: number;

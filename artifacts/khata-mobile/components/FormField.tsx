@@ -94,12 +94,14 @@ export function FormField({ label, error, style, required, layout = 'stack', lab
   }
 
   return (
-    <View style={styles.wrap}>
+  <View style={styles.wrap}>
+    {label ? (
       <Text style={[styles.label, { color: colors.mutedForeground }]}>{label}</Text>
-      {inputEl}
-      {error ? <Text style={[styles.error, { color: colors.destructive }]}>{error}</Text> : null}
-    </View>
-  );
+    ) : null}
+    {inputEl}
+    {error ? <Text style={[styles.error, { color: colors.destructive }]}>{error}</Text> : null}
+  </View>
+);
 }
 
 const styles = StyleSheet.create({

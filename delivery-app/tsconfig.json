@@ -1,9 +1,11 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true,
-    "moduleResolution": "bundler",
     "ignoreDeprecations": "6.0",
+    "strict": true,
+    "preserveSymlinks": true,
+    "moduleResolution": "bundler",
+    "jsx": "react-native",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -15,7 +17,11 @@
       ]
     },
     "types": [
-      "node"
+      "node",
+      "react"
+    ],
+    "typeRoots": [
+      "./node_modules/@types",
     ]
   },
   "include": [

@@ -64,3 +64,28 @@ export const getUser = async (): Promise<any> => {
 export const removeUser = async (): Promise<boolean> => {
   return removeData('userData');
 };
+
+
+export const storeDriverToken = async (token: string): Promise<boolean> => {
+  return storeData('driverToken', token);
+};
+
+export const getDriverToken = async (): Promise<any> => {
+  return getData('driverToken');
+};
+
+export const removeDriverToken = async (): Promise<boolean> => {
+  return removeData('driverToken');
+};
+
+export const storeDriver = async (driver: any): Promise<boolean> => {
+  return storeData('driverData', driver);
+};
+
+export const getDriver = async (): Promise<any> => {
+  return getData('driverData');
+};
+
+export const removeDriver = async (): Promise<boolean> => {
+  return removeData('driverData');
+};

@@ -112,6 +112,17 @@ function RootLayoutNav() {
   const isDesktopWeb = isWebAuthed && width >= DESKTOP_BREAKPOINT;
   const isMobileWeb = isWebAuthed && width < DESKTOP_BREAKPOINT;
 
+
+if (Platform.OS === 'web') {
+  // @ts-ignore
+  document.documentElement.style.height = '100%';
+  // @ts-ignore
+  document.body.style.height = '100%';
+  // @ts-ignore
+  const root = document.getElementById('root');
+  if (root) root.style.height = '100%';
+}
+
 if (isDesktopWeb) {
   return (
     <View style={{ flex: 1, flexDirection: 'row', minHeight: '100%' as any }}>

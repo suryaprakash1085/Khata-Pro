@@ -8,5 +8,8 @@
   },
   "dependencies": {
     "zod": "catalog:"
+  },
+  "devDependencies": {
+    "orval": "^8.21.0"
   }
 }

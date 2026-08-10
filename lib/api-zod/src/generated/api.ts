@@ -134,6 +134,7 @@ export const listBusinessesQueryLimitDefault = 20;
 
 export const ListBusinessesQueryParams = zod.object({
   "owner_id": zod.coerce.number().optional(),
+  "staff_user_id": zod.coerce.number().optional(),
   "search": zod.coerce.string().optional(),
   "page": zod.coerce.number().default(listBusinessesQueryPageDefault),
   "limit": zod.coerce.number().default(listBusinessesQueryLimitDefault)
@@ -148,7 +149,14 @@ export const ListBusinessesResponse = zod.object({
   "business_name": zod.string(),
   "business_type": zod.string(),
   "gstin": zod.string().nullish(),
-  "address": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "address_line1": zod.string().nullish(),
+  "address_line2": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "postal_code": zod.string().nullish(),
+  "country": zod.string().nullish(),
   "logo_url": zod.string().nullish(),
   "currency": zod.string().default(listBusinessesResponseDataItemCurrencyDefault),
   "financial_year_start": zod.coerce.date().nullish(),
@@ -165,13 +173,21 @@ export const ListBusinessesResponse = zod.object({
 /**
  * @summary Create a new business
  */
+export const createBusinessBodyCountryDefault = `India`;
 export const createBusinessBodyCurrencyDefault = `INR`;
 
 export const CreateBusinessBody = zod.object({
   "business_name": zod.string(),
   "business_type": zod.string(),
   "gstin": zod.string().optional(),
-  "address": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "email": zod.string().optional(),
+  "address_line1": zod.string().optional(),
+  "address_line2": zod.string().optional(),
+  "city": zod.string().optional(),
+  "state": zod.string().optional(),
+  "postal_code": zod.string().optional(),
+  "country": zod.string().default(createBusinessBodyCountryDefault),
   "logo_url": zod.string().optional(),
   "currency": zod.string().default(createBusinessBodyCurrencyDefault),
   "financial_year_start": zod.coerce.date().optional()
@@ -185,7 +201,14 @@ export const CreateBusinessResponse = zod.object({
   "business_name": zod.string(),
   "business_type": zod.string(),
   "gstin": zod.string().nullish(),
-  "address": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "address_line1": zod.string().nullish(),
+  "address_line2": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "postal_code": zod.string().nullish(),
+  "country": zod.string().nullish(),
   "logo_url": zod.string().nullish(),
   "currency": zod.string().default(createBusinessResponseCurrencyDefault),
   "financial_year_start": zod.coerce.date().nullish(),
@@ -210,7 +233,14 @@ export const GetBusinessResponse = zod.object({
   "business_name": zod.string(),
   "business_type": zod.string(),
   "gstin": zod.string().nullish(),
-  "address": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "address_line1": zod.string().nullish(),
+  "address_line2": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "postal_code": zod.string().nullish(),
+  "country": zod.string().nullish(),
   "logo_url": zod.string().nullish(),
   "currency": zod.string().default(getBusinessResponseCurrencyDefault),
   "financial_year_start": zod.coerce.date().nullish(),
@@ -227,13 +257,23 @@ export const UpdateBusinessParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const updateBusinessBodyCountryDefault = `India`;
+export const updateBusinessBodyCurrencyDefault = `INR`;
+
 export const UpdateBusinessBody = zod.object({
   "business_name": zod.string().optional(),
   "business_type": zod.string().optional(),
   "gstin": zod.string().optional(),
-  "address": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "email": zod.string().optional(),
+  "address_line1": zod.string().optional(),
+  "address_line2": zod.string().optional(),
+  "city": zod.string().optional(),
+  "state": zod.string().optional(),
+  "postal_code": zod.string().optional(),
+  "country": zod.string().default(updateBusinessBodyCountryDefault),
   "logo_url": zod.string().optional(),
-  "currency": zod.string().optional(),
+  "currency": zod.string().default(updateBusinessBodyCurrencyDefault),
   "financial_year_start": zod.coerce.date().optional()
 })
 
@@ -245,7 +285,14 @@ export const UpdateBusinessResponse = zod.object({
   "business_name": zod.string(),
   "business_type": zod.string(),
   "gstin": zod.string().nullish(),
-  "address": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "address_line1": zod.string().nullish(),
+  "address_line2": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "postal_code": zod.string().nullish(),
+  "country": zod.string().nullish(),
   "logo_url": zod.string().nullish(),
   "currency": zod.string().default(updateBusinessResponseCurrencyDefault),
   "financial_year_start": zod.coerce.date().nullish(),
@@ -1171,6 +1218,8 @@ export const ListDriversQueryParams = zod.object({
   "limit": zod.coerce.number().default(listDriversQueryLimitDefault)
 })
 
+export const listDriversResponseDataItemRatingDefault = 5;
+
 export const ListDriversResponse = zod.object({
   "data": zod.array(zod.object({
   "id": zod.number(),
@@ -1182,6 +1231,7 @@ export const ListDriversResponse = zod.object({
   "status": zod.enum(['available', 'busy', 'offline']),
   "last_lat": zod.string().nullish(),
   "last_lng": zod.string().nullish(),
+  "rating": zod.number().default(listDriversResponseDataItemRatingDefault),
   "created_at": zod.coerce.date()
 })),
   "total": zod.number(),
@@ -1205,6 +1255,8 @@ export const CreateDriverBody = zod.object({
   "status": zod.enum(['available', 'busy', 'offline']).default(createDriverBodyStatusDefault)
 })
 
+export const createDriverResponseRatingDefault = 5;
+
 export const CreateDriverResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
@@ -1215,6 +1267,7 @@ export const CreateDriverResponse = zod.object({
   "status": zod.enum(['available', 'busy', 'offline']),
   "last_lat": zod.string().nullish(),
   "last_lng": zod.string().nullish(),
+  "rating": zod.number().default(createDriverResponseRatingDefault),
   "created_at": zod.coerce.date()
 })
 
@@ -1226,6 +1279,8 @@ export const GetDriverParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const getDriverResponseRatingDefault = 5;
+
 export const GetDriverResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
@@ -1236,6 +1291,7 @@ export const GetDriverResponse = zod.object({
   "status": zod.enum(['available', 'busy', 'offline']),
   "last_lat": zod.string().nullish(),
   "last_lng": zod.string().nullish(),
+  "rating": zod.number().default(getDriverResponseRatingDefault),
   "created_at": zod.coerce.date()
 })
 
@@ -1254,8 +1310,11 @@ export const UpdateDriverBody = zod.object({
   "vehicle_type": zod.enum(['bike', 'auto', 'van', 'truck']).optional(),
   "status": zod.enum(['available', 'busy', 'offline']).optional(),
   "last_lat": zod.string().optional(),
-  "last_lng": zod.string().optional()
+  "last_lng": zod.string().optional(),
+  "rating": zod.number().optional()
 })
+
+export const updateDriverResponseRatingDefault = 5;
 
 export const UpdateDriverResponse = zod.object({
   "id": zod.number(),
@@ -1267,6 +1326,7 @@ export const UpdateDriverResponse = zod.object({
   "status": zod.enum(['available', 'busy', 'offline']),
   "last_lat": zod.string().nullish(),
   "last_lng": zod.string().nullish(),
+  "rating": zod.number().default(updateDriverResponseRatingDefault),
   "created_at": zod.coerce.date()
 })
 
@@ -1280,6 +1340,40 @@ export const DeleteDriverParams = zod.object({
 
 export const DeleteDriverResponse = zod.object({
   "message": zod.string()
+})
+
+
+/**
+ * @summary Today's summary + performance stats for a driver
+ */
+export const GetDriverStatsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetDriverStatsResponse = zod.object({
+  "total_deliveries": zod.number(),
+  "completed_deliveries": zod.number(),
+  "pending_deliveries": zod.number(),
+  "cash_to_collect": zod.number(),
+  "distance_travelled_km": zod.number(),
+  "rating": zod.number(),
+  "success_rate": zod.number(),
+  "avg_delivery_time_minutes": zod.number()
+})
+
+
+/**
+ * @summary Earnings summary for a driver
+ */
+export const GetDriverEarningsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetDriverEarningsResponse = zod.object({
+  "today_earnings": zod.number(),
+  "cod_collected": zod.number(),
+  "incentives": zod.number(),
+  "weekly_earnings": zod.number()
 })
 
 
@@ -1308,6 +1402,9 @@ export const ListDeliveriesResponse = zod.object({
   "drop_address": zod.string(),
   "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
   "notes": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
+  "distance_km": zod.number().nullish(),
   "assigned_at": zod.coerce.date().nullish(),
   "picked_up_at": zod.coerce.date().nullish(),
   "delivered_at": zod.coerce.date().nullish(),
@@ -1328,7 +1425,9 @@ export const CreateDeliveryBody = zod.object({
   "customer_id": zod.number(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),
-  "notes": zod.string().optional()
+  "notes": zod.string().optional(),
+  "amount": zod.number().optional(),
+  "payment_method": zod.enum(['cod', 'online', 'card']).optional()
 })
 
 export const CreateDeliveryResponse = zod.object({
@@ -1340,6 +1439,9 @@ export const CreateDeliveryResponse = zod.object({
   "drop_address": zod.string(),
   "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
   "notes": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
+  "distance_km": zod.number().nullish(),
   "assigned_at": zod.coerce.date().nullish(),
   "picked_up_at": zod.coerce.date().nullish(),
   "delivered_at": zod.coerce.date().nullish(),
@@ -1364,6 +1466,9 @@ export const GetDeliveryResponse = zod.object({
   "drop_address": zod.string(),
   "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
   "notes": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
+  "distance_km": zod.number().nullish(),
   "assigned_at": zod.coerce.date().nullish(),
   "picked_up_at": zod.coerce.date().nullish(),
   "delivered_at": zod.coerce.date().nullish(),
@@ -1394,6 +1499,9 @@ export const UpdateDeliveryResponse = zod.object({
   "drop_address": zod.string(),
   "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
   "notes": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
+  "distance_km": zod.number().nullish(),
   "assigned_at": zod.coerce.date().nullish(),
   "picked_up_at": zod.coerce.date().nullish(),
   "delivered_at": zod.coerce.date().nullish(),
@@ -1422,6 +1530,9 @@ export const AssignDriverResponse = zod.object({
   "drop_address": zod.string(),
   "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
   "notes": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
+  "distance_km": zod.number().nullish(),
   "assigned_at": zod.coerce.date().nullish(),
   "picked_up_at": zod.coerce.date().nullish(),
   "delivered_at": zod.coerce.date().nullish(),
@@ -1450,6 +1561,9 @@ export const UpdateDeliveryStatusResponse = zod.object({
   "drop_address": zod.string(),
   "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
   "notes": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
+  "distance_km": zod.number().nullish(),
   "assigned_at": zod.coerce.date().nullish(),
   "picked_up_at": zod.coerce.date().nullish(),
   "delivered_at": zod.coerce.date().nullish(),
@@ -1890,6 +2004,29 @@ export const SendReminderResponse = zod.object({
 
 
 /**
+ * @summary List notifications for a driver or business user
+ */
+export const listNotificationsQueryLimitDefault = 20;
+
+export const ListNotificationsQueryParams = zod.object({
+  "driver_id": zod.coerce.number().optional(),
+  "business_id": zod.coerce.number().optional(),
+  "limit": zod.coerce.number().default(listNotificationsQueryLimitDefault)
+})
+
+export const ListNotificationsResponseItem = zod.object({
+  "id": zod.number(),
+  "business_id": zod.number().nullish(),
+  "driver_id": zod.number().nullish(),
+  "type": zod.enum(['assigned', 'completed', 'address_updated', 'payment_received']),
+  "message": zod.string(),
+  "is_read": zod.boolean().optional(),
+  "created_at": zod.coerce.date()
+})
+export const ListNotificationsResponse = zod.array(ListNotificationsResponseItem)
+
+
+/**
  * @summary Platform-wide KPIs and growth metrics
  */
 export const getAdminAnalyticsResponseRecentSignupsItemCurrencyDefault = `INR`;
@@ -1917,7 +2054,14 @@ export const GetAdminAnalyticsResponse = zod.object({
   "business_name": zod.string(),
   "business_type": zod.string(),
   "gstin": zod.string().nullish(),
-  "address": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "address_line1": zod.string().nullish(),
+  "address_line2": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "postal_code": zod.string().nullish(),
+  "country": zod.string().nullish(),
   "logo_url": zod.string().nullish(),
   "currency": zod.string().default(getAdminAnalyticsResponseRecentSignupsItemCurrencyDefault),
   "financial_year_start": zod.coerce.date().nullish(),

@@ -18,6 +18,7 @@ import type { Product } from '@workspace/api-client-react';
 import { EmptyState } from '@/components/EmptyState';
 import { formatCurrency } from '@/lib/format';
 
+
 const TAB_BAR_HEIGHT = Platform.OS === 'web' ? 84 : 49;
 
 export default function ProductListScreen() {
@@ -29,6 +30,16 @@ export default function ProductListScreen() {
   const [search, setSearch] = useState('');
 
   const isAdmin = user?.role === 'owner';
+const isOwner = user?.role === 'owner';
+
+const showPermissionAlert = () => {
+  const message = "You don't have permission to do this. Please ask your admin.";
+  if (Platform.OS === 'web') {
+    window.alert(message);
+  } else {
+    Alert.alert('Permission required', message);
+  }
+};
 
   const productsParams = { business_id: business?.id as number, search: search || undefined, limit: 100 };
   const {
@@ -117,7 +128,7 @@ export default function ProductListScreen() {
       </Text>
       
       <View style={styles.actionCell}>
-        <Pressable
+        {/* <Pressable
           onPress={() =>
             router.push({
               pathname: "/add-product",
@@ -143,7 +154,39 @@ export default function ProductListScreen() {
           style={({ pressed }) => [styles.iconButton, styles.deleteButton, { opacity: pressed ? 0.6 : 1 }]}
         >
           <Feather name="trash-2" size={16} color="#EF4444" />
-        </Pressable>
+        </Pressable> */}
+
+        <Pressable
+  onPress={() => {
+    if (!isOwner) {
+      showPermissionAlert();
+      return;
+    }
+    router.push({
+      pathname: "/add-product",
+      params: { id: String(item.id) },
+    });
+  }}
+  style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.6 : 1 }]}
+>
+  <Feather name="edit-2" size={16} color={colors.primary} />
+</Pressable>
+
+<Pressable
+  onPress={(e: any) => {
+    if (e && typeof e.stopPropagation === 'function') {
+      e.stopPropagation();
+    }
+    if (!isOwner) {
+      showPermissionAlert();
+      return;
+    }
+    handleDelete(item);
+  }}
+  style={({ pressed }) => [styles.iconButton, styles.deleteButton, { opacity: pressed ? 0.6 : 1 }]}
+>
+  <Feather name="trash-2" size={16} color="#EF4444" />
+</Pressable>
       </View>
     </View>
   );

@@ -10,7 +10,14 @@ export interface BusinessInput {
   business_name: string;
   business_type: string;
   gstin?: string;
-  address?: string;
+  phone?: string;
+  email?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
   logo_url?: string;
   currency?: string;
   financial_year_start?: Date;

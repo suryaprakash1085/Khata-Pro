@@ -39,6 +39,7 @@ packages:
   - lib/*
   - lib/integrations/*
   - scripts
+  - delivery-app
 
 catalog:
   '@replit/vite-plugin-cartographer': ^0.5.21
@@ -46,7 +47,7 @@ catalog:
   '@replit/vite-plugin-runtime-error-modal': ^0.0.6
   '@tailwindcss/vite': ^4.1.14
   '@tanstack/react-query': ^5.90.21
-  '@types/node': ^25.3.3
+  '@types/node': ^25.9.5
   '@types/react': ^19.2.0
   '@types/react-dom': ^19.2.0
   '@vitejs/plugin-react': ^5.0.4
@@ -75,6 +76,12 @@ onlyBuiltDependencies:
   - unrs-resolver
 
 overrides:
+
+  "@react-navigation/native": "7.3.8"
+  "@react-navigation/core": "7.21.5"
+  "@react-navigation/elements": "2.9.30"
+  "@react-navigation/bottom-tabs": "7.18.8"
+  "@react-navigation/native-stack": "7.17.10"
   # replit uses linux-x64 only, we can exclude all other platforms
   "esbuild>@esbuild/darwin-arm64": "-"
   "esbuild>@esbuild/darwin-x64": "-"

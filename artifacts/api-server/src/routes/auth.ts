@@ -70,7 +70,7 @@ if (existingByEmail) {
   res.status(409).json({ error: "Email already in use" });
   return;
 }
-const [existingByPhone] = await db.select().from(usersTable).where(eq(usersTable.phone, phone));
+const [existingByPhone] = await db.select().from(usersTable).where(eq(usersTable.phone, normalizedPhone));
 if (existingByPhone) {
   res.status(409).json({ error: "Phone number already in use" });
   return;
@@ -130,7 +130,7 @@ router.post("/auth/verify-otp", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid OTP" });
     return;
   }
-  let [user] = await db.select().from(usersTable).where(eq(usersTable.phone, phone));
+  let [user] = await db.select().from(usersTable).where(eq(usersTable.phone, normalizedPhone));
   if (!user) {
     // Create new user on first login
     const [newUser] = await db.insert(usersTable).values({

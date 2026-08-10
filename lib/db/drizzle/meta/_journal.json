@@ -71,6 +71,13 @@
       "when": 1785755283770,
       "tag": "0009_wonderful_prima",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785992734055,
+      "tag": "0010_bouncy_naoko",
+      "breakpoints": true
     }
   ]
 }

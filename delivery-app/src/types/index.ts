@@ -425,3 +425,20 @@ export interface RestaurantState {
   loading: boolean;
   error: string | null;
 }
+
+/**
+ * Add this to your existing src/types/index.ts (alongside User, Order, etc.)
+ * Matches formatDriver() in api-server/src/routes/drivers.ts exactly.
+ */
+export interface Driver {
+  id: number;
+  business_id: number;
+  name: string;
+  phone: string;
+  vehicle_number: string | null;
+  vehicle_type: 'bike' | 'auto' | 'van' | 'truck';
+  status: 'available' | 'busy' | 'offline';
+  last_lat: string | null;
+  last_lng: string | null;
+  created_at: string;
+}

@@ -233,6 +233,8 @@ import {
 } from '@workspace/api-client-react';
 // @ts-ignore
 import type { Product } from '@workspace/api-client-react';
+import { useAuth } from '@/contexts/AuthContext';
+
 
 const showAlert = (title: string, message: string) => {
   if (Platform.OS === 'web') {
@@ -279,11 +281,19 @@ export default function OutOfStockProductsScreen() {
 
   const updateProduct = useUpdateProduct();
 
-  const openRestock = (item: Product) => {
-    setRestockItem(item);
-    setRestockQty('');
-    setRestockError(null);
-  };
+
+  const { user } = useAuth();
+const isOwner = user?.role === 'owner';
+
+ const openRestock = (item: Product) => {
+  if (!isOwner) {
+    showAlert('Permission required', "You don't have permission to do this. Please ask your admin.");
+    return;
+  }
+  setRestockItem(item);
+  setRestockQty('');
+  setRestockError(null);
+};
 
   const closeRestock = () => {
     if (updateProduct.isPending) return; // don't allow closing mid-save

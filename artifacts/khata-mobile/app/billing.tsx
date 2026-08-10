@@ -198,20 +198,23 @@ export default function BillingScreen() {
 
   const createCustomer = useCreateCustomer();
 
-  useEffect(() => {
-    (async () => {
+ useEffect(() => {
+  (async () => {
+    if ((user as any)?.name) {
+      setSalesPerson((user as any).name);
+    } else {
       const p = await AsyncStorage.getItem(STORAGE_KEYS.SALES_PERSON);
       if (p) setSalesPerson(p);
-      else if ((user as any)?.name) setSalesPerson((user as any).name);
+    }
 
-      const c = await AsyncStorage.getItem(STORAGE_KEYS.COUNTER);
-      if (c) setCounter(c);
+    const c = await AsyncStorage.getItem(STORAGE_KEYS.COUNTER);
+    if (c) setCounter(c);
 
-      const inv = await AsyncStorage.getItem(STORAGE_KEYS.INVOICE_NUMBER);
-      if (inv) setInvoiceNumber(inv);
-      else await AsyncStorage.setItem(STORAGE_KEYS.INVOICE_NUMBER, 'INV-0001');
-    })();
-  }, []);
+    const inv = await AsyncStorage.getItem(STORAGE_KEYS.INVOICE_NUMBER);
+    if (inv) setInvoiceNumber(inv);
+    else await AsyncStorage.setItem(STORAGE_KEYS.INVOICE_NUMBER, 'INV-0001');
+  })();
+}, [user]);
 
   useEffect(() => {
     if (payParams.customer_id) {

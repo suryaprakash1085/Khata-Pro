@@ -21,5 +21,6 @@ export interface Driver {
   last_lat?: string | null;
   /** @nullable */
   last_lng?: string | null;
+  rating?: number;
   created_at: Date;
 }

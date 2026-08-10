@@ -87,7 +87,21 @@ export interface Business {
   /** @nullable */
   gstin?: string | null;
   /** @nullable */
-  address?: string | null;
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  address_line1?: string | null;
+  /** @nullable */
+  address_line2?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  postal_code?: string | null;
+  /** @nullable */
+  country?: string | null;
   /** @nullable */
   logo_url?: string | null;
   currency: string;
@@ -102,7 +116,14 @@ export interface BusinessInput {
   business_name: string;
   business_type: string;
   gstin?: string;
-  address?: string;
+  phone?: string;
+  email?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
   logo_url?: string;
   currency?: string;
   financial_year_start?: string;
@@ -112,7 +133,14 @@ export interface BusinessUpdate {
   business_name?: string;
   business_type?: string;
   gstin?: string;
-  address?: string;
+  phone?: string;
+  email?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
   logo_url?: string;
   currency?: string;
   financial_year_start?: string;
@@ -632,6 +660,7 @@ export interface Driver {
   last_lat?: string | null;
   /** @nullable */
   last_lng?: string | null;
+  rating?: number;
   created_at: string;
 }
 
@@ -690,6 +719,7 @@ export interface DriverUpdate {
   status?: DriverUpdateStatus;
   last_lat?: string;
   last_lng?: string;
+  rating?: number;
 }
 
 export interface DriverListResponse {
@@ -697,6 +727,24 @@ export interface DriverListResponse {
   total: number;
   page: number;
   limit: number;
+}
+
+export interface DriverStats {
+  total_deliveries: number;
+  completed_deliveries: number;
+  pending_deliveries: number;
+  cash_to_collect: number;
+  distance_travelled_km: number;
+  rating: number;
+  success_rate: number;
+  avg_delivery_time_minutes: number;
+}
+
+export interface DriverEarnings {
+  today_earnings: number;
+  cod_collected: number;
+  incentives: number;
+  weekly_earnings: number;
 }
 
 export type DeliveryStatus = typeof DeliveryStatus[keyof typeof DeliveryStatus];
@@ -711,6 +759,18 @@ export const DeliveryStatus = {
   cancelled: 'cancelled',
 } as const;
 
+/**
+ * @nullable
+ */
+export type DeliveryPaymentMethod = typeof DeliveryPaymentMethod[keyof typeof DeliveryPaymentMethod] | null;
+
+
+export const DeliveryPaymentMethod = {
+  cod: 'cod',
+  online: 'online',
+  card: 'card',
+} as const;
+
 export interface Delivery {
   id: number;
   business_id: number;
@@ -723,6 +783,12 @@ export interface Delivery {
   /** @nullable */
   notes?: string | null;
   /** @nullable */
+  amount?: number | null;
+  /** @nullable */
+  payment_method?: DeliveryPaymentMethod;
+  /** @nullable */
+  distance_km?: number | null;
+  /** @nullable */
   assigned_at?: string | null;
   /** @nullable */
   picked_up_at?: string | null;
@@ -733,12 +799,23 @@ export interface Delivery {
   created_at: string;
 }
 
+export type DeliveryInputPaymentMethod = typeof DeliveryInputPaymentMethod[keyof typeof DeliveryInputPaymentMethod];
+
+
+export const DeliveryInputPaymentMethod = {
+  cod: 'cod',
+  online: 'online',
+  card: 'card',
+} as const;
+
 export interface DeliveryInput {
   business_id: number;
   customer_id: number;
   pickup_address: string;
   drop_address: string;
   notes?: string;
+  amount?: number;
+  payment_method?: DeliveryInputPaymentMethod;
 }
 
 export interface DeliveryUpdate {
@@ -1049,6 +1126,28 @@ export interface ReminderInput {
   channel: ReminderInputChannel;
 }
 
+export type NotificationType = typeof NotificationType[keyof typeof NotificationType];
+
+
+export const NotificationType = {
+  assigned: 'assigned',
+  completed: 'completed',
+  address_updated: 'address_updated',
+  payment_received: 'payment_received',
+} as const;
+
+export interface Notification {
+  id: number;
+  /** @nullable */
+  business_id?: number | null;
+  /** @nullable */
+  driver_id?: number | null;
+  type: NotificationType;
+  message: string;
+  is_read?: boolean;
+  created_at: string;
+}
+
 export interface MonthlyGrowthPoint {
   month: string;
   businesses: number;
@@ -1188,6 +1287,7 @@ export interface BroadcastInput {
 
 export type ListBusinessesParams = {
 owner_id?: number;
+staff_user_id?: number;
 search?: string;
 page?: number;
 limit?: number;
@@ -1402,6 +1502,12 @@ export const ListRemindersStatus = {
   sent: 'sent',
   failed: 'failed',
 } as const;
+
+export type ListNotificationsParams = {
+driver_id?: number;
+business_id?: number;
+limit?: number;
+};
 
 export type ListAdminBusinessesParams = {
 search?: string;

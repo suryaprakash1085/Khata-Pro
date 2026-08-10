@@ -16,6 +16,7 @@ import {
 import type { Product } from '@workspace/api-client-react';
 import { EmptyState } from '@/components/EmptyState';
 import { formatCurrency } from '@/lib/format';
+import { useAuth } from '@/contexts/AuthContext';
 
 const TAB_BAR_HEIGHT = Platform.OS === 'web' ? 84 : 49;
 
@@ -45,7 +46,17 @@ export default function AllProductsScreen() {
     if (filterTab === 'out-of-stock') return qty <= 0;
     return true;
   });
+const { user } = useAuth();
+const isOwner = user?.role === 'owner';
 
+const showPermissionAlert = () => {
+  const message = "You don't have permission to do this. Please ask your admin.";
+  if (Platform.OS === 'web') {
+    window.alert(message);
+  } else {
+    Alert.alert('Permission required', message);
+  }
+};
   const deleteProduct = useDeleteProduct();
 
   const handleDelete = (item: Product) => {
@@ -113,22 +124,32 @@ export default function AllProductsScreen() {
         </Text>
 
         <View style={styles.actionCell}>
-          <Pressable
-            onPress={() => router.push({ pathname: '/add-product', params: { id: String(item.id) } })}
-            style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.6 : 1 }]}
-          >
-            <Feather name="edit-2" size={16} color={colors.primary} />
-          </Pressable>
+         <Pressable
+  onPress={() => {
+    if (!isOwner) {
+      showPermissionAlert();
+      return;
+    }
+    router.push({ pathname: '/add-product', params: { id: String(item.id) } });
+  }}
+  style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.6 : 1 }]}
+>
+  <Feather name="edit-2" size={16} color={colors.primary} />
+</Pressable>
 
-          <Pressable
-            onPress={(e: any) => {
-              if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-              handleDelete(item);
-            }}
-            style={({ pressed }) => [styles.iconButton, styles.deleteButton, { opacity: pressed ? 0.6 : 1 }]}
-          >
-            <Feather name="trash-2" size={16} color="#EF4444" />
-          </Pressable>
+<Pressable
+  onPress={(e: any) => {
+    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+    if (!isOwner) {
+      showPermissionAlert();
+      return;
+    }
+    handleDelete(item);
+  }}
+  style={({ pressed }) => [styles.iconButton, styles.deleteButton, { opacity: pressed ? 0.6 : 1 }]}
+>
+  <Feather name="trash-2" size={16} color="#EF4444" />
+</Pressable>
         </View>
       </View>
     );

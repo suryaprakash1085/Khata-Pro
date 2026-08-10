@@ -38,7 +38,9 @@ tags:
     description: Admin panel operations
   - name: subscriptions
     description: Subscription management
-  
+  - name: notifications
+    description: Driver and business notifications
+
 paths:
   /healthz:
     get:
@@ -178,7 +180,7 @@ paths:
         - name: staff_user_id     # ← new
           in: query
           schema:
-          type: integer
+           type: integer
         - name: search
           in: query
           schema:
@@ -1080,6 +1082,44 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
 
+  /drivers/{id}/stats:
+    get:
+      operationId: getDriverStats
+      tags: [drivers]
+      summary: Today's summary + performance stats for a driver
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Driver stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriverStats"
+
+  /drivers/{id}/earnings:
+    get:
+      operationId: getDriverEarnings
+      tags: [drivers]
+      summary: Earnings summary for a driver
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Driver earnings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriverEarnings"
+
   # ─── DELIVERIES ──────────────────────────────────────────────────────────────
 
   /deliveries:
@@ -1625,6 +1665,37 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
 
+  # ─── NOTIFICATIONS ───────────────────────────────────────────────────────────
+
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List notifications for a driver or business user
+      parameters:
+        - name: driver_id
+          in: query
+          schema:
+            type: integer
+        - name: business_id
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+
   # ─── ADMIN ───────────────────────────────────────────────────────────────────
 
   /admin/analytics:
@@ -2005,7 +2076,21 @@ components:
           type: string
         gstin:
           type: ["string", "null"]
-        address:
+        phone:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        address_line1:
+          type: ["string", "null"]
+        address_line2:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        postal_code:
+          type: ["string", "null"]
+        country:
           type: ["string", "null"]
         logo_url:
           type: ["string", "null"]
@@ -2034,8 +2119,23 @@ components:
           type: string
         gstin:
           type: string
-        address:
+        phone:
           type: string
+        email:
+          type: string
+        address_line1:
+          type: string
+        address_line2:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        postal_code:
+          type: string
+        country:
+          type: string
+          default: India
         logo_url:
           type: string
         currency:
@@ -2054,12 +2154,28 @@ components:
           type: string
         gstin:
           type: string
-        address:
+        phone:
           type: string
+        email:
+          type: string
+        address_line1:
+          type: string
+        address_line2:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        postal_code:
+          type: string
+        country:
+          type: string
+          default: India
         logo_url:
           type: string
         currency:
           type: string
+          default: INR
         financial_year_start:
           type: string
           format: date
@@ -2756,6 +2872,9 @@ components:
           type: ["string", "null"]
         last_lng:
           type: ["string", "null"]
+        rating:
+          type: number
+          default: 5.0
         created_at:
           type: string
           format: date-time
@@ -2800,6 +2919,8 @@ components:
           type: string
         last_lng:
           type: string
+        rating:
+          type: number
 
     DriverListResponse:
       type: object
@@ -2815,6 +2936,40 @@ components:
           type: integer
         limit:
           type: integer
+
+    DriverStats:
+      type: object
+      required: [total_deliveries, completed_deliveries, pending_deliveries, cash_to_collect, distance_travelled_km, rating, success_rate, avg_delivery_time_minutes]
+      properties:
+        total_deliveries:
+          type: integer
+        completed_deliveries:
+          type: integer
+        pending_deliveries:
+          type: integer
+        cash_to_collect:
+          type: number
+        distance_travelled_km:
+          type: number
+        rating:
+          type: number
+        success_rate:
+          type: number
+        avg_delivery_time_minutes:
+          type: number
+
+    DriverEarnings:
+      type: object
+      required: [today_earnings, cod_collected, incentives, weekly_earnings]
+      properties:
+        today_earnings:
+          type: number
+        cod_collected:
+          type: number
+        incentives:
+          type: number
+        weekly_earnings:
+          type: number
 
     # ── Delivery ──────────────────────────────────────────────────────────────
 
@@ -2839,6 +2994,13 @@ components:
           enum: [pending, assigned, picked_up, in_transit, delivered, cancelled]
         notes:
           type: ["string", "null"]
+        amount:
+          type: ["number", "null"]
+        payment_method:
+          type: ["string", "null"]
+          enum: [cod, online, card]
+        distance_km:
+          type: ["number", "null"]
         assigned_at:
           type: ["string", "null"]
           format: date-time
@@ -2869,6 +3031,11 @@ components:
           type: string
         notes:
           type: string
+        amount:
+          type: number
+        payment_method:
+          type: string
+          enum: [cod, online, card]
 
     DeliveryUpdate:
       type: object
@@ -3263,6 +3430,29 @@ components:
         channel:
           type: string
           enum: [sms, whatsapp, push]
+
+    # ── Notifications ─────────────────────────────────────────────────────────
+
+    Notification:
+      type: object
+      required: [id, type, message, created_at]
+      properties:
+        id:
+          type: integer
+        business_id:
+          type: ["integer", "null"]
+        driver_id:
+          type: ["integer", "null"]
+        type:
+          type: string
+          enum: [assigned, completed, address_updated, payment_received]
+        message:
+          type: string
+        is_read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
 
     # ── Admin ─────────────────────────────────────────────────────────────────
 

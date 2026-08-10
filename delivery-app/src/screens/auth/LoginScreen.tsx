@@ -85,11 +85,19 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
           </TouchableOpacity>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Don’t have an account?</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
-              <Text style={styles.footerLink}> Sign Up</Text>
-            </TouchableOpacity>
-          </View>
+  <Text style={styles.footerText}>Don't have an account?</Text>
+  <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
+    <Text style={styles.footerLink}> Sign Up</Text>
+  </TouchableOpacity>
+</View>
+
+{/* NEW: staff/driver login link */}
+<TouchableOpacity
+  onPress={() => navigation.navigate('StaffLogin')}
+  style={{ marginTop: 16, alignItems: 'center' }}
+>
+  <Text style={styles.footerLink}>Login as Staff / Driver</Text>
+</TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

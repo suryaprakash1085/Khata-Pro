@@ -16,4 +16,5 @@ export interface DriverUpdate {
   status?: DriverUpdateStatus;
   last_lat?: string;
   last_lng?: string;
+  rating?: number;
 }

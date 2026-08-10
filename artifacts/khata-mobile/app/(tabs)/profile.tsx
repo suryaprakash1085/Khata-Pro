@@ -206,7 +206,7 @@ export default function ProfileScreen() {
 
   const { user, signOut } = useAuth();
   const { business } = useBusiness();
-
+const isOwner = user?.role === 'owner';
   const queryClient = useQueryClient();
 
   // ── Logout — defined HERE, where `signOut` actually exists ────────────
@@ -381,6 +381,7 @@ export default function ProfileScreen() {
   );
 
   const teamCard = (
+    
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <SectionLabel text="Team" />
       {!staffFormOpen ? (
@@ -502,25 +503,25 @@ export default function ProfileScreen() {
 
       {identityCard}
 
-      {isWide ? (
-        <View style={styles.twoColRow}>
-          <View style={styles.col}>
-            {businessInfoCard}
-            {teamCard}
-          </View>
-          <View style={styles.col}>
-            {accountInfoCard}
-            {supportCard}
-          </View>
-        </View>
-      ) : (
-        <>
-          {businessInfoCard}
-          {accountInfoCard}
-          {teamCard}
-          {supportCard}
-        </>
-      )}
+   {isWide ? (
+  <View style={styles.twoColRow}>
+    <View style={styles.col}>
+      {businessInfoCard}
+      {isOwner && teamCard}
+    </View>
+    <View style={styles.col}>
+      {accountInfoCard}
+      {supportCard}
+    </View>
+  </View>
+) : (
+  <>
+    {businessInfoCard}
+    {accountInfoCard}
+    {isOwner && teamCard}
+    {supportCard}
+  </>
+)}
     </ScrollView>
   );
 }

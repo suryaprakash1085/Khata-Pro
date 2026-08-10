@@ -1,4 +1,4 @@
-import { pgTable, bigserial, bigint, varchar, text, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, bigserial, bigint, varchar, text, timestamp, pgEnum, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -29,7 +29,10 @@ export const deliveriesTable = pgTable("deliveries", {
 
   status: deliveryStatusEnum("status").notNull().default("pending"),
   notes: text("notes"),
-
+   
+  amount: numeric('amount', { precision: 10, scale: 2 }),
+ payment_method: text('payment_method', { enum: ['cod', 'online', 'card'] }),
+ distance_km: numeric('distance_km', { precision: 6, scale: 2 }),
   // Timeline — set as the delivery progresses through each status.
   assignedAt: timestamp("assigned_at", { withTimezone: true }),
   pickedUpAt: timestamp("picked_up_at", { withTimezone: true }),

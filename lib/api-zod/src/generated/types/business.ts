@@ -15,7 +15,21 @@ export interface Business {
   /** @nullable */
   gstin?: string | null;
   /** @nullable */
-  address?: string | null;
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  address_line1?: string | null;
+  /** @nullable */
+  address_line2?: string | null;
+  /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  postal_code?: string | null;
+  /** @nullable */
+  country?: string | null;
   /** @nullable */
   logo_url?: string | null;
   currency: string;

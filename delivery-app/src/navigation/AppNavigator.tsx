@@ -372,11 +372,58 @@
 //     </NavigationContainer>
 //   );
 // }
+// import React, { useContext } from 'react';
+// import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
+// import { AuthContext } from '../context/AuthContext';
+// import AuthNavigator from './AuthNavigator';
+// import MainNavigator from './MainNavigator';
+
+// const linking: LinkingOptions<any> = {
+//   prefixes: [],
+//   config: {
+//     screens: {
+//       Login: '',
+//       Signup: 'signup',
+//       ForgotPassword: 'forgot-password',
+//       Tabs: {
+//         screens: {
+//           Home: 'home',
+//           Search: 'search',
+//           Cart: 'cart',
+//           Orders: 'orders',
+//           Profile: 'profile',
+//         },
+//       },
+//       RestaurantDetail: 'restaurant/:restaurantId',
+//        FoodDetail: 'food/:itemId',
+//       MenuScreen: 'menu',
+//       Checkout: 'checkout',
+//       OrderTracking: 'order-tracking/:orderId',
+//             OrderHistory: 'order-history',
+
+//       Address: 'address',
+//       Payment: 'payment',
+//     },
+//   },
+// };
+
+// export default function AppNavigator() {
+//   const { isAuthenticated } = useContext(AuthContext);
+
+//   return (
+//     <NavigationContainer linking={linking}>
+//       {isAuthenticated ? <MainNavigator /> : <AuthNavigator />}
+//     </NavigationContainer>
+//   );
+// }
+
 import React, { useContext } from 'react';
 import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
 import { AuthContext } from '../context/AuthContext';
+import { DriverAuthContext } from '../context/DriverAuthContext';
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
+import DriverMainNavigator from './DriverMainNavigator';
 
 const linking: LinkingOptions<any> = {
   prefixes: [],
@@ -385,6 +432,9 @@ const linking: LinkingOptions<any> = {
       Login: '',
       Signup: 'signup',
       ForgotPassword: 'forgot-password',
+      StaffLogin: 'staff-login',
+      StaffOtp: 'staff-otp',
+      DriverHome: 'driver-home',
       Tabs: {
         screens: {
           Home: 'home',
@@ -395,12 +445,11 @@ const linking: LinkingOptions<any> = {
         },
       },
       RestaurantDetail: 'restaurant/:restaurantId',
-       FoodDetail: 'food/:itemId',
+      FoodDetail: 'food/:itemId',
       MenuScreen: 'menu',
       Checkout: 'checkout',
       OrderTracking: 'order-tracking/:orderId',
-            OrderHistory: 'order-history',
-
+      OrderHistory: 'order-history',
       Address: 'address',
       Payment: 'payment',
     },
@@ -409,10 +458,21 @@ const linking: LinkingOptions<any> = {
 
 export default function AppNavigator() {
   const { isAuthenticated } = useContext(AuthContext);
+  const { isDriverAuthenticated, loading: driverLoading } = useContext(DriverAuthContext);
+
+  // Wait for driver auth check to finish before deciding what to show —
+  // otherwise a logged-in driver briefly flashes the Auth screen on reload.
+  if (driverLoading) return null;
 
   return (
     <NavigationContainer linking={linking}>
-      {isAuthenticated ? <MainNavigator /> : <AuthNavigator />}
+      {isDriverAuthenticated ? (
+        <DriverMainNavigator />
+      ) : isAuthenticated ? (
+        <MainNavigator />
+      ) : (
+        <AuthNavigator />
+      )}
     </NavigationContainer>
   );
 }

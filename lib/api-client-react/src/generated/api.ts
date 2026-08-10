@@ -43,8 +43,10 @@ import type {
   DeliveryStatusUpdate,
   DeliveryUpdate,
   Driver,
+  DriverEarnings,
   DriverInput,
   DriverListResponse,
+  DriverStats,
   DriverUpdate,
   EmployeePerformance,
   GetCashbookParams,
@@ -62,6 +64,7 @@ import type {
   ListCustomersParams,
   ListDeliveriesParams,
   ListDriversParams,
+  ListNotificationsParams,
   ListProductsParams,
   ListPurchasesParams,
   ListRemindersParams,
@@ -71,6 +74,7 @@ import type {
   ListVendorsParams,
   LoginInput,
   MessageResponse,
+  Notification,
   OtpInput,
   OtpVerifyInput,
   PaymentMethodsReport,
@@ -3499,6 +3503,160 @@ export const useDeleteDriver = <TError = ErrorType<unknown>,
       return useMutation(getDeleteDriverMutationOptions(options));
     }
 
+export const getGetDriverStatsUrl = (id: number,) => {
+
+
+
+
+  return `/api/drivers/${id}/stats`
+}
+
+/**
+ * @summary Today's summary + performance stats for a driver
+ */
+export const getDriverStats = async (id: number, options?: RequestInit): Promise<DriverStats> => {
+
+  return customFetch<DriverStats>(getGetDriverStatsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDriverStatsQueryKey = (id: number,) => {
+    return [
+    `/api/drivers/${id}/stats`
+    ] as const;
+    }
+
+
+export const getGetDriverStatsQueryOptions = <TData = Awaited<ReturnType<typeof getDriverStats>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDriverStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDriverStatsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDriverStats>>> = ({ signal }) => getDriverStats(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDriverStats>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDriverStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getDriverStats>>>
+export type GetDriverStatsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Today's summary + performance stats for a driver
+ */
+
+export function useGetDriverStats<TData = Awaited<ReturnType<typeof getDriverStats>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDriverStats>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDriverStatsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetDriverEarningsUrl = (id: number,) => {
+
+
+
+
+  return `/api/drivers/${id}/earnings`
+}
+
+/**
+ * @summary Earnings summary for a driver
+ */
+export const getDriverEarnings = async (id: number, options?: RequestInit): Promise<DriverEarnings> => {
+
+  return customFetch<DriverEarnings>(getGetDriverEarningsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDriverEarningsQueryKey = (id: number,) => {
+    return [
+    `/api/drivers/${id}/earnings`
+    ] as const;
+    }
+
+
+export const getGetDriverEarningsQueryOptions = <TData = Awaited<ReturnType<typeof getDriverEarnings>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDriverEarnings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDriverEarningsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDriverEarnings>>> = ({ signal }) => getDriverEarnings(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDriverEarnings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDriverEarningsQueryResult = NonNullable<Awaited<ReturnType<typeof getDriverEarnings>>>
+export type GetDriverEarningsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Earnings summary for a driver
+ */
+
+export function useGetDriverEarnings<TData = Awaited<ReturnType<typeof getDriverEarnings>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDriverEarnings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDriverEarningsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getListDeliveriesUrl = (params: ListDeliveriesParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -5135,6 +5293,90 @@ export const useSendReminder = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getSendReminderMutationOptions(options));
     }
+
+export const getListNotificationsUrl = (params?: ListNotificationsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/notifications?${stringifiedParams}` : `/api/notifications`
+}
+
+/**
+ * @summary List notifications for a driver or business user
+ */
+export const listNotifications = async (params?: ListNotificationsParams, options?: RequestInit): Promise<Notification[]> => {
+
+  return customFetch<Notification[]>(getListNotificationsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListNotificationsQueryKey = (params?: ListNotificationsParams,) => {
+    return [
+    `/api/notifications`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListNotificationsQueryOptions = <TData = Awaited<ReturnType<typeof listNotifications>>, TError = ErrorType<unknown>>(params?: ListNotificationsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listNotifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListNotificationsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listNotifications>>> = ({ signal }) => listNotifications(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listNotifications>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListNotificationsQueryResult = NonNullable<Awaited<ReturnType<typeof listNotifications>>>
+export type ListNotificationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List notifications for a driver or business user
+ */
+
+export function useListNotifications<TData = Awaited<ReturnType<typeof listNotifications>>, TError = ErrorType<unknown>>(
+ params?: ListNotificationsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listNotifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListNotificationsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetAdminAnalyticsUrl = () => {
 
