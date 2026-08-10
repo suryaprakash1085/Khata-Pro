@@ -15,7 +15,7 @@ import deliveriesRouter from "./deliveries";
 import expensesRouter from "./expenses";
 import salesOrdersRouter from "./sales-orders";
 import returnsRouter from './returns';
-
+import paymentsRouter from "./paymentsRoutes";
 const router: IRouter = Router();
 
 router.use(healthRouter);
@@ -34,5 +34,5 @@ router.use(deliveriesRouter);
 router.use(expensesRouter);
 router.use(salesOrdersRouter);
 router.use(returnsRouter);
-
+router.use(paymentsRouter);
 export default router;

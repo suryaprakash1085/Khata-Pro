@@ -1,66 +1,127 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const storeData = async (key: string, value: any): Promise<boolean> => {
+// export const storeData = async (key: string, value: any): Promise<boolean> => {
+//   try {
+//     const jsonValue = JSON.stringify(value);
+//     await AsyncStorage.setItem(key, jsonValue);
+//     return true;
+//   } catch (error) {
+//     console.error('Error storing data:', error);
+//     return false;
+//   }
+// };
+
+// export const getData = async (key: string): Promise<any> => {
+//   try {
+//     const jsonValue = await AsyncStorage.getItem(key);
+//     return jsonValue != null ? JSON.parse(jsonValue) : null;
+//   } catch (error) {
+//     console.error('Error getting data:', error);
+//     return null;
+//   }
+// };
+
+// export const removeData = async (key: string): Promise<boolean> => {
+//   try {
+//     await AsyncStorage.removeItem(key);
+//     return true;
+//   } catch (error) {
+//     console.error('Error removing data:', error);
+//     return false;
+//   }
+// };
+
+// export const clearAll = async (): Promise<boolean> => {
+//   try {
+//     await AsyncStorage.clear();
+//     return true;
+//   } catch (error) {
+//     console.error('Error clearing data:', error);
+//     return false;
+//   }
+// };
+
+// export const storeToken = async (token: string): Promise<boolean> => {
+//   return storeData('authToken', token);
+// };
+
+// export const getToken = async (): Promise<any> => {
+//   return getData('authToken');
+// };
+
+// export const removeToken = async (): Promise<boolean> => {
+//   return removeData('authToken');
+// };
+
+// export const storeUser = async (user: any): Promise<boolean> => {
+//   return storeData('userData', user);
+// };
+
+// export const getUser = async (): Promise<any> => {
+//   return getData('userData');
+// };
+
+// export const removeUser = async (): Promise<boolean> => {
+//   return removeData('userData');
+// };
+const TOKEN_KEY = 'auth_token';
+const USER_KEY = 'auth_user';
+
+// Token functions
+export const setToken = (token: string): void => {
   try {
-    const jsonValue = JSON.stringify(value);
-    await AsyncStorage.setItem(key, jsonValue);
-    return true;
+    localStorage.setItem(TOKEN_KEY, token);
   } catch (error) {
-    console.error('Error storing data:', error);
-    return false;
+    console.error('Error saving token:', error);
   }
 };
 
-export const getData = async (key: string): Promise<any> => {
+export const getToken = (): string | null => {
   try {
-    const jsonValue = await AsyncStorage.getItem(key);
-    return jsonValue != null ? JSON.parse(jsonValue) : null;
+    return localStorage.getItem(TOKEN_KEY);
   } catch (error) {
-    console.error('Error getting data:', error);
+    console.error('Error getting token:', error);
     return null;
   }
 };
 
-export const removeData = async (key: string): Promise<boolean> => {
+export const removeToken = (): void => {
   try {
-    await AsyncStorage.removeItem(key);
-    return true;
+    localStorage.removeItem(TOKEN_KEY);
   } catch (error) {
-    console.error('Error removing data:', error);
-    return false;
+    console.error('Error removing token:', error);
   }
 };
 
-export const clearAll = async (): Promise<boolean> => {
+// User functions
+export const setUser = (user: any): void => {
   try {
-    await AsyncStorage.clear();
-    return true;
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
   } catch (error) {
-    console.error('Error clearing data:', error);
-    return false;
+    console.error('Error saving user:', error);
   }
 };
 
-export const storeToken = async (token: string): Promise<boolean> => {
-  return storeData('authToken', token);
+export const getUser = (): any | null => {
+  try {
+    const userStr = localStorage.getItem(USER_KEY);
+    return userStr ? JSON.parse(userStr) : null;
+  } catch (error) {
+    console.error('Error getting user:', error);
+    return null;
+  }
 };
 
-export const getToken = async (): Promise<any> => {
-  return getData('authToken');
+export const removeUser = (): void => {
+  try {
+    localStorage.removeItem(USER_KEY);
+  } catch (error) {
+    console.error('Error removing user:', error);
+  }
 };
 
-export const removeToken = async (): Promise<boolean> => {
-  return removeData('authToken');
-};
-
-export const storeUser = async (user: any): Promise<boolean> => {
-  return storeData('userData', user);
-};
-
-export const getUser = async (): Promise<any> => {
-  return getData('userData');
-};
-
-export const removeUser = async (): Promise<boolean> => {
-  return removeData('userData');
+// Clear all auth data
+export const clearAuthData = (): void => {
+  removeToken();
+  removeUser();
 };

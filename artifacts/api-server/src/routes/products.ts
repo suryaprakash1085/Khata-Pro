@@ -8,7 +8,9 @@ import {
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
-
+router.get("/test", (req, res) => {
+  res.json({ message: "Products router loaded" });
+});
 function formatProduct(p: any) {
   return {
     id: Number(p.id),
@@ -29,6 +31,19 @@ function formatProduct(p: any) {
     created_at: p.createdAt,
   };
 }
+router.get("/public/products", async (req, res): Promise<void> => {
+  try {
+    const products = await db
+      .select()
+      .from(productsTable)
+      .where(eq(productsTable.isDeleted, false));
+
+    res.json(products.map(formatProduct));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to fetch products" });
+  }
+});
 
 // GET /products
 router.get("/products", requireAuth, async (req, res): Promise<void> => {

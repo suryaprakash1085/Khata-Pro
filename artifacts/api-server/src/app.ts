@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
+
 const app: Express = express();
 
 app.use(
@@ -28,7 +29,11 @@ app.use(
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.get("/hello", (req, res) => {
+  res.send("Hello Backend");
+});
 
+// app.use("/api", router);
+app.use("/", router);
 app.use("/api", router);
-
 export default app;
