@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // // // // // import React, { useState, useContext, useEffect } from 'react';
 // // // // // import {
 // // // // //   View,
@@ -5587,6 +5588,8 @@
 // });
 
 // export default AddressSelectionScreen;
+=======
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 import React, { useState, useContext, useEffect } from 'react';
 import {
   View,

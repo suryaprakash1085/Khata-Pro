@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // // // // // // // // import React, { useState, useEffect, useContext } from 'react';
 // // // // // // // // import {
 // // // // // // // //   View,
@@ -6971,6 +6972,9 @@
 //   useContext,
 // } from 'react';
 
+=======
+// import React, { useState, useEffect, useContext } from 'react';
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 // import {
 //   View,
 //   Text,
@@ -7000,6 +7004,7 @@
 // } from '../../types';
 
 // import { AuthContext } from '../../context/AuthContext';
+<<<<<<< HEAD
 // import { CartContext } from '../../context/CartContext';
 
 // import { businessAPI } from '../../api/endpoints';
@@ -7093,6 +7098,41 @@
 //       '🏪 USER OBJECT:',
 //       user
 //     );
+=======
+// import { businessAPI } from '../../api/endpoints';
+// import { Picker } from '@react-native-picker/picker'
+
+// const { width } = Dimensions.get('window');
+
+// export default function HomeScreen({ navigation }: any) {
+//   const [searchText, setSearchText] = useState<string>('');
+//   const [products, setProducts] = useState<any[]>([]);
+//   const { user } = useContext(AuthContext);
+//   const [businesses, setBusinesses] = useState<any[]>([]);
+//   const [selectedBusinessId, setSelectedBusinessId] = useState<number | null>(null);
+
+//   useEffect(() => {
+//     businessAPI.getBusinesses({})
+//       .then((res: any) => setBusinesses(res.data))
+//       .catch((err: any) => console.error('Failed to load businesses:', err));
+//   }, []);
+
+//   useEffect(() => {
+//     if (!selectedBusinessId) {
+//       setProducts([]);
+//       return;
+//     }
+//     axios.get(`${API_URL}/public/products`, { params: { business_id: selectedBusinessId } })
+//       .then((res) => setProducts(res.data))
+//       .catch((err) => console.error('Failed to load products:', err));
+//   }, [selectedBusinessId]);
+
+//   useEffect(() => {
+//     console.log('========================================');
+//     console.log('🏪 USER OBJECT:', user);
+//     console.log('🏪 BUSINESS NAME:', user?.business_name);
+//     console.log('========================================');
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 //   }, [user]);
 
 //   // =====================================================
@@ -7129,6 +7169,7 @@
 //     </View>
 //   );
 
+<<<<<<< HEAD
 //   // =====================================================
 //   // BUSINESS NAME
 //   // =====================================================
@@ -7251,6 +7292,28 @@
 //   // =====================================================
 //   // UI
 //   // =====================================================
+=======
+   
+//   useEffect(() => {
+//   businessAPI.getBusinesses({})
+//     .then((res: any) => setBusinesses(res.data))
+//     .catch((err: any) => console.error('Failed to load businesses:', err));
+// }, []);
+// useEffect(() => {
+//   if (!selectedBusinessId) {
+//     setProducts([]);
+//     return;
+//   }
+//   axios.get(`${API_URL}/public/products`, { params: { business_id: selectedBusinessId } })
+//     .then((res) => setProducts(res.data))
+//     .catch((err) => console.error('Failed to load products:', err));
+// }, [selectedBusinessId]);
+
+//   // ✅ Get business name from user
+//   const businessName = user?.business_name || 'No Business Found';
+//   const plan = user?.business_plan || 'FREE';
+//   const displayName = businessName.length > 20 ? businessName.substring(0, 20) + '...' : businessName;
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 
 //   return (
 //     <ScrollView
@@ -7262,6 +7325,7 @@
 //       {/* HEADER */}
 //       <View style={styles.header}>
 //         <View>
+<<<<<<< HEAD
 //           <Text
 //             style={
 //               styles.locationLabel
@@ -7317,6 +7381,21 @@
 //                     </Text>
 //                   </View>
 //                 )}
+=======
+//           <Text style={styles.locationLabel}>📍 Home</Text>
+//           <Text style={styles.location}>Sector 1, HSR Layout</Text>
+          
+//           {/* ✅ Business Card - Shows the latest business from database */}
+//           <View style={styles.businessCard}>
+//             <View style={styles.businessCardContent}>
+//               <Icon name="business-outline" size={16} color={colors.primary} />
+//               <Text style={styles.businessName}>{displayName}</Text>
+//               {user?.business_name && user.business_name !== 'No Business Found' && (
+//                 <View style={styles.businessBadge}>
+//                   <Text style={styles.businessBadgeText}>{plan}</Text>
+//                 </View>
+//               )}
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 //             </View>
 //           </View>
 //         </View>
@@ -7364,6 +7443,7 @@
 //         />
 //       </View>
 
+<<<<<<< HEAD
 //       {/* AVAILABLE STORES - Navigates to ProductList on press */}
 //       <View
 //         style={
@@ -7385,6 +7465,54 @@
 //           <Text style={styles.storeCount}>
 //             {businesses.length} stores
 //           </Text>
+=======
+//       {/* Offers Section */}
+//       {/* Offers Section */}
+//       {/* @ts-ignore */}
+//       <FlatList
+//         data={offers}
+//         renderItem={renderOffer}
+//         keyExtractor={(item) => item.id}
+//         horizontal
+//         showsHorizontalScrollIndicator={false}
+//         contentContainerStyle={styles.offersList}
+//         style={styles.offersSection}
+//       />
+
+//       {/* Quick Categories */}
+//       <View style={styles.categoriesSection}>
+//         <Text style={styles.sectionTitle}>What's on your mind?</Text>
+//          <Text style={styles.sectionTitle}>What's on your mind?</Text>
+//         {/* @ts-ignore */}
+//         <FlatList
+//           data={categories}
+//           renderItem={renderCategory}
+//           keyExtractor={(item) => item.id}
+//           horizontal
+//           showsHorizontalScrollIndicator={false}
+//           contentContainerStyle={styles.categoriesList}
+//         />
+//       </View>
+     
+//      <View style={styles.restaurantsSection}>
+//   <Text style={styles.sectionTitle}>Select a shop</Text>
+//   <View style={{ backgroundColor: colors.lightGray, borderRadius: 12 }}>
+//     <Picker
+//       selectedValue={selectedBusinessId}
+//       onValueChange={(value) => setSelectedBusinessId(value)}
+//     >
+//       <Picker.Item label="-- Choose a shop --" value={null} />
+//       {businesses.map((biz: any) => (
+//         <Picker.Item key={biz.id} label={biz.business_name} value={biz.id} />
+//       ))}
+//     </Picker>
+//   </View>
+// </View>
+//       {/* Products */}
+//       <View style={styles.restaurantsSection}>
+//         <View style={styles.sectionHeader}>
+//           <Text style={styles.sectionTitle}>Available Products</Text>
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 //         </View>
 
 //         {businesses.length === 0 ? (
@@ -7416,6 +7544,20 @@
 //           )
 //         )}
 //       </View>
+
+//       <View style={styles.restaurantsSection}>
+//   <Text style={styles.sectionTitle}>Stores near you</Text>
+//   {businesses.map((biz: any) => (
+//     <TouchableOpacity
+//       key={biz.id}
+//       style={styles.offerCard2}
+//       onPress={() => navigation.navigate('Search', { businessId: biz.id, businessName: biz.business_name })}
+//     >
+//       <Text style={styles.productName}>{biz.business_name}</Text>
+//       <Text style={styles.productCategory}>{biz.business_type}</Text>
+//     </TouchableOpacity>
+//   ))}
+// </View>
 //     </ScrollView>
 //   );
 // }
@@ -7671,12 +7813,16 @@
 //   },
 // });
 
+<<<<<<< HEAD
 import React, {
   useState,
   useEffect,
   useContext,
 } from 'react';
 
+=======
+import React, { useState, useEffect, useContext } from 'react';
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 import {
   View,
   Text,
@@ -7706,6 +7852,7 @@ import {
 } from '../../types';
 
 import { AuthContext } from '../../context/AuthContext';
+<<<<<<< HEAD
 import { CartContext } from '../../context/CartContext';
 
 import { businessAPI } from '../../api/endpoints';
@@ -7758,8 +7905,27 @@ export default function HomeScreen({
   // =====================================================
   // LOAD BUSINESSES
   // =====================================================
+=======
+import { businessAPI } from '../../api/endpoints';
+import { Picker } from '@react-native-picker/picker';
+import { SelectedBusinessContext } from '../../context/SelectedBusinessContext';
 
+
+const { width } = Dimensions.get('window');
+
+export default function HomeScreen({ navigation }: any) {
+  const [searchText, setSearchText] = useState<string>('');
+  const [products, setProducts] = useState<any[]>([]);
+  const { user } = useContext(AuthContext);
+  const [businesses, setBusinesses] = useState<any[]>([]);
+  const [selectedBusinessId, setSelectedBusinessId] = useState<number | null>(null);
+  const { setSelectedBusiness } = useContext(SelectedBusinessContext);
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
+
+
+  // Load all businesses once, on mount
   useEffect(() => {
+<<<<<<< HEAD
     businessAPI
       .getBusinesses({})
       .then((res: any) => {
@@ -7804,6 +7970,26 @@ export default function HomeScreen({
       '🏪 USER OBJECT:',
       user
     );
+=======
+    businessAPI.getBusinesses({})
+      .then((res: any) => setBusinesses(res.data))
+      .catch((err: any) => console.error('Failed to load businesses:', err));
+  }, []);
+
+  // Load products ONLY for the selected shop (single source of truth — no duplicate effect)
+  useEffect(() => {
+    if (!selectedBusinessId) {
+      setProducts([]);
+      return;
+    }
+    axios.get(`${API_URL}/public/products`, { params: { business_id: selectedBusinessId } })
+      .then((res) => setProducts(res.data))
+      .catch((err) => console.error('Failed to load products:', err));
+  }, [selectedBusinessId]);
+
+  useEffect(() => {
+    console.log('🏪 USER OBJECT:', user);
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
   }, [user]);
 
   // =====================================================
@@ -7858,6 +8044,7 @@ export default function HomeScreen({
     </View>
   );
 
+<<<<<<< HEAD
   // =====================================================
   // BUSINESS NAME
   // =====================================================
@@ -7980,6 +8167,12 @@ export default function HomeScreen({
   // =====================================================
   // UI
   // =====================================================
+=======
+  // Get business name from logged-in user (for the header card)
+  const businessName = user?.business_name || 'No Business Found';
+  const plan = user?.business_plan || 'FREE';
+  const displayName = businessName.length > 20 ? businessName.substring(0, 20) + '...' : businessName;
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 
   return (
     <ScrollView
@@ -7991,6 +8184,7 @@ export default function HomeScreen({
       {/* HEADER */}
       <View style={styles.header}>
         <View>
+<<<<<<< HEAD
           <Text
             style={
               styles.locationLabel
@@ -8046,6 +8240,20 @@ export default function HomeScreen({
                     </Text>
                   </View>
                 )}
+=======
+          <Text style={styles.locationLabel}>📍 Home</Text>
+          <Text style={styles.location}>Sector 1, HSR Layout</Text>
+
+          <View style={styles.businessCard}>
+            <View style={styles.businessCardContent}>
+              <Icon name="business-outline" size={16} color={colors.primary} />
+              <Text style={styles.businessName}>{displayName}</Text>
+              {user?.business_name && user.business_name !== 'No Business Found' && (
+                <View style={styles.businessBadge}>
+                  <Text style={styles.businessBadgeText}>{plan}</Text>
+                </View>
+              )}
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
             </View>
           </View>
         </View>
@@ -8065,6 +8273,7 @@ export default function HomeScreen({
         </TouchableOpacity>
       </View>
 
+<<<<<<< HEAD
       {/* SEARCH */}
       <View
         style={
@@ -8078,6 +8287,11 @@ export default function HomeScreen({
           style={styles.searchIcon}
         />
 
+=======
+      {/* Search Bar — general, cross-store search (bottom tab does the same) */}
+      <View style={styles.searchContainer}>
+        <Icon name="search" size={20} color={colors.gray} style={styles.searchIcon} />
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
         <TextInput
           style={styles.searchInput}
           placeholder="Search for restaurant, item or more"
@@ -8086,6 +8300,7 @@ export default function HomeScreen({
         />
       </View>
 
+<<<<<<< HEAD
       {/* AVAILABLE STORES - Navigates to ProductList on press */}
       <View
         style={
@@ -8107,6 +8322,54 @@ export default function HomeScreen({
           <Text style={styles.storeCount}>
             {filteredBusinesses.length} stores
           </Text>
+=======
+      {/* Offers Section */}
+      {/* @ts-ignore */}
+      <FlatList
+        data={offers}
+        renderItem={renderOffer}
+        keyExtractor={(item) => item.id}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.offersList}
+        style={styles.offersSection}
+      />
+
+      {/* Quick Categories */}
+      <View style={styles.categoriesSection}>
+        <Text style={styles.sectionTitle}>What's on your mind?</Text>
+        {/* @ts-ignore */}
+        <FlatList
+          data={categories}
+          renderItem={renderCategory}
+          keyExtractor={(item) => item.id}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoriesList}
+        />
+      </View>
+
+      {/* Shop selector */}
+      <View style={styles.restaurantsSection}>
+        <Text style={styles.sectionTitle}>Select a shop</Text>
+        <View style={{ backgroundColor: colors.lightGray, borderRadius: 12 }}>
+          <Picker
+            selectedValue={selectedBusinessId}
+            onValueChange={(value) => setSelectedBusinessId(value)}
+          >
+            <Picker.Item label="-- Choose a shop --" value={null} />
+            {businesses.map((biz: any) => (
+              <Picker.Item key={biz.id} label={biz.business_name} value={biz.id} />
+            ))}
+          </Picker>
+        </View>
+      </View>
+
+      {/* Products — filtered to selectedBusinessId only */}
+      <View style={styles.restaurantsSection}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Available Products</Text>
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
         </View>
 
         {filteredBusinesses.length === 0 ? (
@@ -8139,6 +8402,24 @@ export default function HomeScreen({
               })
           )
         )}
+      </View>
+
+      {/* Stores near you — tapping navigates to Search pre-filtered to that shop */}
+      <View style={styles.restaurantsSection}>
+        <Text style={styles.sectionTitle}>Stores near you</Text>
+        {businesses.map((biz: any) => (
+         <TouchableOpacity
+  key={biz.id}
+  style={styles.offerCard2}
+  onPress={() => {
+    setSelectedBusiness({ id: biz.id, name: biz.business_name });
+    navigation.navigate('Search', { businessId: biz.id, businessName: biz.business_name });
+  }}
+>
+            <Text style={styles.productName}>{biz.business_name}</Text>
+            <Text style={styles.productCategory}>{biz.business_type}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
     </ScrollView>
   );

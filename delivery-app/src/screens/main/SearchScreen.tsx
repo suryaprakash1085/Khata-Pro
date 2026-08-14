@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // // // // // import React, { useState, useEffect, useContext } from 'react';
 // // // // // import {
 // // // // //   View,
@@ -3520,6 +3521,8 @@
 // });
 
 // export default SearchScreen;
+=======
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
@@ -3539,7 +3542,11 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import axios from 'axios';
 import { API_URL } from '@env';
 import { SelectedBusinessContext } from '../../context/SelectedBusinessContext';
+<<<<<<< HEAD
 import { CartContext } from '../../context/CartContext';
+=======
+
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 
 interface Product {
   id: string;
@@ -3560,6 +3567,7 @@ interface Product {
 
 interface SearchScreenProps {
   navigation: any;
+<<<<<<< HEAD
   route: any;
 }
 
@@ -3567,6 +3575,13 @@ const SearchScreen: React.FC<SearchScreenProps> = ({
   navigation,
   route,
 }) => {
+=======
+  route: any; 
+}
+
+const SearchScreen: React.FC<SearchScreenProps> = ({ navigation, route }) => {
+  
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
   const [searchText, setSearchText] = useState<string>('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
@@ -3574,6 +3589,9 @@ const SearchScreen: React.FC<SearchScreenProps> = ({
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const { selectedBusiness } = useContext(SelectedBusinessContext);
+  const businessId = route?.params?.businessId ?? selectedBusiness?.id;
+  
 
   const { selectedBusiness } = useContext(SelectedBusinessContext);
 
@@ -3592,6 +3610,7 @@ const SearchScreen: React.FC<SearchScreenProps> = ({
     loadRecentSearches();
   }, [businessId]);
 
+<<<<<<< HEAD
   // =========================================================
   // LOAD PRODUCTS
   // =========================================================
@@ -3666,6 +3685,39 @@ const SearchScreen: React.FC<SearchScreenProps> = ({
   // RECENT SEARCHES
   // =========================================================
 
+=======
+  // const loadProducts = async () => {
+  //   try {
+  //     setLoading(true);
+  //     setError(null);
+  //     const response = await axios.get(`${API_URL}/public/products`);
+  //     const products = Array.isArray(response.data) ? response.data : response.data.data || [];
+  //     setAllProducts(products);
+  //   } catch (err) {
+  //     console.error('Failed to load products:', err);
+  //     setError('Failed to load products. Please try again.');
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  const loadProducts = async () => {
+  try {
+    setLoading(true);
+    setError(null);
+    const response = await axios.get(`${API_URL}/public/products`, {
+      params: businessId ? { business_id: businessId } : {},
+    });
+    const products = Array.isArray(response.data) ? response.data : response.data.data || [];
+    setAllProducts(products);
+  } catch (err) {
+    console.error('Failed to load products:', err);
+    setError('Failed to load products. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
   const loadRecentSearches = async () => {
     try {
       const saved = await AsyncStorage.getItem(

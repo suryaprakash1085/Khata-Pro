@@ -186,8 +186,13 @@
 //   res.json({ message: "Product deleted" });
 // });
 
+<<<<<<< HEAD
 
 // export default router;
+=======
+// export default router;
+
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 import { Router, type IRouter } from "express";
 import { db, productsTable } from "@workspace/db";
 import { 
@@ -237,14 +242,26 @@ function formatProduct(p: any) {
 // GET /public/products
 router.get("/public/products", async (req, res): Promise<void> => {
   try {
+<<<<<<< HEAD
     const businessId = req.query.business_id ? parseInt(req.query.business_id as string, 10) : undefined;
     const conditions: any[] = [eq(productsTable.isDeleted, false)];
     if (businessId) conditions.push(eq(productsTable.businessId, businessId));
+=======
+
+    const businessId = req.query.business_id ? parseInt(req.query.business_id as string, 10) : undefined;
+    const conditions: any[] = [eq(productsTable.isDeleted, false)];
+        if (businessId) conditions.push(eq(productsTable.businessId, businessId));
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 
     const products = await db
       .select()
       .from(productsTable)
+<<<<<<< HEAD
       .where(and(...conditions));
+=======
+      // .where(eq(productsTable.isDeleted, false));
+      .where(and(...conditions))
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 
     res.json(products.map(formatProduct));
   } catch (error) {
@@ -358,23 +375,62 @@ router.post("/products", requireAuth, async (req, res): Promise<void> => {
     return;
   }
   const d = parsed.data;
-  const [product] = await db.insert(productsTable).values({
-    businessId: d.business_id,
-    name: d.name,
-    barcode: d.barcode,
-    sku: d.sku,
-    category: d.category,
-    brand: d.brand,
-    unit: (d.unit ?? "pcs") as any,
-    hsnCode: d.hsn_code,
-    gstRate: (d.gst_rate ?? 0).toString(),
-    costPrice: (d.cost_price ?? 0).toString(),
-    sellingPrice: d.selling_price.toString(),
-    stockQty: d.stock_qty ?? 0,
-    lowStockAlert: d.low_stock_alert ?? 5,
-    image: d.image,
-  }).returning();
-  res.status(201).json(formatProduct(product));
+  try {
+    const [product] = await db.insert(productsTable).values({
+      businessId: d.business_id,
+      name: d.name,
+      barcode: d.barcode,
+      sku: d.sku,
+      category: d.category,
+      brand: d.brand,
+      unit: (d.unit ?? "pcs") as any,
+      hsnCode: d.hsn_code,
+      gstRate: (d.gst_rate ?? 0).toString(),
+      costPrice: (d.cost_price ?? 0).toString(),
+      sellingPrice: d.selling_price.toString(),
+      stockQty: d.stock_qty ?? 0,
+      lowStockAlert: d.low_stock_alert ?? 5,
+      image: d.image,
+    }).returning();
+    res.status(201).json(formatProduct(product));
+  } catch (err: any) {
+    // Postgres unique_violation — the products_business_barcode_unique
+    // index caught a duplicate barcode (e.g. a race between two devices).
+    if (err?.code === "23505") {
+      res.status(409).json({ error: "This barcode is already used by another product in this business." });
+      return;
+    }
+    console.error(err);
+    res.status(500).json({ error: "Failed to create product" });
+  }
+});
+
+// GET /products/check-barcode?business_id=&barcode=&exclude_product_id=
+// Must come before /products/:id to avoid route collision (":id" would
+// otherwise swallow "check-barcode" as the id param).
+router.get("/products/check-barcode", requireAuth, async (req, res): Promise<void> => {
+  const businessId = parseInt(req.query.business_id as string, 10);
+  const barcode = ((req.query.barcode as string) || "").trim();
+  const excludeId = req.query.exclude_product_id ? parseInt(req.query.exclude_product_id as string, 10) : undefined;
+
+  if (isNaN(businessId) || !barcode) {
+    res.status(400).json({ error: "business_id and barcode are required" });
+    return;
+  }
+
+  const [existing] = await db.select().from(productsTable).where(
+    and(
+      eq(productsTable.businessId, businessId),
+      eq(productsTable.barcode, barcode),
+      eq(productsTable.isDeleted, false),
+    ),
+  );
+
+  if (existing && (!excludeId || Number(existing.id) !== excludeId)) {
+    res.json({ available: false, product: formatProduct(existing) });
+    return;
+  }
+  res.json({ available: true });
 });
 
 // GET /products/barcode/:barcode
@@ -427,13 +483,22 @@ router.put("/products/:id", requireAuth, async (req, res): Promise<void> => {
   if (d.low_stock_alert !== undefined) updates.lowStockAlert = d.low_stock_alert;
   if (d.image !== undefined) updates.image = d.image;
 
-  const [product] = await db.update(productsTable).set(updates)
-    .where(and(eq(productsTable.id, id), eq(productsTable.isDeleted, false))).returning();
-  if (!product) {
-    res.status(404).json({ error: "Product not found" });
-    return;
+  try {
+    const [product] = await db.update(productsTable).set(updates)
+      .where(and(eq(productsTable.id, id), eq(productsTable.isDeleted, false))).returning();
+    if (!product) {
+      res.status(404).json({ error: "Product not found" });
+      return;
+    }
+    res.json(formatProduct(product));
+  } catch (err: any) {
+    if (err?.code === "23505") {
+      res.status(409).json({ error: "This barcode is already used by another product in this business." });
+      return;
+    }
+    console.error(err);
+    res.status(500).json({ error: "Failed to update product" });
   }
-  res.json(formatProduct(product));
 });
 
 // DELETE /products/:id

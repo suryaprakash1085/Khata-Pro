@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // // // import React, { useState, useContext } from 'react';
 // // // import {
 // // //   View,
@@ -2118,6 +2119,8 @@
 
 // // export default PaymentScreen;
 
+=======
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 // import React, { useState, useContext } from 'react';
 
 // import {
@@ -2217,6 +2220,7 @@
 //               color="#28a745"
 //             />
 //           </View>
+<<<<<<< HEAD
 
 //           {/* TITLE */}
 
@@ -2229,6 +2233,10 @@
 //           </Text>
 
 //           {/* DETAILS */}
+=======
+//           <Text style={styles.successTitle}>Payment Successful! 🎉</Text>
+//           <Text style={styles.successSubtitle}>Your order has been placed successfully</Text>
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 
 //           <View style={styles.successDetails}>
 
@@ -2298,8 +2306,11 @@
 //             </Text>
 //           </TouchableOpacity>
 
+<<<<<<< HEAD
 //           {/* CONTINUE SHOPPING */}
 
+=======
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 //           <TouchableOpacity
 //             style={styles.successButtonSecondary}
 //             onPress={onContinueShopping}
@@ -2323,6 +2334,7 @@
 // // PAYMENT SCREEN
 // // ============================================================
 
+<<<<<<< HEAD
 // const PaymentScreen: React.FC<PaymentScreenProps> = ({
 //   navigation,
 //   route,
@@ -2381,6 +2393,14 @@
 //   // ==========================================================
 //   // PAYMENT METHODS
 //   // ==========================================================
+=======
+//   const [selectedMethod, setSelectedMethod] = useState<string>('razorpay');
+//   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+
+//   // ✅ State for Success Modal
+//   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
+//   const [orderDetails, setOrderDetails] = useState<any>(null);
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 
 //   const paymentMethods = [
 //     {
@@ -2418,6 +2438,7 @@
 //     );
 //   };
 
+<<<<<<< HEAD
 //   // ==========================================================
 //   // RECORD TRANSACTION
 //   // ==========================================================
@@ -2437,10 +2458,22 @@
 //         '⚠️ Missing business_id or user id — skipped transaction record'
 //       );
 
+=======
+//   // ✅ NEW: Record this order in the transactions ledger table.
+//   // paymentMethod: 'Razorpay' -> paid now -> "you_got" (money received)
+//   // paymentMethod: 'Cash on Delivery' -> payment pending -> "you_gave" (credit owed)
+//   // 🔴 TODO: open Supabase → transactions table → click the 'type' and
+//   // 'payment_mode' column headers to confirm these exact string values are
+//   // valid options in your enums. Update the two lines below if they differ.
+//   const recordTransaction = async (orderId: string, paymentMethod: 'Razorpay' | 'Cash on Delivery') => {
+//     if (!user?.business_id || !user?.id) {
+//       console.log('⚠️ Missing business_id or user id — skipped transaction record');
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 //       return;
 //     }
 
 //     const itemDescription =
+<<<<<<< HEAD
 //       cartItems
 //         ?.map(
 //           (item: any) =>
@@ -2497,11 +2530,33 @@
 
 //           is_deleted:
 //             false,
+=======
+//       cartItems?.map((item: any) => `${item.name} x${item.quantity}`).join(', ') || 'Order';
+
+//     const paymentMode = paymentMethod === 'Razorpay' ? 'online' : 'cash';
+//     const transactionType = paymentMethod === 'Razorpay' ? 'you_got' : 'you_gave';
+
+//     const { data, error } = await supabase
+//       .from('transactions')
+//       .insert([
+//         {
+//           business_id: user.business_id,
+//           customer_id: user.id,
+//           type: transactionType,
+//           amount: totalAmount,
+//           balance_after: totalAmount, // 🔴 TODO: replace with a real running balance if you track one
+//           description: `${itemDescription} (Order ${orderId})`,
+//           payment_mode: paymentMode,
+//           entry_date: new Date().toISOString().split('T')[0],
+//           created_by: user.id,
+//           is_deleted: false,
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 //         },
 //       ])
 //       .select();
 
 //     if (error) {
+<<<<<<< HEAD
 //       console.error(
 //         '❌ Failed to record transaction:',
 //         error
@@ -2720,6 +2775,17 @@
 //   // PAY BUTTON
 //   // ==========================================================
 
+=======
+//       console.error('❌ Failed to record transaction:', error);
+//     } else if (!data || data.length === 0) {
+//       console.warn('⚠️ Transaction insert returned no row — check business_id/customer_id validity');
+//     } else {
+//       console.log('✅ Transaction recorded:', data);
+//     }
+//   };
+
+//   // ✅ Handle Pay Button Click
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 //   const handlePayNow = () => {
 
 //     if (
@@ -3001,6 +3067,7 @@
 //   // RAZORPAY SUCCESS
 //   // ==========================================================
 
+<<<<<<< HEAD
 //   const handlePaymentSuccess =
 //     async (data: any) => {
 
@@ -3265,6 +3332,284 @@
 //         'Orders'
 //       );
 //     };
+=======
+//   // ✅ Handle Payment Success (Razorpay) - Saves to Supabase
+// //   const handlePaymentSuccess = async (data: any) => {
+// //     setIsProcessing(false);
+
+// //     const orderId = generateUniqueOrderId();
+
+// //     const newOrder = {
+// //       id: orderId,
+// //       restaurantName: restaurantName || 'QuickBite',
+// //       items: cartItems?.map((item: any) => ({
+// //         name: item.name,
+// //         quantity: item.quantity,
+// //         price: item.price,
+// //       })) || [],
+// //       total: totalAmount || 0,
+// //       status: 'Placed' as const,
+// //       createdAt: new Date().toISOString(),
+// //     };
+
+// //     addOrder(newOrder);
+// //     clearCart();
+
+// //     // ✅ Save order to Supabase
+// //     if (user?.id && address) {
+// //       const fullAddress = `${address.address}, ${address.city}, ${address.state || ''} - ${address.pincode}`;
+
+// //       supabase
+// //         .from('orders')
+// //         .insert([
+// //           {
+// //             customer_id: user.id,
+// //             order_id: orderId,
+// //             restaurant_name: restaurantName,
+// //             items: newOrder.items,
+// //             total: totalAmount,
+// //             status: 'Placed',
+// //             delivery_address: fullAddress,
+// //             payment_method: 'Razorpay',
+// //             payment_status: 'Paid',
+// //             created_at: new Date().toISOString(),
+// //           },
+// //         ])
+// //         .then(({ data, error }) => {
+// //           if (error) {
+// //             console.error('❌ Failed to save order to Supabase:', error);
+// //           } else {
+// //             console.log('✅ Order saved to Supabase:', data);
+// //           }
+// //         });
+// //     }
+
+// //     // ✅ NEW: record this sale in the transactions ledger too
+// //     await recordTransaction(orderId, 'Razorpay');
+
+// //     setOrderDetails({
+// //       orderId: orderId,
+// //       total: totalAmount,
+// //       items: cartItems,
+// //       paymentMethod: 'Razorpay',
+// //       paymentStatus: 'Paid',
+// //     });
+// //     setShowSuccessModal(true);
+// //   };
+
+// //   // ✅ Handle Cash on Delivery - Shows Green Success Page
+// //   const handleCashOnDelivery = async () => {
+// //     setIsProcessing(true);
+
+// //     const orderId = generateUniqueOrderId();
+
+// //     const newOrder = {
+// //       id: orderId,
+// //       restaurantName: restaurantName || 'QuickBite',
+// //       items: cartItems?.map((item: any) => ({
+// //         name: item.name,
+// //         quantity: item.quantity,
+// //         price: item.price,
+// //       })) || [],
+// //       total: totalAmount || 0,
+// //       status: 'Placed' as const,
+// //       createdAt: new Date().toISOString(),
+// //     };
+
+// //     addOrder(newOrder);
+// //     clearCart();
+
+// //     // ✅ Save order to Supabase
+// //     if (user?.id && address) {
+// //       const fullAddress = `${address.address}, ${address.city}, ${address.state || ''} - ${address.pincode}`;
+
+// //       supabase
+// //         .from('orders')
+// //         .insert([
+// //           {
+// //             customer_id: user.id,
+// //             order_id: orderId,
+// //             restaurant_name: restaurantName,
+// //             items: newOrder.items,
+// //             total: totalAmount,
+// //             status: 'Placed',
+// //             delivery_address: fullAddress,
+// //             payment_method: 'Cash on Delivery',
+// //             payment_status: 'Pending',
+// //             created_at: new Date().toISOString(),
+// //           },
+// //         ])
+// //         .then(({ data, error }) => {
+// //           if (error) {
+// //             console.error('❌ Failed to save order to Supabase:', error);
+// //           } else {
+// //             console.log('✅ Order saved to Supabase:', data);
+// //           }
+// //         });
+// //     }
+
+// //     // ✅ NEW: record this sale in the transactions ledger too
+// //     await recordTransaction(orderId, 'Cash on Delivery');
+
+// //     setIsProcessing(false);
+
+// //     setOrderDetails({
+// //       orderId: orderId,
+// //       total: totalAmount,
+// //       items: cartItems,
+// //       paymentMethod: 'Cash on Delivery',
+// //       paymentStatus: 'Confirmed',
+// //     });
+// //     setShowSuccessModal(true);
+// //   };
+// // ✅ Handle Payment Success (Razorpay)
+// const handlePaymentSuccess = async (data: any) => {
+//   setIsProcessing(false);
+
+//   const orderId = generateUniqueOrderId();
+
+//   const newOrder = {
+//     id: orderId,
+//     restaurantName: restaurantName || 'QuickBite',
+//     items: cartItems?.map((item: any) => ({
+//       name: item.name,
+//       quantity: item.quantity,
+//       price: item.price,
+//     })) || [],
+//     total: totalAmount || 0,
+//     status: 'Placed' as const,
+//     createdAt: new Date().toISOString(),
+//   };
+
+//   addOrder(newOrder);
+//   clearCart();
+
+//   // ✅ Save to deliveries table
+//   if (user?.id && address) {
+//     const fullAddress = `${address.address}, ${address.city}, ${address.state || ''} - ${address.pincode}`;
+
+//     const { data: deliveryData, error: deliveryError } = await supabase
+//       .from('deliveries')
+//       .insert([
+//         {
+//           business_id: user.business_id || 1,
+//           customer_id: user.id,
+//           customer_name: user.name || 'Customer',
+//           customer_email: user.email || null,
+//           customer_phone: user.phone || '',
+//           customer_address: fullAddress,
+//           order_id: orderId,
+//           product_description: newOrder.items.map((item: any) => 
+//             `${item.name} x${item.quantity}`
+//           ).join(', '),
+//           amount: totalAmount,
+//           payment_mode: 'Online',
+//           transaction_type: 'you_got',
+//           status: 'Pending',
+//           created_at: new Date().toISOString(),
+//           updated_at: new Date().toISOString()
+//         },
+//       ])
+//       .select();
+
+//     if (deliveryError) {
+//       console.error('❌ Failed to save delivery:', deliveryError);
+//     } else {
+//       console.log('✅ Delivery saved:', deliveryData);
+//     }
+//   }
+
+//   // Record transaction
+//   await recordTransaction(orderId, 'Razorpay');
+
+//   setOrderDetails({
+//     orderId: orderId,
+//     total: totalAmount,
+//     items: cartItems,
+//     paymentMethod: 'Razorpay',
+//     paymentStatus: 'Paid',
+//   });
+//   setShowSuccessModal(true);
+// };
+
+// // ✅ Handle Cash on Delivery
+// const handleCashOnDelivery = async () => {
+//   setIsProcessing(true);
+
+//   const orderId = generateUniqueOrderId();
+
+//   const newOrder = {
+//     id: orderId,
+//     restaurantName: restaurantName || 'QuickBite',
+//     items: cartItems?.map((item: any) => ({
+//       name: item.name,
+//       quantity: item.quantity,
+//       price: item.price,
+//     })) || [],
+//     total: totalAmount || 0,
+//     status: 'Placed' as const,
+//     createdAt: new Date().toISOString(),
+//   };
+
+//   addOrder(newOrder);
+//   clearCart();
+
+//   // ✅ Save to deliveries table
+//   if (user?.id && address) {
+//     const fullAddress = `${address.address}, ${address.city}, ${address.state || ''} - ${address.pincode}`;
+
+//     const { data: deliveryData, error: deliveryError } = await supabase
+//       .from('deliveries')
+//       .insert([
+//         {
+//           business_id: user.business_id || 1,
+//           customer_id: user.id,
+//           customer_name: user.name || 'Customer',
+//           customer_email: user.email || null,
+//           customer_phone: user.phone || '',
+//           customer_address: fullAddress,
+//           order_id: orderId,
+//           product_description: newOrder.items.map((item: any) => 
+//             `${item.name} x${item.quantity}`
+//           ).join(', '),
+//           amount: totalAmount,
+//           payment_mode: 'Cash on Delivery',
+//           transaction_type: 'you_gave',
+//           status: 'Pending',
+//           created_at: new Date().toISOString(),
+//           updated_at: new Date().toISOString()
+//         },
+//       ])
+//       .select();
+
+//     if (deliveryError) {
+//       console.error('❌ Failed to save delivery:', deliveryError);
+//     } else {
+//       console.log('✅ Delivery saved:', deliveryData);
+//     }
+//   }
+
+//   // Record transaction
+//   await recordTransaction(orderId, 'Cash on Delivery');
+
+//   setIsProcessing(false);
+
+//   setOrderDetails({
+//     orderId: orderId,
+//     total: totalAmount,
+//     items: cartItems,
+//     paymentMethod: 'Cash on Delivery',
+//     paymentStatus: 'Confirmed',
+//   });
+//   setShowSuccessModal(true);
+// };
+//   // ✅ Handle Success Modal - View Orders
+//   const handleViewOrders = () => {
+//     setShowSuccessModal(false);
+//     setOrderDetails(null);
+//     navigation.navigate('Orders');
+//   };
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 
 //   // ==========================================================
 //   // CONTINUE SHOPPING
@@ -4407,6 +4752,7 @@ import { OrderContext } from '../../context/OrderContext';
 import { AuthContext } from '../../context/AuthContext';
 
 import { supabase } from '../../services/supabaseClient';
+import { useCreatePublicSalesOrder } from '@workspace/api-client-react'; // ← NEW: real backend order creation
 
 import {
   useCreatePublicSalesOrder,
@@ -4432,10 +4778,15 @@ interface PaymentScreenProps {
   route: any;
 }
 
+<<<<<<< HEAD
 // ============================================================
 // GENERATE LOCAL ORDER ID
 // ============================================================
 
+=======
+// ✅ Generate unique order ID (used only for local/UI display; the real
+// order id of record is the sales_order.id returned by the backend)
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 const generateUniqueOrderId = () => {
   const timestamp =
     Date.now().toString(36).toUpperCase();
@@ -4589,10 +4940,18 @@ const PaymentSuccessModal = ({
 // PAYMENT SCREEN
 // ============================================================
 
+<<<<<<< HEAD
 const PaymentScreen: React.FC<PaymentScreenProps> = ({
   navigation,
   route,
 }) => {
+=======
+
+  const createSalesOrder = useCreatePublicSalesOrder();
+
+  const [selectedMethod, setSelectedMethod] = useState<string>('razorpay');
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 
   // ==========================================================
   // ROUTE PARAMS - UPDATED to receive deliveryFee and tax
@@ -4684,6 +5043,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
     );
   };
 
+<<<<<<< HEAD
   // ==========================================================
   // RECORD TRANSACTION
   // ==========================================================
@@ -4703,6 +5063,17 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
         '⚠️ Missing business_id or user id — skipped transaction record'
       );
 
+=======
+  // ✅ Record this order in the transactions ledger table.
+  // paymentMethod: 'Razorpay' -> paid now -> "you_got" (money received)
+  // paymentMethod: 'Cash on Delivery' -> payment pending -> "you_gave" (credit owed)
+  // 🔴 TODO: open Supabase → transactions table → click the 'type' and
+  // 'payment_mode' column headers to confirm these exact string values are
+  // valid options in your enums. Update the two lines below if they differ.
+  const recordTransaction = async (orderId: string, paymentMethod: 'Razorpay' | 'Cash on Delivery') => {
+    if (!user?.business_id || !user?.id) {
+      console.log('⚠️ Missing business_id or user id — skipped transaction record');
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
       return;
     }
 
@@ -4787,6 +5158,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
     }
   };
 
+<<<<<<< HEAD
   // ==========================================================
   // CREATE SALES ORDER
   // ==========================================================
@@ -4978,14 +5350,49 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
       '✅ Sales order created:',
       salesOrder
     );
+=======
+  // ← NEW: single shared helper — creates the sales order on the real
+  // backend (api-server). The backend automatically creates the matching
+  // `deliveries` row in the same request (see POST /sales-orders route),
+  // so no separate Supabase insert into `deliveries` is needed anymore.
+  const placeOrderOnBackend = async () => {
+    if (!user?.business_id || !user?.id || !address) {
+      throw new Error('Missing business, customer, or address details.');
+    }
+    if (!cartItems || cartItems.length === 0) {
+      throw new Error('Cart is empty.');
+    }
+
+    const fullAddress = `${address.address}, ${address.city}, ${address.state || ''} - ${address.pincode}`;
+
+    const salesOrder = await createSalesOrder.mutateAsync({
+      data: {
+        business_id: user.business_id,
+        customer_id: user.id,
+        channel: 'online',
+        shipping_address: fullAddress,
+        description: cartItems.map((it: any) => `${it.name} x${it.quantity}`).join(', ') || 'Order',
+        tax: 0,
+        items: cartItems.map((it: any) => ({
+          product_id: it.id,
+          qty: it.quantity,
+          unit_price: it.price,
+        })),
+      },
+    });
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 
     return salesOrder;
   };
 
+<<<<<<< HEAD
   // ==========================================================
   // PAY BUTTON
   // ==========================================================
 
+=======
+  // ✅ Handle Pay Button Click
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
   const handlePayNow = () => {
 
     if (
@@ -5178,6 +5585,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
   // WEB RAZORPAY
   // ==========================================================
 
+<<<<<<< HEAD
   const openRazorpayWeb =
     () => {
 
@@ -5243,6 +5651,99 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
               );
             },
         },
+=======
+  // ✅ Handle Payment Success (Razorpay) — now creates the order on the
+  // real backend instead of writing directly into Supabase `deliveries`.
+  const handlePaymentSuccess = async (data: any) => {
+    const localOrderId = generateUniqueOrderId();
+
+    try {
+      const salesOrder = await placeOrderOnBackend();
+
+      addOrder({
+        id: localOrderId,
+        restaurantName: restaurantName || 'QuickBite',
+        items:
+          cartItems?.map((item: any) => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+          })) || [],
+        total: totalAmount || 0,
+        status: 'Placed',
+        createdAt: new Date().toISOString(),
+      });
+      clearCart();
+
+      // Record this sale in the transactions ledger too
+      await recordTransaction(localOrderId, 'Razorpay');
+
+      setIsProcessing(false);
+      setOrderDetails({
+        orderId: `ORD-MS${salesOrder.id}`,
+        total: totalAmount,
+        items: cartItems,
+        paymentMethod: 'Razorpay',
+        paymentStatus: 'Paid',
+      });
+      setShowSuccessModal(true);
+    } catch (err: any) {
+      console.error('❌ Failed to create sales order:', err);
+      setIsProcessing(false);
+      Alert.alert('Order Failed', err?.message || 'Could not place your order. Please try again.');
+    }
+  };
+
+  // ✅ Handle Cash on Delivery — now creates the order on the real backend
+  // instead of writing directly into Supabase `deliveries`.
+  const handleCashOnDelivery = async () => {
+    setIsProcessing(true);
+    const localOrderId = generateUniqueOrderId();
+
+    try {
+      const salesOrder = await placeOrderOnBackend();
+
+      addOrder({
+        id: localOrderId,
+        restaurantName: restaurantName || 'QuickBite',
+        items:
+          cartItems?.map((item: any) => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+          })) || [],
+        total: totalAmount || 0,
+        status: 'Placed',
+        createdAt: new Date().toISOString(),
+      });
+      clearCart();
+
+      // Record this sale in the transactions ledger too
+      await recordTransaction(localOrderId, 'Cash on Delivery');
+
+      setOrderDetails({
+        orderId: `ORD-MS${salesOrder.id}`,
+        total: totalAmount,
+        items: cartItems,
+        paymentMethod: 'Cash on Delivery',
+        paymentStatus: 'Confirmed',
+      });
+      setShowSuccessModal(true);
+    } catch (err: any) {
+      console.error('❌ Failed to create sales order:', err);
+      Alert.alert('Order Failed', err?.message || 'Could not place your order. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // ✅ Handle Success Modal - View Orders
+  const handleViewOrders = () => {
+    setShowSuccessModal(false);
+    setOrderDetails(null);
+    navigation.navigate('Orders');
+  };
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 
         handler:
           function (

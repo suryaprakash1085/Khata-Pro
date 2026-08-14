@@ -18,6 +18,8 @@ tags:
     description: Customer ledger management
   - name: products
     description: Product and inventory management
+  - name: promotions
+    description: Promotions (Buy 1 Get 1 Free, percentage discounts)
   - name: vendors
     description: Vendor and supplier management
   - name: purchases
@@ -567,7 +569,166 @@ paths:
                 $ref: "#/components/schemas/Product"
         "404":
           description: Not found
+  
+  # ─── PROMOTIONS ──────────────────────────────────────────────────────────────
 
+  /promotions:
+    get:
+      operationId: listPromotions
+      tags: [promotions]
+      summary: List promotions for a business
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of promotions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromotionListResponse"
+    post:
+      operationId: createPromotion
+      tags: [promotions]
+      summary: Create a promotion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PromotionInput"
+      responses:
+        "201":
+          description: Promotion created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Promotion"
+
+  /promotions/active:
+    get:
+      operationId: listActivePromotions
+      tags: [promotions]
+      summary: Get currently-active (date + status valid) promotions for a business — used by Billing
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Active promotions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Promotion"
+
+  /promotions/{id}:
+    get:
+      operationId: getPromotion
+      tags: [promotions]
+      summary: Get promotion by ID, including selected products
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Promotion detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Promotion"
+        "404":
+          description: Not found
+    put:
+      operationId: updatePromotion
+      tags: [promotions]
+      summary: Update a promotion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PromotionUpdate"
+      responses:
+        "200":
+          description: Updated promotion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Promotion"
+    delete:
+      operationId: deletePromotion
+      tags: [promotions]
+      summary: Delete a promotion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /promotions/{id}/status:
+    put:
+      operationId: updatePromotionStatus
+      tags: [promotions]
+      summary: Enable or disable a promotion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PromotionStatusUpdate"
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Promotion"
   # ─── VENDORS ─────────────────────────────────────────────────────────────────
 
   /vendors:
@@ -2529,7 +2690,123 @@ components:
           type: integer
         limit:
           type: integer
+    # ── Promotion ─────────────────────────────────────────────────────────────
 
+    Promotion:
+      type: object
+      required: [id, business_id, name, promotion_type, apply_to, start_date, end_date, status, created_at]
+      properties:
+        id:
+          type: integer
+        business_id:
+          type: integer
+        name:
+          type: string
+        promotion_type:
+          type: string
+          enum: [bogo, percentage]
+        apply_to:
+          type: string
+          enum: [all, selected]
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [active, inactive]
+        discount_percentage:
+          type: ["number", "null"]
+        product_ids:
+          type: array
+          items:
+            type: integer
+        product_names:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+
+    PromotionInput:
+      type: object
+      required: [business_id, name, promotion_type, apply_to, start_date, end_date]
+      properties:
+        business_id:
+          type: integer
+        name:
+          type: string
+        promotion_type:
+          type: string
+          enum: [bogo, percentage]
+        apply_to:
+          type: string
+          enum: [all, selected]
+          default: selected
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [active, inactive]
+          default: active
+        discount_percentage:
+          type: number
+        product_ids:
+          type: array
+          items:
+            type: integer
+
+    PromotionUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        apply_to:
+          type: string
+          enum: [all, selected]
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [active, inactive]
+        product_ids:
+          type: array
+          items:
+            type: integer
+
+    PromotionStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [active, inactive]
+
+    PromotionListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Promotion"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
     # ── Vendor ────────────────────────────────────────────────────────────────
 
     Vendor:

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ﻿// // import React, { createContext, useState, ReactNode, useEffect } from 'react';
 // // import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -683,6 +684,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // TODO: replace with your api-server's actual base URL
 const API_BASE_URL = 'http://localhost:3000';
+=======
+﻿import React, { createContext, useState, ReactNode, useEffect } from 'react';
+
+// TODO: replace with your api-server's actual base URL
+const API_BASE_URL = 'http://localhost:3000';
+
+// TODO: confirm this against: select id, name from businesses where name ilike '%green cart%';
+const GREEN_CART_BUSINESS_ID = 8;
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 
 interface User {
   id: number;
@@ -700,8 +710,13 @@ interface AuthContextType {
   loading: boolean;
   signup: (data: { name: string; email: string; phone: string; password: string }) => Promise<{ success: boolean; message: string; user?: User }>;
   login: (phone: string, password: string) => Promise<{ success: boolean; message: string; user?: User }>;
+<<<<<<< HEAD
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<boolean>;
+=======
+  logout: () => void;
+  updateUser: (userData: User) => Promise<boolean>;
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
   checkAuth: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -721,6 +736,7 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+<<<<<<< HEAD
 // Token management
 let authToken: string | null = null;
 
@@ -756,6 +772,12 @@ async function apiRequestWithAuth(path: string, body: any, method: string = 'POS
 
 // API request without auth (for login/signup)
 async function apiRequestWithoutAuth(path: string, body: any) {
+=======
+// Simple in-memory token holder — swap for AsyncStorage persistence below
+let authToken: string | null = null;
+
+async function apiRequest(path: string, body: any) {
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -768,6 +790,7 @@ async function apiRequestWithoutAuth(path: string, body: any) {
   return json;
 }
 
+<<<<<<< HEAD
 // Fetch whichever business was most recently registered — no hardcoding.
 // Uses the public, unauthenticated /public/businesses endpoint which is
 // already ordered by createdAt desc, so data[0] is always the latest one.
@@ -780,6 +803,8 @@ async function getCurrentBusinessId(): Promise<number> {
   return json.data[0].id;
 }
 
+=======
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -791,6 +816,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const checkAuth = async () => {
     try {
       setLoading(true);
+<<<<<<< HEAD
 
       const token = await AsyncStorage.getItem('authToken');
       const userData = await AsyncStorage.getItem('userData');
@@ -799,6 +825,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         authToken = token;
         setUser(JSON.parse(userData));
       }
+=======
+      // TODO: load persisted token from AsyncStorage here and call /customer-auth/me
+      // to restore session on app start
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
     } catch (error) {
       console.error('Check auth error:', error);
     } finally {
@@ -814,28 +844,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return { success: false, message: 'Password must be at least 6 characters' };
       }
 
+<<<<<<< HEAD
       const businessId = await getCurrentBusinessId(); // 👈 dynamic, no hardcoding
       console.log('🏪 SIGNUP - using business ID:', businessId);
 
       const result = await apiRequestWithoutAuth('/customer-auth/signup', {
         businessId,
+=======
+      const result = await apiRequest('/customer-auth/signup', {
+        businessId: GREEN_CART_BUSINESS_ID,
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
         name: data.name,
         phone: data.phone,
         email: data.email,
         password: data.password,
       });
 
+<<<<<<< HEAD
       console.log('🔑 SIGNUP RESULT:', JSON.stringify(result)); // 👈 debug log
 
       authToken = result.token;
       await AsyncStorage.setItem('authToken', result.token);
 
+=======
+      authToken = result.token;
+      // TODO: persist authToken to AsyncStorage here
+
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
       const userWithBusiness: User = {
         id: result.customer.id,
         name: result.customer.name,
         phone: result.customer.phone,
         email: result.customer.email,
         business_id: result.customer.business_id,
+<<<<<<< HEAD
         business_name: result.customer.business_name || 'Unknown Store',
         business_plan: result.customer.business_plan || 'FREE',
       };
@@ -845,6 +887,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(userWithBusiness);
       await AsyncStorage.setItem('userData', JSON.stringify(userWithBusiness));
 
+=======
+        business_name: 'The Green Cart',
+        business_plan: 'FREE',
+      };
+
+      setUser(userWithBusiness);
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
       return { success: true, message: 'Account created successfully!', user: userWithBusiness };
 
     } catch (error: any) {
@@ -859,11 +908,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true);
 
+<<<<<<< HEAD
       const result = await apiRequestWithoutAuth('/customer-auth/login', { phone, password });
       console.log('🔑 LOGIN RESULT:', JSON.stringify(result)); // 👈 debug log
 
       authToken = result.token;
       await AsyncStorage.setItem('authToken', result.token);
+=======
+      const result = await apiRequest('/customer-auth/login', { phone, password });
+
+      authToken = result.token;
+      // TODO: persist authToken to AsyncStorage here
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 
       const userWithBusiness: User = {
         id: result.customer.id,
@@ -871,6 +927,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         phone: result.customer.phone,
         email: result.customer.email,
         business_id: result.customer.business_id,
+<<<<<<< HEAD
         business_name: result.customer.business_name || 'Unknown Store',
         business_plan: result.customer.business_plan || 'FREE',
       };
@@ -882,6 +939,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       return { success: true, message: 'Logged in successfully!', user: userWithBusiness };
 
+=======
+        business_name: 'The Green Cart',
+        business_plan: 'FREE',
+      };
+
+      setUser(userWithBusiness);
+      return { success: true, message: 'Logged in successfully!', user: userWithBusiness };
+
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
     } catch (error: any) {
       console.error('Login error:', error);
       return { success: false, message: error.message || 'Login failed' };
@@ -891,6 +957,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const refreshUser = async () => {
+<<<<<<< HEAD
     // Nothing to refresh from a "latest business" lookup here —
     // the business tied to this customer is fixed at signup time.
   };
@@ -899,6 +966,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     authToken = null;
     await AsyncStorage.removeItem('authToken');
     await AsyncStorage.removeItem('userData');
+=======
+    // Business is fixed (Green Cart) for now — nothing to refresh from a "latest business" lookup anymore
+  };
+
+  const logout = () => {
+    authToken = null;
+    // TODO: clear AsyncStorage token here
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
     setUser(null);
   };
 

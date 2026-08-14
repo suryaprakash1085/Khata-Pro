@@ -17,6 +17,10 @@ import salesOrdersRouter from "./sales-orders";
 import returnsRouter from './returns';
 import paymentsRouter from "./paymentsRoutes";
 import customerAuthRouter from "./customer-auth";
+<<<<<<< HEAD
+=======
+import promotionsRouter from "./promotions";
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 
 import app from "../app";
 
@@ -40,5 +44,9 @@ router.use(salesOrdersRouter);
 router.use(returnsRouter);
 router.use(paymentsRouter);
 router.use(customerAuthRouter);
+<<<<<<< HEAD
+=======
+router.use(promotionsRouter);
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 
 export default router;

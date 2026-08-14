@@ -1507,9 +1507,12 @@ import OrderTrackingScreen from '../screens/order/OrderTrackingScreen';
 import OrderSuccessScreen from '../screens/order/OrderSuccessScreen';
 import AddressSelectionScreen from '../screens/checkout/AddressSelectionScreen';
 import PaymentScreen from '../screens/checkout/PaymentScreen';
+<<<<<<< HEAD
 import ProductListScreen from '../screens/main/ProductListScreen';
 import OrdersSummary from '../screens/main/OrdersSummary';
 import EditProfileScreen from '../screens/main/EditProfileScreen';
+=======
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -1554,6 +1557,7 @@ const HomeTabs = () => {
         tabBarIcon: ({ focused, color, size }: { focused: boolean; color: string; size: number }) => {
           let iconName: string = '';
 
+<<<<<<< HEAD
           // if (route.name === 'Home') {
           //   iconName = focused ? 'home' : 'home-outline';
           // } else if (route.name === 'Search') {
@@ -1564,6 +1568,9 @@ const HomeTabs = () => {
           //   iconName = focused ? 'person' : 'person-outline';
           // }
    if (route.name === 'Home') {
+=======
+          if (route.name === 'Home') {
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Cart') {
             iconName = focused ? 'cart' : 'cart-outline';
@@ -1572,6 +1579,10 @@ const HomeTabs = () => {
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
           return <Icon name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#fc8019',
@@ -1603,18 +1614,24 @@ const MainStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="HomeTabs" component={HomeTabs} />
+<<<<<<< HEAD
         <Stack.Screen name="Search" component={SearchScreen} /> 
+=======
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
       <Stack.Screen name="AddressSelection" component={AddressSelectionScreen} />
       <Stack.Screen name="PaymentScreen" component={PaymentScreen} />
       <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
       <Stack.Screen name="RestaurantDetail" component={RestaurantDetailScreen} />
       <Stack.Screen name="Orders" component={OrdersScreen} />
       <Stack.Screen name="OrderTracking" component={OrderTrackingScreen} />
+<<<<<<< HEAD
             <Stack.Screen name="ProductList" component={ProductListScreen} />
               <Stack.Screen name="OrdersSummary" component={OrdersSummary} /> 
                 <Stack.Screen name="EditProfile" component={EditProfileScreen} />
 <Stack.Screen name="Cart" component={CartScreen} />
 
+=======
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
     </Stack.Navigator>
   );
 };

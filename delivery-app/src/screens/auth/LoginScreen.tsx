@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ﻿// // delivery-app/src/screens/auth/LoginScreen.tsx
 // import React, { useState, useContext } from 'react';
 // import {
@@ -239,6 +240,9 @@
 
 // export default LoginScreen;
 // delivery-app/src/screens/auth/LoginScreen.tsx
+=======
+﻿// delivery-app/src/screens/auth/LoginScreen.tsx
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
 import React, { useState, useContext } from 'react';
 import {
   View,
@@ -267,6 +271,7 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
   
   const { login } = useContext(AuthContext);
 
+<<<<<<< HEAD
   // Validation function for phone number - blocks non-numeric and limits to 10 digits
   const validatePhoneInput = (text: string) => {
     const numericRegex = /^[0-9]*$/;
@@ -276,6 +281,11 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
     
     if (text === '') {
       setPhone(text);
+=======
+  const handleLogin = async () => {
+    if (!phone.trim()) {
+      Alert.alert('Error', 'Please enter your phone number');
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
       return;
     }
 
@@ -401,11 +411,27 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
       const result = await login(phone.trim(), password);
 
       if (result.success) {
+<<<<<<< HEAD
         // Success - navigate to main screen
         navigation.reset({
           index: 0,
           routes: [{ name: 'MainTabs' }],
         });
+=======
+        Alert.alert(
+          '✅ Success',
+          'Login successful!',
+          [{
+            text: 'OK',
+            onPress: () => {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'MainTabs' }],
+              });
+            }
+          }]
+        );
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
       } else {
         setPasswordError(result.message || 'Login failed. Please try again.');
       }
@@ -433,6 +459,7 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
           <Text style={styles.title}>Sign In</Text>
           <Text style={styles.subtitle2}>Login to your account</Text>
 
+<<<<<<< HEAD
           {/* Phone Input */}
           <View style={styles.inputWrapper}>
             <View style={[styles.inputContainer, phoneError && styles.inputError]}>
@@ -446,11 +473,44 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
                 autoCapitalize="none"
                 keyboardType="phone-pad"
                 autoCorrect={false}
+=======
+          <View style={styles.inputContainer}>
+            <Icon name="call-outline" size={20} color="#7e808c" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Phone Number"
+              placeholderTextColor="#7e808c"
+              value={phone}
+              onChangeText={setPhone}
+              autoCapitalize="none"
+              keyboardType="phone-pad"
+              autoCorrect={false}
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Icon name="lock-closed-outline" size={20} color="#7e808c" style={styles.inputIcon} />
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              placeholderTextColor="#7e808c"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              autoCorrect={false}
+            />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+              <Icon
+                name={showPassword ? "eye-outline" : "eye-off-outline"}
+                size={20}
+                color="#7e808c"
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
               />
             </View>
             {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
           </View>
 
+<<<<<<< HEAD
           {/* Password Input */}
           <View style={styles.inputWrapper}>
             <View style={[styles.inputContainer, passwordError && styles.inputError]}>
@@ -475,6 +535,8 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
             {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
           </View>
 
+=======
+>>>>>>> 150d30a8e855db2e63725445ccaf4fd4797b8cd4
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
             onPress={handleLogin}
