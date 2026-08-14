@@ -2836,6 +2836,77 @@ export const useCreateSalesOrder = <TError = ErrorType<unknown>,
       return useMutation(getCreateSalesOrderMutationOptions(options));
     }
 
+export const getCreatePublicSalesOrderUrl = () => {
+
+
+
+
+  return `/api/public/sales-orders`
+}
+
+/**
+ * @summary Create a sales order from the customer-facing app (no auth)
+ */
+export const createPublicSalesOrder = async (salesOrderInput: SalesOrderInput, options?: RequestInit): Promise<SalesOrder> => {
+
+  return customFetch<SalesOrder>(getCreatePublicSalesOrderUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(salesOrderInput)
+  }
+);}
+
+
+
+
+
+export const getCreatePublicSalesOrderMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPublicSalesOrder>>, TError,{data: BodyType<SalesOrderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPublicSalesOrder>>, TError,{data: BodyType<SalesOrderInput>}, TContext> => {
+
+const mutationKey = ['createPublicSalesOrder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPublicSalesOrder>>, {data: BodyType<SalesOrderInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createPublicSalesOrder(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePublicSalesOrderMutationResult = NonNullable<Awaited<ReturnType<typeof createPublicSalesOrder>>>
+    export type CreatePublicSalesOrderMutationBody = BodyType<SalesOrderInput>
+    export type CreatePublicSalesOrderMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a sales order from the customer-facing app (no auth)
+ */
+export const useCreatePublicSalesOrder = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPublicSalesOrder>>, TError,{data: BodyType<SalesOrderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPublicSalesOrder>>,
+        TError,
+        {data: BodyType<SalesOrderInput>},
+        TContext
+      > => {
+      return useMutation(getCreatePublicSalesOrderMutationOptions(options));
+    }
+
 export const getGetSalesOrderUrl = (id: number,) => {
 
 

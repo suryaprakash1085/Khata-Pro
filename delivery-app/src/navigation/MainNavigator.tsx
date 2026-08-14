@@ -88,6 +88,8 @@ import OrderSuccessScreen from '../screens/order/OrderSuccessScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
 // import AddressSelectionScreen from '../screens/checkout/AddressSelectionScreen';
 import AddressSelectionScreen from '../screens/checkout/AddressSelectionScreen';
+import ProductListScreen from '../screens/main/ProductListScreen';
+
 const Stack = createNativeStackNavigator();
 
 export default function MainNavigator() {
@@ -110,6 +112,7 @@ export default function MainNavigator() {
               <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
       <Stack.Screen name="AddressSelection" component={AddressSelectionScreen} />
+      <Stack.Screen name="ProductList" component={ProductListScreen} />
 
     </Stack.Navigator>
   );

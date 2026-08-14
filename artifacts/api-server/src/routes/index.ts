@@ -16,6 +16,10 @@ import expensesRouter from "./expenses";
 import salesOrdersRouter from "./sales-orders";
 import returnsRouter from './returns';
 import paymentsRouter from "./paymentsRoutes";
+import customerAuthRouter from "./customer-auth";
+
+import app from "../app";
+
 const router: IRouter = Router();
 
 router.use(healthRouter);
@@ -35,4 +39,6 @@ router.use(expensesRouter);
 router.use(salesOrdersRouter);
 router.use(returnsRouter);
 router.use(paymentsRouter);
+router.use(customerAuthRouter);
+
 export default router;

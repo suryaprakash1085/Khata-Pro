@@ -9,6 +9,8 @@ import {
   removeDriver,
 } from '../utils/storage';
 import { Driver } from '../types';
+import { registerForPushNotificationsAsync } from '../services/pushNotifications';
+
 
 interface DriverAuthContextType {
   isDriverAuthenticated: boolean;
@@ -143,24 +145,33 @@ export function DriverAuthProvider({ children }: DriverAuthProviderProps): React
     }
   };
 
-  const verifyOtp = async (phone: string, otp: string): Promise<boolean> => {
-    try {
-      const result = await driverAuthService.verifyOtp(phone, otp);
-      if (result?.token && result?.driver) {
-        // 👇 this was missing — nothing was ever persisted before
-        await storeDriverToken(result.token);
-        await storeDriver(result.driver);
+ const verifyOtp = async (phone: string, otp: string): Promise<boolean> => {
+  try {
+    const result = await driverAuthService.verifyOtp(phone, otp);
+    if (result?.token && result?.driver) {
+      await storeDriverToken(result.token);
+      await storeDriver(result.driver);
 
-        setIsDriverAuthenticated(true);
-        setDriver(result.driver);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Verify OTP failed:', error);
-      return false;
+      setIsDriverAuthenticated(true);
+      setDriver(result.driver);
+
+      // Register push token — fire-and-forget, don't block login on this
+      registerForPushNotificationsAsync()
+        .then((pushToken) => {
+          if (pushToken) {
+            return driverAuthService.registerPushToken(pushToken);
+          }
+        })
+        .catch((err) => console.error('[push] Failed to register push token:', err));
+
+      return true;
     }
-  };
+    return false;
+  } catch (error) {
+    console.error('Verify OTP failed:', error);
+    return false;
+  }
+};
 
   const driverLogout = async (): Promise<void> => {
     await removeDriverToken();

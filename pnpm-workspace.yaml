@@ -168,4 +168,5 @@ overrides:
 
 allowBuilds:
   core-js: true
+  dtrace-provider: false
   esbuild: true

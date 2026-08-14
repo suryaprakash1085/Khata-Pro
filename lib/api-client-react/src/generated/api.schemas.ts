@@ -776,6 +776,8 @@ export interface Delivery {
   business_id: number;
   customer_id: number;
   /** @nullable */
+  sales_order_id?: number | null;
+  /** @nullable */
   driver_id?: number | null;
   pickup_address: string;
   drop_address: string;
@@ -811,6 +813,7 @@ export const DeliveryInputPaymentMethod = {
 export interface DeliveryInput {
   business_id: number;
   customer_id: number;
+  sales_order_id?: number;
   pickup_address: string;
   drop_address: string;
   notes?: string;

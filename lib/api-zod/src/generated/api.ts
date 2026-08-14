@@ -1084,6 +1084,53 @@ export const CreateSalesOrderResponse = zod.object({
 
 
 /**
+ * @summary Create a sales order from the customer-facing app (no auth)
+ */
+export const createPublicSalesOrderBodyChannelDefault = `online`;
+export const createPublicSalesOrderBodyTaxDefault = 0;
+
+export const CreatePublicSalesOrderBody = zod.object({
+  "business_id": zod.number(),
+  "customer_id": zod.number(),
+  "channel": zod.enum(['online', 'store', 'phone']).default(createPublicSalesOrderBodyChannelDefault),
+  "tax": zod.number().default(createPublicSalesOrderBodyTaxDefault),
+  "description": zod.string().optional(),
+  "shipping_address": zod.string().optional(),
+  "entry_date": zod.coerce.date().optional(),
+  "items": zod.array(zod.object({
+  "product_id": zod.number(),
+  "qty": zod.number(),
+  "unit_price": zod.number()
+}))
+})
+
+export const CreatePublicSalesOrderResponse = zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "customer_id": zod.number(),
+  "customer_name": zod.string().optional(),
+  "channel": zod.enum(['online', 'store', 'phone']),
+  "status": zod.enum(['pending', 'confirmed', 'packed', 'shipped', 'invoiced', 'cancelled']),
+  "amount": zod.number(),
+  "tax": zod.number(),
+  "description": zod.string().nullish(),
+  "shipping_address": zod.string().nullish(),
+  "entry_date": zod.coerce.date(),
+  "transaction_id": zod.number().nullish(),
+  "item_count": zod.number().optional(),
+  "created_by": zod.number().optional(),
+  "created_at": zod.coerce.date(),
+  "items": zod.array(zod.object({
+  "id": zod.number(),
+  "product_id": zod.number(),
+  "product_name": zod.string(),
+  "qty": zod.number(),
+  "unit_price": zod.number()
+})).optional()
+})
+
+
+/**
  * @summary Get a sales order by ID, including line items
  */
 export const GetSalesOrderParams = zod.object({
@@ -1397,6 +1444,7 @@ export const ListDeliveriesResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
   "driver_id": zod.number().nullish(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),
@@ -1423,6 +1471,7 @@ export const ListDeliveriesResponse = zod.object({
 export const CreateDeliveryBody = zod.object({
   "business_id": zod.number(),
   "customer_id": zod.number(),
+  "sales_order_id": zod.number().optional(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),
   "notes": zod.string().optional(),
@@ -1434,6 +1483,7 @@ export const CreateDeliveryResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
   "driver_id": zod.number().nullish(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),
@@ -1461,6 +1511,7 @@ export const GetDeliveryResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
   "driver_id": zod.number().nullish(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),
@@ -1494,6 +1545,7 @@ export const UpdateDeliveryResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
   "driver_id": zod.number().nullish(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),
@@ -1525,6 +1577,7 @@ export const AssignDriverResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
   "driver_id": zod.number().nullish(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),
@@ -1556,6 +1609,7 @@ export const UpdateDeliveryStatusResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
   "driver_id": zod.number().nullish(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),

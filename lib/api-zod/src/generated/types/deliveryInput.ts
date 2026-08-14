@@ -10,6 +10,7 @@ import type { DeliveryInputPaymentMethod } from './deliveryInputPaymentMethod';
 export interface DeliveryInput {
   business_id: number;
   customer_id: number;
+  sales_order_id?: number;
   pickup_address: string;
   drop_address: string;
   notes?: string;

@@ -93,3 +93,12 @@ export const addressAPI = {
   setDefaultAddress: (id: string) => 
     apiClient.patch(`/addresses/${id}/default`),
 };
+
+
+
+export const businessAPI = {
+  getBusinesses: (params?: { search?: string; page?: number; limit?: number }) =>
+    apiClient.get('/public/businesses', { params }),   // ← changed from '/businesses'
+  getBusinessById: (id: number) =>
+    apiClient.get(`/businesses/${id}`),
+};

@@ -1,18 +1,24 @@
-import { pgTable, serial, integer, text, boolean, timestamp } from 'drizzle-orm/pg-core';
-import { businesses } from './businesses';
-import { drivers } from './drivers';
+import { pgTable, bigserial, bigint, text, boolean, timestamp } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
 
-export const notifications = pgTable('notifications', {
-  id: serial('id').primaryKey(),
-  business_id: integer('business_id').references(() => businesses.id),
-  driver_id: integer('driver_id').references(() => drivers.id),
-  type: text('type', {
-    enum: ['assigned', 'completed', 'address_updated', 'payment_received'],
+export const notificationsTable = pgTable("notifications", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  businessId: bigint("business_id", { mode: "number" }),
+  driverId: bigint("driver_id", { mode: "number" }),
+  customerId: bigint("customer_id", { mode: "number" }),
+  type: text("type", {
+    enum: ["assigned", "completed", "address_updated", "payment_received", "order_confirmed"],
   }).notNull(),
-  message: text('message').notNull(),
-  is_read: boolean('is_read').default(false).notNull(),
-  created_at: timestamp('created_at').defaultNow().notNull(),
+  message: text("message").notNull(),
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export type Notification = typeof notifications.$inferSelect;
-export type NewNotification = typeof notifications.$inferInsert;
+export const insertNotificationSchema = createInsertSchema(notificationsTable).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notificationsTable.$inferSelect;

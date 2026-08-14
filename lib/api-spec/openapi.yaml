@@ -878,7 +878,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SalesOrder"
-
+  /public/sales-orders:
+    post:
+      operationId: createPublicSalesOrder
+      tags: [sales-orders]
+      summary: Create a sales order from the customer-facing app (no auth)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SalesOrderInput"
+      responses:
+        "201":
+          description: Sales order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesOrder"
   /sales-orders/{id}:
     get:
       operationId: getSalesOrder
@@ -2983,6 +3000,8 @@ components:
           type: integer
         customer_id:
           type: integer
+        sales_order_id:                    # ← NEW
+          type: ["integer", "null"]
         driver_id:
           type: ["integer", "null"]
         pickup_address:
@@ -3024,6 +3043,8 @@ components:
         business_id:
           type: integer
         customer_id:
+          type: integer
+        sales_order_id:            # ← NEW (optional)
           type: integer
         pickup_address:
           type: string

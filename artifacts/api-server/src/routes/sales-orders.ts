@@ -6,6 +6,9 @@ import {
   salesOrderItemsTable,
   customersTable,
   productsTable,
+  businessesTable,
+  deliveriesTable,
+  notificationsTable
 } from "@workspace/db";
 import { CreateSalesOrderBody, UpdateSalesOrderBody, UpdateSalesOrderStatusBody } from "@workspace/api-zod";
 import { eq, and, gte, sql, desc, count, inArray } from "drizzle-orm";
@@ -22,8 +25,8 @@ function formatSalesOrder(so: any, customerName?: string, itemCount?: number) {
     status: so.status,
     amount: parseFloat(so.amount ?? "0"),
     tax: parseFloat(so.tax ?? "0"),
-    gst_rate: parseFloat(so.gstRate ?? "0"), // ← NEW
-    invoice_no: so.invoiceNo ?? null, // ← NEW
+    gst_rate: parseFloat(so.gstRate ?? "0"),
+    invoice_no: so.invoiceNo ?? null,
     description: so.description,
     shipping_address: so.shippingAddress,
     entry_date: so.entryDate,
@@ -32,6 +35,17 @@ function formatSalesOrder(so: any, customerName?: string, itemCount?: number) {
     created_by: Number(so.createdBy),
     created_at: so.createdAt,
   };
+}
+
+// Shared helper — resolves a business's pickup address for auto-created
+// deliveries. Used by both the admin and public order-creation routes.
+async function resolvePickupAddress(businessId: number): Promise<string> {
+  const [business] = await db.select().from(businessesTable).where(eq(businessesTable.id, businessId));
+  return (
+    [business?.addressLine1, business?.addressLine2].filter(Boolean).join(", ") ||
+    business?.businessName ||
+    "Store"
+  );
 }
 
 // GET /sales-orders
@@ -116,7 +130,12 @@ router.get("/sales-orders/:id", requireAuth, async (req, res): Promise<void> => 
   });
 });
 
-// POST /sales-orders — does NOT touch stock (order is only "placed" here, not fulfilled)
+// ============================================================
+// POST /sales-orders — admin/staff create (authenticated).
+// Does NOT touch stock; order is only "placed" here, not fulfilled.
+// Auto-creates a matching `deliveries` row when a shipping_address
+// is provided (home-delivery order, not in-store pickup).
+// ============================================================
 router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
   const parsed = CreateSalesOrderBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
@@ -140,7 +159,7 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
     status: "pending",
     amount: amount.toString(),
     tax: tax.toString(),
-    gstRate: (d.tax ?? 0).toString(), // ← NEW
+    gstRate: (d.tax ?? 0).toString(),
     description: d.description,
     shippingAddress: d.shipping_address,
     entryDate: toDateStr(d.entry_date) ?? new Date().toISOString().split("T")[0],
@@ -156,6 +175,77 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
         unitPrice: it.unit_price.toString(),
       })),
     );
+  }
+
+  if (d.shipping_address) {
+    const pickupAddress = await resolvePickupAddress(d.business_id);
+    await db.insert(deliveriesTable).values({
+      businessId: d.business_id,
+      customerId: d.customer_id,
+      salesOrderId: order.id,
+      pickupAddress,
+      dropAddress: d.shipping_address,
+      amount: amount.toString(),
+      status: "pending",
+    });
+  }
+
+  res.status(201).json(formatSalesOrder(order, customer.name, d.items.length));
+});
+
+// ============================================================
+// POST /public/sales-orders — customer-facing order placement (no auth).
+// Mirrors the admin route above, including the delivery auto-create,
+// but is unauthenticated since the customer app doesn't hold a staff JWT.
+// ============================================================
+router.post("/public/sales-orders", async (req, res): Promise<void> => {
+  const parsed = CreateSalesOrderBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  const d = parsed.data;
+
+  const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, d.customer_id));
+  if (!customer) { res.status(404).json({ error: "Customer not found" }); return; }
+
+  const itemsTotal = d.items.reduce((sum, it) => sum + it.qty * it.unit_price, 0);
+  const tax = d.tax ?? 0;
+  const amount = itemsTotal + tax;
+
+  const [order] = await db.insert(salesOrdersTable).values({
+    businessId: d.business_id,
+    customerId: d.customer_id,
+    channel: d.channel ?? "online",
+    status: "pending",
+    amount: amount.toString(),
+    tax: tax.toString(),
+    gstRate: (d.tax ?? 0).toString(),
+    description: d.description,
+    shippingAddress: d.shipping_address,
+    entryDate: new Date().toISOString().split("T")[0],
+    createdBy: customer.id, // no staff user for public orders — attribute to the customer
+  }).returning();
+
+  if (d.items.length > 0) {
+    await db.insert(salesOrderItemsTable).values(
+      d.items.map((it) => ({
+        salesOrderId: order.id,
+        productId: it.product_id,
+        qty: it.qty.toString(),
+        unitPrice: it.unit_price.toString(),
+      })),
+    );
+  }
+
+  if (d.shipping_address) {
+    const pickupAddress = await resolvePickupAddress(d.business_id);
+    await db.insert(deliveriesTable).values({
+      businessId: d.business_id,
+      customerId: d.customer_id,
+      salesOrderId: order.id,
+      pickupAddress,
+      dropAddress: d.shipping_address,
+      amount: amount.toString(),
+      status: "pending",
+    });
   }
 
   res.status(201).json(formatSalesOrder(order, customer.name, d.items.length));
@@ -201,16 +291,57 @@ router.put("/sales-orders/:id/status", requireAuth, async (req, res): Promise<vo
   // Only reduce stock + assign invoice number the first time an order transitions INTO invoiced
   if (status === "invoiced" && existing.status !== "invoiced") {
     const items = await db.select().from(salesOrderItemsTable).where(eq(salesOrderItemsTable.salesOrderId, id));
+
+    // Validate stock BEFORE touching anything
+    const productIds = items.map((it) => Number(it.productId));
+    const products = productIds.length > 0
+      ? await db.select().from(productsTable).where(inArray(productsTable.id, productIds))
+      : [];
+    const stockMap = new Map(products.map((p: any) => [Number(p.id), p.stockQty]));
+
+    const shortages = items
+      .map((item) => {
+        const needed = Math.round(parseFloat(item.qty));
+        const available = stockMap.get(Number(item.productId)) ?? 0;
+        return { productId: Number(item.productId), needed, available };
+      })
+      .filter((s) => s.needed > s.available);
+
+    if (shortages.length > 0) {
+      const productNames = new Map(products.map((p: any) => [Number(p.id), p.name]));
+      res.status(409).json({
+        error: "Insufficient stock",
+        shortages: shortages.map((s) => ({
+          product_id: s.productId,
+          product_name: productNames.get(s.productId) ?? "",
+          needed: s.needed,
+          available: s.available,
+        })),
+      });
+      return;
+    }
+
     for (const item of items) {
       await db.update(productsTable)
         .set({ stockQty: sql`${productsTable.stockQty} - ${Math.round(parseFloat(item.qty))}` })
         .where(eq(productsTable.id, Number(item.productId)));
     }
-    updates.invoiceNo = `INV-${existing.businessId}-${String(id).padStart(5, "0")}`; // ← NEW
+    updates.invoiceNo = `INV-${existing.businessId}-${String(id).padStart(5, "0")}`;
   }
 
   const [order] = await db.update(salesOrdersTable).set(updates)
     .where(and(eq(salesOrdersTable.id, id), eq(salesOrdersTable.isDeleted, false))).returning();
+
+  // Notify the customer when the order gets confirmed (invoiced)
+  if (status === "invoiced" && existing.status !== "invoiced") {
+    await db.insert(notificationsTable).values({
+      businessId: order.businessId,
+      customerId: order.customerId,
+      type: "order_confirmed",
+      message: `Your order #${order.id} has been confirmed!`,
+    });
+    // TODO: push notification call goes here (Phase 2)
+  }
 
   const [customer] = await db.select({ name: customersTable.name }).from(customersTable).where(eq(customersTable.id, Number(order.customerId)));
   res.json(formatSalesOrder(order, customer?.name));
