@@ -1,1 +1,19 @@
-{"expo":{"name":"delivery-app","slug":"delivery-app","version":"1.0.0"}} 
+{
+  "expo": {
+    "name": "delivery-app",
+    "slug": "delivery-app",
+    "version": "1.0.0",
+    "extra": {
+      "eas": {
+        "projectId": "1f926f44-064c-4b7a-b9f7-6666ab727879"
+      }
+    },
+    "owner": "yogamurugan",
+    "android": {
+      "useNextNotificationsApi": true
+    },
+    "plugins": [
+      "expo-notifications"
+    ]
+  }
+}

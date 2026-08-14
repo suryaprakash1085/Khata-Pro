@@ -691,6 +691,192 @@ export const GetProductByBarcodeResponse = zod.object({
 
 
 /**
+ * @summary List promotions for a business
+ */
+export const listPromotionsQueryPageDefault = 1;
+export const listPromotionsQueryLimitDefault = 50;
+
+export const ListPromotionsQueryParams = zod.object({
+  "business_id": zod.coerce.number(),
+  "status": zod.enum(['active', 'inactive']).optional(),
+  "page": zod.coerce.number().default(listPromotionsQueryPageDefault),
+  "limit": zod.coerce.number().default(listPromotionsQueryLimitDefault)
+})
+
+export const ListPromotionsResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "name": zod.string(),
+  "promotion_type": zod.enum(['bogo', 'percentage']),
+  "apply_to": zod.enum(['all', 'selected']),
+  "start_date": zod.coerce.date(),
+  "end_date": zod.coerce.date(),
+  "status": zod.enum(['active', 'inactive']),
+  "discount_percentage": zod.number().nullish(),
+  "product_ids": zod.array(zod.number()).optional(),
+  "product_names": zod.array(zod.string()).optional(),
+  "created_at": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Create a promotion
+ */
+export const createPromotionBodyApplyToDefault = `selected`;
+export const createPromotionBodyStatusDefault = `active`;
+
+export const CreatePromotionBody = zod.object({
+  "business_id": zod.number(),
+  "name": zod.string(),
+  "promotion_type": zod.enum(['bogo', 'percentage']),
+  "apply_to": zod.enum(['all', 'selected']).default(createPromotionBodyApplyToDefault),
+  "start_date": zod.coerce.date(),
+  "end_date": zod.coerce.date(),
+  "status": zod.enum(['active', 'inactive']).default(createPromotionBodyStatusDefault),
+  "discount_percentage": zod.number().optional(),
+  "product_ids": zod.array(zod.number()).optional()
+})
+
+export const CreatePromotionResponse = zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "name": zod.string(),
+  "promotion_type": zod.enum(['bogo', 'percentage']),
+  "apply_to": zod.enum(['all', 'selected']),
+  "start_date": zod.coerce.date(),
+  "end_date": zod.coerce.date(),
+  "status": zod.enum(['active', 'inactive']),
+  "discount_percentage": zod.number().nullish(),
+  "product_ids": zod.array(zod.number()).optional(),
+  "product_names": zod.array(zod.string()).optional(),
+  "created_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get currently-active (date + status valid) promotions for a business — used by Billing
+ */
+export const ListActivePromotionsQueryParams = zod.object({
+  "business_id": zod.coerce.number()
+})
+
+export const ListActivePromotionsResponseItem = zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "name": zod.string(),
+  "promotion_type": zod.enum(['bogo', 'percentage']),
+  "apply_to": zod.enum(['all', 'selected']),
+  "start_date": zod.coerce.date(),
+  "end_date": zod.coerce.date(),
+  "status": zod.enum(['active', 'inactive']),
+  "discount_percentage": zod.number().nullish(),
+  "product_ids": zod.array(zod.number()).optional(),
+  "product_names": zod.array(zod.string()).optional(),
+  "created_at": zod.coerce.date()
+})
+export const ListActivePromotionsResponse = zod.array(ListActivePromotionsResponseItem)
+
+
+/**
+ * @summary Get promotion by ID, including selected products
+ */
+export const GetPromotionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetPromotionResponse = zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "name": zod.string(),
+  "promotion_type": zod.enum(['bogo', 'percentage']),
+  "apply_to": zod.enum(['all', 'selected']),
+  "start_date": zod.coerce.date(),
+  "end_date": zod.coerce.date(),
+  "status": zod.enum(['active', 'inactive']),
+  "discount_percentage": zod.number().nullish(),
+  "product_ids": zod.array(zod.number()).optional(),
+  "product_names": zod.array(zod.string()).optional(),
+  "created_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update a promotion
+ */
+export const UpdatePromotionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdatePromotionBody = zod.object({
+  "name": zod.string().optional(),
+  "apply_to": zod.enum(['all', 'selected']).optional(),
+  "start_date": zod.coerce.date().optional(),
+  "end_date": zod.coerce.date().optional(),
+  "status": zod.enum(['active', 'inactive']).optional(),
+  "product_ids": zod.array(zod.number()).optional()
+})
+
+export const UpdatePromotionResponse = zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "name": zod.string(),
+  "promotion_type": zod.enum(['bogo', 'percentage']),
+  "apply_to": zod.enum(['all', 'selected']),
+  "start_date": zod.coerce.date(),
+  "end_date": zod.coerce.date(),
+  "status": zod.enum(['active', 'inactive']),
+  "discount_percentage": zod.number().nullish(),
+  "product_ids": zod.array(zod.number()).optional(),
+  "product_names": zod.array(zod.string()).optional(),
+  "created_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a promotion
+ */
+export const DeletePromotionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeletePromotionResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Enable or disable a promotion
+ */
+export const UpdatePromotionStatusParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdatePromotionStatusBody = zod.object({
+  "status": zod.enum(['active', 'inactive'])
+})
+
+export const UpdatePromotionStatusResponse = zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "name": zod.string(),
+  "promotion_type": zod.enum(['bogo', 'percentage']),
+  "apply_to": zod.enum(['all', 'selected']),
+  "start_date": zod.coerce.date(),
+  "end_date": zod.coerce.date(),
+  "status": zod.enum(['active', 'inactive']),
+  "discount_percentage": zod.number().nullish(),
+  "product_ids": zod.array(zod.number()).optional(),
+  "product_names": zod.array(zod.string()).optional(),
+  "created_at": zod.coerce.date()
+})
+
+
+/**
  * @summary List vendors for a business
  */
 export const listVendorsQueryPageDefault = 1;
@@ -1084,6 +1270,53 @@ export const CreateSalesOrderResponse = zod.object({
 
 
 /**
+ * @summary Create a sales order from the customer-facing app (no auth)
+ */
+export const createPublicSalesOrderBodyChannelDefault = `online`;
+export const createPublicSalesOrderBodyTaxDefault = 0;
+
+export const CreatePublicSalesOrderBody = zod.object({
+  "business_id": zod.number(),
+  "customer_id": zod.number(),
+  "channel": zod.enum(['online', 'store', 'phone']).default(createPublicSalesOrderBodyChannelDefault),
+  "tax": zod.number().default(createPublicSalesOrderBodyTaxDefault),
+  "description": zod.string().optional(),
+  "shipping_address": zod.string().optional(),
+  "entry_date": zod.coerce.date().optional(),
+  "items": zod.array(zod.object({
+  "product_id": zod.number(),
+  "qty": zod.number(),
+  "unit_price": zod.number()
+}))
+})
+
+export const CreatePublicSalesOrderResponse = zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "customer_id": zod.number(),
+  "customer_name": zod.string().optional(),
+  "channel": zod.enum(['online', 'store', 'phone']),
+  "status": zod.enum(['pending', 'confirmed', 'packed', 'shipped', 'invoiced', 'cancelled']),
+  "amount": zod.number(),
+  "tax": zod.number(),
+  "description": zod.string().nullish(),
+  "shipping_address": zod.string().nullish(),
+  "entry_date": zod.coerce.date(),
+  "transaction_id": zod.number().nullish(),
+  "item_count": zod.number().optional(),
+  "created_by": zod.number().optional(),
+  "created_at": zod.coerce.date(),
+  "items": zod.array(zod.object({
+  "id": zod.number(),
+  "product_id": zod.number(),
+  "product_name": zod.string(),
+  "qty": zod.number(),
+  "unit_price": zod.number()
+})).optional()
+})
+
+
+/**
  * @summary Get a sales order by ID, including line items
  */
 export const GetSalesOrderParams = zod.object({
@@ -1397,6 +1630,7 @@ export const ListDeliveriesResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
   "driver_id": zod.number().nullish(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),
@@ -1423,6 +1657,7 @@ export const ListDeliveriesResponse = zod.object({
 export const CreateDeliveryBody = zod.object({
   "business_id": zod.number(),
   "customer_id": zod.number(),
+  "sales_order_id": zod.number().optional(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),
   "notes": zod.string().optional(),
@@ -1434,6 +1669,7 @@ export const CreateDeliveryResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
   "driver_id": zod.number().nullish(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),
@@ -1461,6 +1697,7 @@ export const GetDeliveryResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
   "driver_id": zod.number().nullish(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),
@@ -1494,6 +1731,7 @@ export const UpdateDeliveryResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
   "driver_id": zod.number().nullish(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),
@@ -1525,6 +1763,7 @@ export const AssignDriverResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
   "driver_id": zod.number().nullish(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),
@@ -1556,6 +1795,7 @@ export const UpdateDeliveryStatusResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
   "driver_id": zod.number().nullish(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),

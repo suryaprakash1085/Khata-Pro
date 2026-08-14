@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -15,6 +15,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
@@ -35,6 +36,8 @@ import {
   TransactionInputPaymentMode,
   getListProductsQueryKey,
   getListCustomersQueryKey,
+  useListActivePromotions,
+  getListActivePromotionsQueryKey,
 } from '@workspace/api-client-react';
 // @ts-ignore
 import type { Product, Customer } from '@workspace/api-client-react';
@@ -46,16 +49,28 @@ import type { Product, Customer } from '@workspace/api-client-react';
 const WIDE_BREAKPOINT = 900;
 const F = 'times new roman';
 
-type CartItemWithDiscount = { product: Product; qty: number; discountPercent: number };
+type CartItemWithDiscount = { product: Product; qty: number; discountPercent: number;
+  freeQty: number;       // 0 unless BOGO
+  isBogo: boolean;
+  promotionId?: number;
+  promotionName?: string; };
 type PaymentMethod = 'cash' | 'upi' | 'card' | 'split' | 'credit';
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: keyof typeof Feather.glyphMap; color: string }[] = [
-  { value: 'cash', label: 'Cash', icon: 'dollar-sign', color: '#16A34A' },
+  { value: 'cash', label: 'Cash', icon: 'dollar-sign', color: '#16A34A' }, // icon overridden to ₹ — see PaymentIcon
   { value: 'card', label: 'Card', icon: 'credit-card', color: '#2563EB' },
   { value: 'upi', label: 'UPI', icon: 'smartphone', color: '#7C3AED' },
   { value: 'split', label: 'Split', icon: 'divide', color: '#D97706' },
   { value: 'credit', label: 'Credit', icon: 'clock', color: '#DC2626' },
 ];
+
+// Feather has no rupee glyph — render ₹ as text for cash, Feather icon for everything else.
+function PaymentIcon({ method, icon, size, color }: { method: PaymentMethod; icon: keyof typeof Feather.glyphMap; size: number; color: string }) {
+  if (method === 'cash') {
+    return <Text style={{ fontSize: size, fontWeight: '800', color, lineHeight: size + 1 }}>₹</Text>;
+  }
+  return <Feather name={icon} size={size} color={color} />;
+}
 
 const CATEGORY_STYLE: Record<string, { icon: keyof typeof Feather.glyphMap; color: string }> = {
   dairy: { icon: 'droplet', color: '#2563EB' },
@@ -116,6 +131,7 @@ const STORAGE_KEYS = {
   WALKIN_CUSTOMER_ID: '@billing_walkin_customer_id',
   HELD_BILLS: '@billing_held_bills',
   DRAFT_BILLS: '@billing_draft_bills',
+  AUTOSAVE_BILL: '@billing_autosave_bill',
 };
 
 type SavedBill = {
@@ -153,6 +169,12 @@ export default function BillingScreen() {
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
 
+  // ---- Add new customer popup ----
+  const [newCustomerModalOpen, setNewCustomerModalOpen] = useState(false);
+  const [newCustomerName, setNewCustomerName] = useState('');
+  const [newCustomerPhone, setNewCustomerPhone] = useState('');
+  const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
+
   const [salesPerson, setSalesPerson] = useState('');
   const [counter, setCounter] = useState('1');
   const [invoiceNumber, setInvoiceNumber] = useState('INV-0001');
@@ -172,12 +194,22 @@ export default function BillingScreen() {
   const pendingScanRef = useRef<string | null>(null);
 
   // ---- Result / confirm modal (replaces Alert.alert, which is unreliable on web) ----
+  // Only used for 'error' and 'confirm' now — success messages use the bottom
+  // banner (successBanner) instead of a blocking popup.
   const [resultModal, setResultModal] = useState<{
-    type: 'success' | 'error' | 'confirm';
+    type: 'error' | 'confirm';
     title: string;
     message: string;
     onConfirm?: () => void;
+  } | null>(null);
+
+  // ---- Success banner — small amber bar near the bottom action buttons,
+  // replaces the old centered "Payment completed" popup. ----
+  const [successBanner, setSuccessBanner] = useState<{
+    title: string;
+    message: string;
     showPrintButton?: boolean;
+    onConfirm?: () => void;
   } | null>(null);
 
   // ---- Print receipt ----
@@ -196,6 +228,10 @@ export default function BillingScreen() {
   const [recallVisible, setRecallVisible] = useState(false);
   const [savedBills, setSavedBills] = useState<SavedBill[]>([]);
 
+  // ---- Auto-saved in-progress bill (silently saved when the cashier navigates
+  // away mid-bill, e.g. taps BillingList in the sidebar) ----
+  const [resumeBill, setResumeBill] = useState<SavedBill | null>(null);
+
   const createCustomer = useCreateCustomer();
 
  useEffect(() => {
@@ -213,8 +249,78 @@ export default function BillingScreen() {
     const inv = await AsyncStorage.getItem(STORAGE_KEYS.INVOICE_NUMBER);
     if (inv) setInvoiceNumber(inv);
     else await AsyncStorage.setItem(STORAGE_KEYS.INVOICE_NUMBER, 'INV-0001');
+
+    // If a previous session left an in-progress bill behind (cashier navigated
+    // away mid-bill), offer to resume it.
+    const autosaveRaw = await AsyncStorage.getItem(STORAGE_KEYS.AUTOSAVE_BILL);
+    if (autosaveRaw) {
+      try {
+        const parsed: SavedBill = JSON.parse(autosaveRaw);
+        if (parsed && Array.isArray(parsed.cart) && parsed.cart.length > 0) {
+          setResumeBill(parsed);
+        }
+      } catch {
+        // ignore corrupt autosave data
+      }
+    }
   })();
 }, [user]);
+
+  // Keep refs of the latest cart/customer/discount/payment/invoice so the
+  // focus-blur cleanup below always autosaves the current values, not stale
+  // ones captured at mount time.
+  const cartRef = useRef(cart);
+  const selectedCustomerRef = useRef(selectedCustomer);
+  const discountValueRef = useRef(discountValue);
+  const paymentMethodRef = useRef(paymentMethod);
+  const invoiceNumberRef = useRef(invoiceNumber);
+  useEffect(() => { cartRef.current = cart; }, [cart]);
+  useEffect(() => { selectedCustomerRef.current = selectedCustomer; }, [selectedCustomer]);
+  useEffect(() => { discountValueRef.current = discountValue; }, [discountValue]);
+  useEffect(() => { paymentMethodRef.current = paymentMethod; }, [paymentMethod]);
+  useEffect(() => { invoiceNumberRef.current = invoiceNumber; }, [invoiceNumber]);
+
+  // Silently autosave the in-progress bill whenever this screen loses focus
+  // (cashier taps BillingList, Reports, etc. with items still in the cart) —
+  // no toast, no interruption. Cleared once the cart is empty again.
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        const currentCart = cartRef.current;
+        if (currentCart && currentCart.length > 0) {
+          const bill: SavedBill = {
+            id: 'autosave',
+            kind: 'hold',
+            savedAt: new Date().toISOString(),
+            invoiceNumber: invoiceNumberRef.current,
+            cart: currentCart,
+            customer: selectedCustomerRef.current,
+            discountValue: discountValueRef.current,
+            paymentMethod: paymentMethodRef.current,
+          };
+          AsyncStorage.setItem(STORAGE_KEYS.AUTOSAVE_BILL, JSON.stringify(bill)).catch(() => {});
+        } else {
+          AsyncStorage.removeItem(STORAGE_KEYS.AUTOSAVE_BILL).catch(() => {});
+        }
+      };
+    }, []),
+  );
+
+  const handleResumeAutosave = () => {
+    if (!resumeBill) return;
+    setCart(resumeBill.cart ?? []);
+    setSelectedCustomer(resumeBill.customer);
+    setDiscountValue(resumeBill.discountValue);
+    setPaymentMethod(resumeBill.paymentMethod);
+    setInvoiceNumber(resumeBill.invoiceNumber);
+    setResumeBill(null);
+    AsyncStorage.removeItem(STORAGE_KEYS.AUTOSAVE_BILL).catch(() => {});
+  };
+
+  const handleDiscardAutosave = () => {
+    setResumeBill(null);
+    AsyncStorage.removeItem(STORAGE_KEYS.AUTOSAVE_BILL).catch(() => {});
+  };
 
   useEffect(() => {
     if (payParams.customer_id) {
@@ -263,29 +369,36 @@ export default function BillingScreen() {
     return allProducts.filter((p: any) => p?.category === activeCategory);
   }, [search, searchResults, allProducts, activeCategory]);
 
-  useEffect(() => {
-    const pending = pendingScanRef.current;
-    if (!pending || isSearching) return;
-    if (search.trim() !== pending) return;
+ useEffect(() => {
+  const pending = pendingScanRef.current;
+  if (!pending || isSearching) return;
+  if (search.trim() !== pending) return;
 
-    const exact = searchResults.find((p: any) => p.barcode === pending || p.sku === pending);
-    const match = exact ?? (searchResults.length === 1 ? searchResults[0] : undefined);
+  const exact = searchResults.find((p: any) => p.barcode === pending || p.sku === pending);
+  const match = exact ?? (searchResults.length === 1 ? searchResults[0] : undefined);
 
-    if (match) {
-      addToCart(match);
-      setSearch('');
-    } else if (searchResults.length === 0) {
-      setResultModal({ type: 'error', title: 'Product not found', message: `No product matches "${pending}". Check the barcode or try a shorter name.` });
-    } else {
-      setResultModal({
-        type: 'error',
-        title: 'Multiple matches',
-        message: `"${pending}" matched ${searchResults.length} products. Type more of the name, or scan the exact barcode.`,
-      });
-    }
-    pendingScanRef.current = null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchResults, isSearching, search]);
+  if (match) {
+    addToCart(match);
+    setSearch('');
+  } else if (searchResults.length === 0) {
+    const isBarcodeLike = /^\d{4,}$/.test(pending);
+    setResultModal({
+      type: 'error',
+      title: 'Product not found',
+      message: isBarcodeLike
+        ? 'Product not found for this barcode.'
+        : `No product matches "${pending}". Check the barcode or try a shorter name.`,
+    });
+  } else {
+    setResultModal({
+      type: 'error',
+      title: 'Multiple matches',
+      message: `"${pending}" matched ${searchResults.length} products. Type more of the name, or scan the exact barcode.`,
+    });
+  }
+  pendingScanRef.current = null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [searchResults, isSearching, search]);
 
   const customerSearchParams = { business_id: business?.id as number, search: customerSearch.trim(), limit: 20 };
   const { data: customerSearchData, isLoading: isSearchingCustomers } = useListCustomers(customerSearchParams, {
@@ -296,24 +409,112 @@ export default function BillingScreen() {
   });
   const customerResults: Customer[] = customerSearchData?.data ?? [];
 
+  // Duplicate check while adding a new customer — search by the phone they're typing
+  const dupCheckParams = { business_id: business?.id as number, search: newCustomerPhone.trim(), limit: 5 };
+  const { data: dupCheckData } = useListCustomers(dupCheckParams, {
+    query: {
+      enabled: !!business?.id && newCustomerModalOpen && newCustomerPhone.trim().length >= 10,
+      queryKey: getListCustomersQueryKey(dupCheckParams),
+    },
+  });
+  const normalizePhone = (v: string) => v.replace(/\D/g, '');
+  const duplicateCustomer = useMemo(() => {
+    const typed = normalizePhone(newCustomerPhone);
+    if (typed.length < 10) return null;
+    const list: Customer[] = dupCheckData?.data ?? [];
+    return list.find((c) => normalizePhone(c.phone || '') === typed) ?? null;
+  }, [dupCheckData, newCustomerPhone]);
+
+  // ─── Promotions ───────────────────────────────────────────────────────────
+const activePromoParams = { business_id: business?.id as number };
+const { data: activePromotionsData } = useListActivePromotions(activePromoParams, {
+  query: { enabled: !!business?.id, queryKey: getListActivePromotionsQueryKey(activePromoParams) },
+});
+const activePromotions: any[] = activePromotionsData ?? [];
+
+// Conflict rule: a product-specific BOGO promotion always wins over the
+// general "All Products 10% OFF" promotion (spec §11) — checking BOGO
+// first and returning immediately on a match implements this priority.
+const getPromotionForProduct = (productId: number): { promo: any; type: 'bogo' | 'percentage' } | null => {
+  const bogo = activePromotions.find(
+    (p) => p.promotion_type === 'bogo' && (p.apply_to === 'all' || (p.product_ids ?? []).includes(productId))
+  );
+  if (bogo) return { promo: bogo, type: 'bogo' };
+  const pct = activePromotions.find(
+    (p) => p.promotion_type === 'percentage' && (p.apply_to === 'all' || (p.product_ids ?? []).includes(productId))
+  );
+  if (pct) return { promo: pct, type: 'percentage' };
+  return null;
+};
   // -------------------------------------------------------------------------
   // Cart operations
   // -------------------------------------------------------------------------
-  const addToCart = (product: Product) => {
+const addToCart = (product: Product) => {
+  const existing = cart.find((c) => c.product.id === product.id);
+  const nextPaidQty = (existing?.qty ?? 0) + 1;
+  const stock = product.stock_qty ?? 0;
+  const match = getPromotionForProduct(product.id);
+
+  if (match?.type === 'bogo') {
+    const nextFreeQty = nextPaidQty; // classic 1:1 BOGO — spec §8
+    if (nextPaidQty + nextFreeQty > stock) {
+      setResultModal({ type: 'error', title: 'Insufficient stock', message: 'Insufficient stock for Buy 1 Get 1 Free offer.' });
+      return;
+    }
     setCart((prev) => {
-      const existing = prev.find((c) => c.product.id === product.id);
-      if (existing) return prev.map((c) => (c.product.id === product.id ? { ...c, qty: c.qty + 1 } : c));
-      return [...prev, { product, qty: 1, discountPercent: 0 }];
+      const idx = prev.findIndex((c) => c.product.id === product.id);
+      const updated: CartItemWithDiscount = {
+        product, qty: nextPaidQty, freeQty: nextFreeQty, discountPercent: 0, isBogo: true,
+        promotionId: match.promo.id, promotionName: match.promo.name,
+      };
+      if (idx >= 0) return prev.map((c, i) => (i === idx ? updated : c));
+      return [...prev, updated];
     });
-  };
+    return;
+  }
 
-  const updateQty = (productId: number, delta: number) => {
-    setCart((prev) => prev.map((c) => (c.product.id === productId ? { ...c, qty: c.qty + delta } : c)).filter((c) => c.qty > 0));
-  };
+  if (nextPaidQty > stock) {
+    setResultModal({ type: 'error', title: 'Insufficient stock', message: `Only ${stock} unit${stock === 1 ? '' : 's'} of "${product.name}" available.` });
+    return;
+  }
 
-  const setQtyDirectly = (productId: number, qty: number) => {
-    setCart((prev) => prev.map((c) => (c.product.id === productId ? { ...c, qty } : c)).filter((c) => c.qty > 0));
-  };
+  const autoDiscount = match?.type === 'percentage' ? Number(match.promo.discount_percentage ?? 10) : 0;
+  setCart((prev) => {
+    const idx = prev.findIndex((c) => c.product.id === product.id);
+    const updated: CartItemWithDiscount = {
+      product, qty: nextPaidQty, freeQty: 0, discountPercent: autoDiscount, isBogo: false,
+      promotionId: match?.type === 'percentage' ? match.promo.id : undefined,
+      promotionName: match?.type === 'percentage' ? match.promo.name : undefined,
+    };
+    if (idx >= 0) return prev.map((c, i) => (i === idx ? updated : c));
+    return [...prev, updated];
+  });
+};
+
+const changeQty = (productId: number, newPaidQty: number) => {
+  if (newPaidQty <= 0) {
+    setCart((prev) => prev.filter((c) => c.product.id !== productId));
+    return;
+  }
+  const item = cart.find((c) => c.product.id === productId);
+  if (!item) return;
+  const stock = item.product.stock_qty ?? 0;
+
+  if (item.isBogo) {
+    if (newPaidQty * 2 > stock) {
+      setResultModal({ type: 'error', title: 'Insufficient stock', message: 'Insufficient stock for Buy 1 Get 1 Free offer.' });
+      return;
+    }
+    setCart((prev) => prev.map((c) => (c.product.id === productId ? { ...c, qty: newPaidQty, freeQty: newPaidQty } : c)));
+    return;
+  }
+
+  if (newPaidQty > stock) {
+    setResultModal({ type: 'error', title: 'Insufficient stock', message: `Only ${stock} unit${stock === 1 ? '' : 's'} of "${item.product.name}" available.` });
+    return;
+  }
+  setCart((prev) => prev.map((c) => (c.product.id === productId ? { ...c, qty: newPaidQty } : c)));
+};
 
   const removeItem = (productId: number) => setCart((prev) => prev.filter((c) => c.product.id !== productId));
 
@@ -327,6 +528,7 @@ export default function BillingScreen() {
     setSplitAmount1('');
     setSplitMethod2('upi');
     setSplitAmount2('');
+    AsyncStorage.removeItem(STORAGE_KEYS.AUTOSAVE_BILL).catch(() => {});
   };
 
   const handleBarcodeScanned = (code: string) => {
@@ -338,25 +540,28 @@ export default function BillingScreen() {
   // -------------------------------------------------------------------------
   // Totals
   // -------------------------------------------------------------------------
-  const totals = useMemo(() => {
-    let subtotal = 0;
-    let gst = 0;
-    let totalQty = 0;
-    cart.forEach(({ product, qty, discountPercent }) => {
-      const price = product.selling_price ?? 0;
-      const lineTotal = price * qty;
-      const afterDiscount = lineTotal - (lineTotal * discountPercent) / 100;
-      const gstAmount = (afterDiscount * (product.gst_rate ?? 0)) / 100;
-      subtotal += afterDiscount;
-      gst += gstAmount;
-      totalQty += qty;
-    });
-    const billDiscount = parseFloat(discountValue) || 0;
-    const preRound = Math.max(subtotal - billDiscount + gst, 0);
-    const rounded = Math.round(preRound);
-    const roundOff = rounded - preRound;
-    return { subtotal, gst, billDiscount, totalQty, grandTotal: rounded, roundOff };
-  }, [cart, discountValue]);
+ const totals = useMemo(() => {
+  let subtotal = 0;
+  let gst = 0;
+  let totalQty = 0;
+  let promoDiscountTotal = 0; // NEW — sum of all auto-applied 10% promo savings
+  cart.forEach(({ product, qty, discountPercent }) => {
+    const price = product.selling_price ?? 0;
+    const lineTotal = price * qty;
+    const discountAmount = (lineTotal * discountPercent) / 100;
+    const afterDiscount = lineTotal - discountAmount;
+    const gstAmount = (afterDiscount * (product.gst_rate ?? 0)) / 100;
+    subtotal += afterDiscount;
+    gst += gstAmount;
+    totalQty += qty;
+    promoDiscountTotal += discountAmount;
+  });
+  const billDiscount = parseFloat(discountValue) || 0;
+  const preRound = Math.max(subtotal - billDiscount + gst, 0);
+  const rounded = Math.round(preRound);
+  const roundOff = rounded - preRound;
+  return { subtotal, gst, billDiscount, totalQty, grandTotal: rounded, roundOff, promoDiscountTotal };
+}, [cart, discountValue]);
 
   useEffect(() => {
     setAmountReceived(cart.length > 0 ? totals.grandTotal.toFixed(2) : '');
@@ -386,8 +591,7 @@ export default function BillingScreen() {
   const splitTotal = (parseFloat(splitAmount1) || 0) + (parseFloat(splitAmount2) || 0);
 
   const balanceAmount = useMemo(() => (parseFloat(amountReceived) || 0) - totals.grandTotal, [amountReceived, totals.grandTotal]);
-  
-  
+
   // -------------------------------------------------------------------------
   // Checkout
   // -------------------------------------------------------------------------
@@ -405,7 +609,7 @@ export default function BillingScreen() {
     if (cachedId) return { id: Number(cachedId), name: 'Walk-in customer' } as Customer;
 
     const created = await createCustomer.mutateAsync({
-      data: { business_id: business!.id, name: 'Walk-in customer', phone: '', category: 'general' } as any,
+      data: { business_id: business!.id, name: 'Walk-in customer', phone: '', category: 'customer' } as any,
     });
     const newId = (created as any)?.id ?? (created as any)?.data?.id;
     if (newId) await AsyncStorage.setItem(STORAGE_KEYS.WALKIN_CUSTOMER_ID, String(newId));
@@ -444,7 +648,7 @@ export default function BillingScreen() {
     setIsSubmitting(true);
     try {
       const customer = selectedCustomer ?? (await getOrCreateWalkInCustomer());
-      const effectiveGstRate = totals.subtotal > 0 ? (totals.gst / totals.subtotal) * 100 : 0;   
+      const effectiveGstRate = totals.subtotal > 0 ? (totals.gst / totals.subtotal) * 100 : 0;
 
       await createTransaction.mutateAsync({
         data: {
@@ -511,7 +715,7 @@ export default function BillingScreen() {
         cart.map((item) =>
           updateProduct.mutateAsync({
             id: item.product.id,
-            data: { stock_qty: Math.max((item.product.stock_qty ?? 0) - item.qty, 0) },
+            data: { stock_qty: Math.max((item.product.stock_qty ?? 0) - (item.qty + item.freeQty), 0) },
           }),
         ),
       );
@@ -533,15 +737,11 @@ export default function BillingScreen() {
         totals,
         paymentMethod,
       });
-      setResultModal({
-        type: 'success',
+      setSuccessBanner({
         title: isCreditNow ? 'Invoice created' : 'Payment completed',
         message: `${currentInvoice} saved successfully for ${customer.name}.`,
         showPrintButton: true,
-        onConfirm: () => {
-          setResultModal(null);
-          clearCart();
-        },
+        onConfirm: () => clearCart(),
       });
     } catch (e) {
       console.error('Checkout error:', e);
@@ -555,7 +755,44 @@ export default function BillingScreen() {
     }
   };
 
-  
+  // -------------------------------------------------------------------------
+  // Add new customer
+  // -------------------------------------------------------------------------
+  const handleCreateNewCustomer = async () => {
+    if (!newCustomerName.trim() || !business?.id) return;
+    if (duplicateCustomer) {
+      // Don't create a duplicate — just select the existing customer.
+      setSelectedCustomer(duplicateCustomer);
+      setNewCustomerModalOpen(false);
+      setNewCustomerName('');
+      setNewCustomerPhone('');
+      return;
+    }
+    setIsCreatingCustomer(true);
+    try {
+      const created = await createCustomer.mutateAsync({
+        data: {
+          business_id: business.id,
+          name: newCustomerName.trim(),
+          phone: newCustomerPhone.trim(),
+          category: 'customer',
+        } as any,
+      });
+      setSelectedCustomer(created as Customer);
+      setNewCustomerModalOpen(false);
+      setCustomerPickerOpen(false);
+      setNewCustomerName('');
+      setNewCustomerPhone('');
+      setCustomerSearch('');
+      queryClient.invalidateQueries({ queryKey: ['/api/customers'], exact: false });
+    } catch (e) {
+      console.error('Create customer error:', e);
+      setResultModal({ type: 'error', title: 'Could not add customer', message: 'Please try again.' });
+    } finally {
+      setIsCreatingCustomer(false);
+    }
+  };
+
   // -------------------------------------------------------------------------
   // Save draft / Hold / Recall
   // -------------------------------------------------------------------------
@@ -578,14 +815,10 @@ export default function BillingScreen() {
       paymentMethod,
     });
     await AsyncStorage.setItem(key, JSON.stringify(list));
-    setResultModal({
-      type: 'success',
+    setSuccessBanner({
       title: kind === 'hold' ? 'Bill held' : 'Draft saved',
       message: `${invoiceNumber} is safely stored. You can bring it back from Recall.`,
-      onConfirm: () => {
-        setResultModal(null);
-        clearCart();
-      },
+      onConfirm: () => clearCart(),
     });
   };
 
@@ -638,10 +871,17 @@ export default function BillingScreen() {
     text += `Cashier: ${data.cashier || 'Admin'}\n`;
     text += `Customer: ${data.customerName}\n`;
     text += '--------------------------------\n';
-    data.cart.forEach(({ product, qty }) => {
-      const total = (product.selling_price ?? 0) * qty;
-      text += `${product.name.padEnd(18).slice(0, 18)} x${qty}  Rs.${total.toFixed(2)}\n`;
-    });
+    data.cart.forEach((item) => {
+  const total = (item.product.selling_price ?? 0) * item.qty;
+  if (item.isBogo) {
+    text += `${item.product.name.padEnd(18).slice(0, 18)} Paid:${item.qty} Free:${item.freeQty}  Rs.${total.toFixed(2)}\n`;
+    text += `  (Buy 1 Get 1 Free)\n`;
+  } else if (item.discountPercent > 0) {
+    text += `${item.product.name.padEnd(18).slice(0, 18)} x${item.qty}  Rs.${total.toFixed(2)} (${item.discountPercent}% OFF)\n`;
+  } else {
+    text += `${item.product.name.padEnd(18).slice(0, 18)} x${item.qty}  Rs.${total.toFixed(2)}\n`;
+  }
+});
     text += '--------------------------------\n';
     text += `Subtotal:    Rs.${data.totals.subtotal.toFixed(2)}\n`;
     if (data.totals.billDiscount > 0) text += `Discount:   -Rs.${data.totals.billDiscount.toFixed(2)}\n`;
@@ -726,29 +966,24 @@ export default function BillingScreen() {
       </View>
 
       <ScrollView style={isWide ? { flex: 1, marginTop: 4 } : undefined} nestedScrollEnabled showsVerticalScrollIndicator={false}>
-        {search.trim().length === 0 && (
+        {/* Nothing typed, no category picked yet → show categories + quick products */}
+        {search.trim().length === 0 && activeCategory === 'All' && (
           <>
             <Text style={[styles.sectionLabel, { color: colors.primary }]}>Categories</Text>
             <View style={{ gap: 6 }}>
-              {categories.filter((c) => c !== 'All').map((cat) => {
-                const active = cat === activeCategory;
-                return (
-                  <Pressable
-                    key={cat}
-                    onPress={() => setActiveCategory(active ? 'All' : cat)}
-                    style={[
-                      styles.categoryRow,
-                      { borderColor: colors.border, backgroundColor: active ? categoryColor(cat) + '15' : colors.background },
-                    ]}
-                  >
-                    <View style={[styles.categoryIconWrap, { backgroundColor: categoryColor(cat) + '20' }]}>
-                      <Feather name={categoryIcon(cat)} size={14} color={categoryColor(cat)} />
-                    </View>
-                    <Text style={[styles.categoryLabel, { color: colors.foreground }]}>{cat}</Text>
-                    <Feather name="chevron-right" size={15} color={colors.mutedForeground} />
-                  </Pressable>
-                );
-              })}
+              {categories.filter((c) => c !== 'All').map((cat) => (
+                <Pressable
+                  key={cat}
+                  onPress={() => setActiveCategory(cat)}
+                  style={[styles.categoryRow, { borderColor: colors.border, backgroundColor: colors.background }]}
+                >
+                  <View style={[styles.categoryIconWrap, { backgroundColor: categoryColor(cat) + '20' }]}>
+                    <Feather name={categoryIcon(cat)} size={14} color={categoryColor(cat)} />
+                  </View>
+                  <Text style={[styles.categoryLabel, { color: colors.foreground }]}>{cat}</Text>
+                  <Feather name="chevron-right" size={15} color={colors.mutedForeground} />
+                </Pressable>
+              ))}
             </View>
 
             {quickProducts.length > 0 && (
@@ -768,47 +1003,43 @@ export default function BillingScreen() {
           </>
         )}
 
-        {(search.trim().length > 0 || activeCategory !== 'All') && (
+        {/* A category is selected → show ONLY that category's products */}
+        {search.trim().length === 0 && activeCategory !== 'All' && (
           <>
-            <Text style={[styles.sectionLabel, { color: colors.mutedForeground, marginTop: 4 }]}>
-              {search.trim() ? 'Search results' : `${activeCategory} products`}
-            </Text>
+            <Pressable
+              onPress={() => setActiveCategory('All')}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, marginBottom: 10 }}
+            >
+              <Feather name="arrow-left" size={14} color={colors.primary} />
+              <Text style={{ fontFamily: F, color: colors.primary, fontSize: 13, fontWeight: '600' }}>Back to categories</Text>
+            </Pressable>
+            <Text style={[styles.sectionLabel, { color: colors.mutedForeground, marginTop: 0 }]}>{activeCategory} products</Text>
 
-            {loadingAllProducts || isSearching ? (
+            {loadingAllProducts ? (
               <ActivityIndicator style={{ paddingVertical: 20 }} color={colors.primary} />
             ) : visibleProducts.length === 0 ? (
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No products found</Text>
             ) : (
-              visibleProducts.map((p) => {
-                const outOfStock = (p.stock_qty ?? 0) <= 0;
-                const lowStock = !outOfStock && (p.stock_qty ?? 0) <= (p.low_stock_alert ?? 5);
-                return (
-                  <Pressable
-                    key={p.id}
-                    onPress={() => {
-                      if (outOfStock) return;
-                      addToCart(p);
-                      setSearch('');
-                    }}
-                    disabled={outOfStock}
-                    style={[styles.productRow, { borderBottomColor: colors.border, opacity: outOfStock ? 0.5 : 1 }]}
-                  >
-                    <View style={[styles.productThumb, { backgroundColor: colors.background }]}>
-                      <Feather name="image" size={16} color={colors.mutedForeground} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.productName, { color: colors.foreground }]} numberOfLines={1}>
-                        {p.name}
-                      </Text>
-                      <Text style={[styles.productMeta, { color: colors.mutedForeground }]}>
-                        {formatCurrency(p.selling_price ?? 0, business?.currency)} · {unitLabel(p.unit)} ·{' '}
-                        {outOfStock ? 'Out of stock' : lowStock ? `Low stock (${p.stock_qty})` : `Stock ${p.stock_qty ?? 0}`}
-                      </Text>
-                    </View>
-                    <Feather name="plus-circle" size={18} color={outOfStock ? colors.mutedForeground : colors.primary} />
-                  </Pressable>
-                );
-              })
+              visibleProducts.map((p) => (
+                <ProductRow key={p.id} p={p} colors={colors} business={business} addToCart={addToCart} setSearch={setSearch} />
+              ))
+            )}
+          </>
+        )}
+
+        {/* Typing in search → show search results */}
+        {search.trim().length > 0 && (
+          <>
+            <Text style={[styles.sectionLabel, { color: colors.mutedForeground, marginTop: 4 }]}>Search results</Text>
+
+            {isSearching ? (
+              <ActivityIndicator style={{ paddingVertical: 20 }} color={colors.primary} />
+            ) : visibleProducts.length === 0 ? (
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No products found</Text>
+            ) : (
+              visibleProducts.map((p) => (
+                <ProductRow key={p.id} p={p} colors={colors} business={business} addToCart={addToCart} setSearch={setSearch} />
+              ))
             )}
           </>
         )}
@@ -826,15 +1057,16 @@ export default function BillingScreen() {
       {/* Bill header */}
       <View style={styles.billHeaderRow}>
         <View style={{ flex: 1 }}>
-          <Pressable onPress={() => setCustomerPickerOpen(true)} style={[styles.customerPill, { borderColor: selectedCustomer ? colors.primary : colors.border }]}>
+          <Pressable
+            onPress={() => setCustomerPickerOpen(true)}
+            style={[styles.customerPill, { borderColor: selectedCustomer ? colors.primary : colors.border }]}
+          >
             <Feather name="user" size={13} color={selectedCustomer ? colors.primary : colors.mutedForeground} />
             <Text style={[styles.customerPillText, { color: selectedCustomer ? colors.foreground : colors.mutedForeground }]} numberOfLines={1}>
               {selectedCustomer ? selectedCustomer.name : 'Walk-in customer'}
             </Text>
           </Pressable>
-          <Text style={[styles.billMeta, { color: colors.mutedForeground }]}>
-            Phone: {selectedCustomer?.phone || '—'}
-          </Text>
+          <Text style={[styles.billMeta, { color: colors.mutedForeground }]}>Phone: {selectedCustomer?.phone || '—'}</Text>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
           <Text style={[styles.billMeta, { color: colors.foreground }]}>Bill no: {invoiceNumber}</Text>
@@ -882,21 +1114,30 @@ export default function BillingScreen() {
                         {item.product.name}
                       </Text>
                       <Text style={[styles.tdSub, { color: colors.mutedForeground }]}>{unitLabel(item.product.unit)}</Text>
+                      {item.isBogo ? (
+  <Text style={{ fontFamily: F, fontSize: 10, color: '#7C3AED', fontWeight: '700', marginTop: 2 }}>
+    🎁 Buy 1 Get 1 Free · Free Qty: {item.freeQty}
+  </Text>
+) : item.discountPercent > 0 ? (
+  <Text style={{ fontFamily: F, fontSize: 10, color: '#16A34A', fontWeight: '700', marginTop: 2 }}>
+    {item.discountPercent}% OFF · -₹{(((item.product.selling_price ?? 0) * item.qty * item.discountPercent) / 100).toFixed(2)}
+  </Text>
+) : null}
                     </View>
-                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                      <Pressable onPress={() => updateQty(item.product.id, -1)}>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                      <Pressable onPress={() => changeQty(item.product.id, item.qty - 1)}>
                         <Feather name="minus-circle" size={16} color={colors.mutedForeground} />
                       </Pressable>
                       <TextInput
                         value={String(item.qty)}
                         onChangeText={(t) => {
                           const n = parseInt(t.replace(/[^0-9]/g, ''), 10);
-                          if (!isNaN(n)) setQtyDirectly(item.product.id, n);
+                          if (!isNaN(n)) changeQty(item.product.id, n);
                         }}
                         keyboardType="number-pad"
                         style={[styles.qtyInput, { color: colors.foreground }]}
                       />
-                      <Pressable onPress={() => updateQty(item.product.id, 1)}>
+                      <Pressable onPress={() => changeQty(item.product.id, item.qty + 1)}>
                         <Feather name="plus-circle" size={16} color={colors.mutedForeground} />
                       </Pressable>
                       <Text style={[styles.tdSub, { color: colors.mutedForeground, marginLeft: 2 }]}>{unitLabel(item.product.unit)}</Text>
@@ -924,13 +1165,13 @@ export default function BillingScreen() {
                   </View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Pressable onPress={() => updateQty(item.product.id, -1)}>
+                      <Pressable onPress={() => changeQty(item.product.id, item.qty - 1)}>
                         <Feather name="minus-circle" size={18} color={colors.mutedForeground} />
                       </Pressable>
                       <Text style={[styles.tdName, { minWidth: 18, textAlign: 'center', color: colors.foreground }]}>
                         {item.qty} {unitLabel(item.product.unit)}
                       </Text>
-                      <Pressable onPress={() => updateQty(item.product.id, 1)}>
+                      <Pressable onPress={() => changeQty(item.product.id, item.qty + 1)}>
                         <Feather name="plus-circle" size={18} color={colors.mutedForeground} />
                       </Pressable>
                     </View>
@@ -957,6 +1198,9 @@ export default function BillingScreen() {
                 style={[styles.discountInput, { borderColor: colors.border, color: '#DC2626' }]}
               />
             </View>
+            {totals.promoDiscountTotal > 0 ? (
+    <SummaryRow label="Promo Discount (10% OFF)" value={`- ₹ ${totals.promoDiscountTotal.toFixed(2)}`} valueColor="#16A34A" />
+  ) : null}
             <SummaryRow label="GST" value={`₹ ${totals.gst.toFixed(2)}`} valueColor="#16A34A" />
             <SummaryRow label="Round off" value={`₹ ${totals.roundOff.toFixed(2)}`} last />
           </View>
@@ -977,7 +1221,7 @@ export default function BillingScreen() {
                     onPress={() => setPaymentMethod(m.value)}
                     style={[styles.paymentChip, { borderColor: active ? m.color : colors.border, backgroundColor: active ? m.color + '18' : colors.background }]}
                   >
-                    <Feather name={m.icon} size={13} color={m.color} />
+                    <PaymentIcon method={m.value} icon={m.icon} size={13} color={m.color} />
                     <Text style={[styles.paymentChipText, { color: active ? m.color : colors.foreground }]}>{m.label}</Text>
                   </Pressable>
                 );
@@ -1098,6 +1342,24 @@ export default function BillingScreen() {
         </View>
       </View>
 
+      {resumeBill && cart.length === 0 && (
+        <View style={styles.resumeBanner}>
+          <Feather name="clock" size={16} color="#92400E" />
+          <Text style={styles.resumeBannerText}>
+            Unfinished bill {resumeBill.invoiceNumber} · {(resumeBill.cart ?? []).length} item
+            {(resumeBill.cart ?? []).length !== 1 ? 's' : ''} found — was it left open by mistake?
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity onPress={handleDiscardAutosave} style={styles.resumeBannerBtnGhost}>
+              <Text style={styles.resumeBannerBtnGhostText}>Discard</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleResumeAutosave} style={styles.resumeBannerBtn}>
+              <Text style={styles.resumeBannerBtnText}>Resume bill</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {isWide ? (
         <>
           <View style={styles.wideRow}>
@@ -1119,74 +1381,51 @@ export default function BillingScreen() {
         </ScrollView>
       )}
 
-      {/* Customer picker */}
-      <Modal visible={customerPickerOpen} transparent animationType="slide" onRequestClose={() => setCustomerPickerOpen(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={[styles.modalTitle, { color: colors.foreground }]}>Select customer</Text>
-              <Pressable onPress={() => setCustomerPickerOpen(false)} hitSlop={8}>
-                <Feather name="x" size={20} color={colors.mutedForeground} />
-              </Pressable>
-            </View>
-            <TextInput
-              value={customerSearch}
-              onChangeText={setCustomerSearch}
-              placeholder="Search by name or phone"
-              placeholderTextColor={colors.mutedForeground}
-              style={[styles.receivedInput, { borderColor: colors.border, color: colors.foreground, marginTop: 12 }]}
-              autoFocus
-            />
-            <ScrollView style={{ maxHeight: 300, marginTop: 10 }}>
-              {isSearchingCustomers ? (
-                <ActivityIndicator color={colors.primary} style={{ padding: 14 }} />
-              ) : (
-                customerResults.map((c) => (
-                  <Pressable
-                    key={c.id}
-                    onPress={() => {
-                      setSelectedCustomer(c);
-                      setCustomerPickerOpen(false);
-                      setCustomerSearch('');
-                    }}
-                    style={[styles.productRow, { borderBottomColor: colors.border }]}
-                  >
-                    <View>
-                      <Text style={[styles.productName, { color: colors.foreground }]}>{c.name}</Text>
-                      <Text style={[styles.productMeta, { color: colors.mutedForeground }]}>{c.phone}</Text>
-                    </View>
-                  </Pressable>
-                ))
-              )}
-            </ScrollView>
-            <Pressable
+      {successBanner && (
+        <View style={styles.resumeBanner}>
+          <Feather name="check-circle" size={16} color="#92400E" />
+          <Text style={styles.resumeBannerText}>
+            {successBanner.title}: {successBanner.message}
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {successBanner.showPrintButton && (
+              <TouchableOpacity
+                onPress={() => {
+                  setPrintVisible(true);
+                  setSuccessBanner(null);
+                }}
+                style={styles.resumeBannerBtnGhost}
+              >
+                <Text style={styles.resumeBannerBtnGhostText}>Print bill</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
               onPress={() => {
-                setCustomerPickerOpen(false);
-                router.push('/add-customer');
+                successBanner.onConfirm?.();
+                setSuccessBanner(null);
               }}
-              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, marginTop: 6 }}
+              style={styles.resumeBannerBtn}
             >
-              <Feather name="plus-circle" size={16} color={colors.primary} />
-              <Text style={{ fontFamily: F, color: colors.primary, marginLeft: 8 }}>Add new customer</Text>
-            </Pressable>
+              <Text style={styles.resumeBannerBtnText}>OK</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      )}
 
-      {/* Result / confirm modal — replaces Alert.alert, which doesn't reliably render on web */}
+      {/* Result / confirm modal — replaces Alert.alert, which doesn't reliably render on web. Only for error/confirm now. */}
       <Modal visible={!!resultModal} transparent animationType="fade" onRequestClose={() => setResultModal(null)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.resultModalContent, { backgroundColor: colors.card }]}>
             <View
               style={[
                 styles.resultIconWrap,
-                { backgroundColor: resultModal?.type === 'error' ? '#FEE2E2' : resultModal?.type === 'confirm' ? '#FEF3C7' : '#DCFCE7' },
+                { backgroundColor: resultModal?.type === 'error' ? '#FEE2E2' : '#FEF3C7' },
               ]}
             >
               <Feather
-                name={resultModal?.type === 'error' ? 'x-circle' : resultModal?.type === 'confirm' ? 'alert-circle' : 'check-circle'}
+                name={resultModal?.type === 'error' ? 'x-circle' : 'alert-circle'}
                 size={26}
-                color={resultModal?.type === 'error' ? '#DC2626' : resultModal?.type === 'confirm' ? '#D97706' : '#16A34A'}
+                color={resultModal?.type === 'error' ? '#DC2626' : '#D97706'}
               />
             </View>
             <Text style={[styles.resultTitle, { color: colors.foreground }]}>{resultModal?.title}</Text>
@@ -1197,23 +1436,164 @@ export default function BillingScreen() {
                   <Text style={[styles.resultBtnText, { color: colors.foreground }]}>Cancel</Text>
                 </TouchableOpacity>
               )}
-              {resultModal?.showPrintButton && (
-                <TouchableOpacity
-                  onPress={() => {
-                    setResultModal(null);
-                    setPrintVisible(true);
-                  }}
-                  style={[styles.resultBtn, { borderWidth: 1, borderColor: '#2563EB' }]}
-                >
-                  <Feather name="printer" size={14} color="#2563EB" />
-                  <Text style={[styles.resultBtnText, { color: '#2563EB', marginLeft: 6 }]}>Print bill</Text>
-                </TouchableOpacity>
-              )}
               <TouchableOpacity
                 onPress={() => (resultModal?.onConfirm ? resultModal.onConfirm() : setResultModal(null))}
                 style={[styles.resultBtn, { backgroundColor: colors.primary }]}
               >
                 <Text style={[styles.resultBtnText, { color: '#fff' }]}>{resultModal?.type === 'confirm' ? 'Select customer' : 'OK'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Customer picker — popup modal */}
+      <Modal visible={customerPickerOpen} transparent animationType="fade" onRequestClose={() => setCustomerPickerOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>Select customer</Text>
+              <Pressable onPress={() => { setCustomerPickerOpen(false); setCustomerSearch(''); }} hitSlop={8}>
+                <Feather name="x" size={20} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
+
+            <View style={[styles.searchWrap, { borderColor: colors.border, backgroundColor: colors.background, marginTop: 14 }]}>
+              <Feather name="search" size={15} color={colors.mutedForeground} />
+              <TextInput
+                value={customerSearch}
+                onChangeText={setCustomerSearch}
+                placeholder="Search by name or phone"
+                placeholderTextColor={colors.mutedForeground}
+                style={[styles.searchInput, { color: colors.foreground }]}
+                autoFocus
+              />
+              {customerSearch.length > 0 && (
+                <Pressable onPress={() => setCustomerSearch('')} hitSlop={8}>
+                  <Feather name="x" size={15} color={colors.mutedForeground} />
+                </Pressable>
+              )}
+            </View>
+
+            <ScrollView style={{ maxHeight: 320, marginTop: 10 }} nestedScrollEnabled>
+              {customerSearch.trim().length === 0 ? (
+                <Text style={[styles.emptyText, { color: colors.mutedForeground, paddingVertical: 14, textAlign: 'center' }]}>
+                  Type a name or phone to search
+                </Text>
+              ) : isSearchingCustomers ? (
+                <ActivityIndicator color={colors.primary} style={{ padding: 14 }} />
+              ) : customerResults.length === 0 ? (
+                <Text style={[styles.emptyText, { color: colors.mutedForeground, paddingVertical: 14, textAlign: 'center' }]}>
+                  No matches found
+                </Text>
+              ) : (
+                customerResults.map((c) => (
+                  <Pressable
+                    key={c.id}
+                    onPress={() => {
+                      setSelectedCustomer(c);
+                      setCustomerPickerOpen(false);
+                      setCustomerSearch('');
+                    }}
+                    style={({ pressed }) => [
+                      styles.customerResultRow,
+                      { backgroundColor: pressed ? colors.primary + '12' : 'transparent' },
+                    ]}
+                  >
+                    <View style={[styles.customerAvatar, { backgroundColor: colors.primary + '18' }]}>
+                      <Text style={{ fontFamily: F, fontSize: 12, fontWeight: '700', color: colors.primary }}>
+                        {c.name?.charAt(0)?.toUpperCase() || '?'}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.productName, { color: colors.foreground }]}>{c.name}</Text>
+                      <Text style={[styles.productMeta, { color: colors.mutedForeground }]}>{c.phone}</Text>
+                    </View>
+                  </Pressable>
+                ))
+              )}
+            </ScrollView>
+
+            <Pressable
+              onPress={() => {
+                setCustomerPickerOpen(false);
+                setCustomerSearch('');
+                setNewCustomerModalOpen(true);
+              }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingVertical: 12,
+                marginTop: 6,
+                borderTopWidth: 1,
+                borderTopColor: colors.border,
+              }}
+            >
+              <Feather name="plus-circle" size={16} color={colors.primary} />
+              <Text style={{ fontFamily: F, color: colors.primary, marginLeft: 8 }}>Add new customer</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add new customer — small popup with Name + Phone */}
+      <Modal visible={newCustomerModalOpen} transparent animationType="fade" onRequestClose={() => setNewCustomerModalOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.resultModalContent, { backgroundColor: colors.card, alignItems: 'stretch' }]}>
+            <Text style={[styles.modalTitle, { color: colors.foreground, textAlign: 'center', marginBottom: 14 }]}>Add new customer</Text>
+
+            <Text style={[styles.summaryLabel, { color: colors.mutedForeground, marginBottom: 4 }]}>Name</Text>
+            <TextInput
+              value={newCustomerName}
+              onChangeText={setNewCustomerName}
+              placeholder="Customer name"
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.receivedInput, { borderColor: colors.border, color: colors.foreground, marginBottom: 12 }]}
+              autoFocus
+            />
+
+            <Text style={[styles.summaryLabel, { color: colors.mutedForeground, marginBottom: 4 }]}>Phone (optional)</Text>
+            <TextInput
+              value={newCustomerPhone}
+              onChangeText={setNewCustomerPhone}
+              placeholder="Skip if the customer doesn't wish to share"
+              placeholderTextColor={colors.mutedForeground}
+              keyboardType="phone-pad"
+              style={[styles.receivedInput, { borderColor: duplicateCustomer ? '#D97706' : colors.border, color: colors.foreground }]}
+            />
+
+            {duplicateCustomer && (
+              <View style={styles.dupWarningBox}>
+                <Feather name="alert-triangle" size={14} color="#92400E" />
+                <Text style={styles.dupWarningText}>
+                  This phone number already belongs to {duplicateCustomer.name}. Tap "Use existing" to select them instead.
+                </Text>
+              </View>
+            )}
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 16, width: '100%' }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setNewCustomerModalOpen(false);
+                  setNewCustomerName('');
+                  setNewCustomerPhone('');
+                }}
+                style={[styles.resultBtn, { borderWidth: 1, borderColor: colors.border }]}
+              >
+                <Text style={[styles.resultBtnText, { color: colors.foreground }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleCreateNewCustomer}
+                disabled={!newCustomerName.trim() || isCreatingCustomer}
+                style={[
+                  styles.resultBtn,
+                  { backgroundColor: duplicateCustomer ? '#D97706' : colors.primary, opacity: !newCustomerName.trim() || isCreatingCustomer ? 0.6 : 1 },
+                ]}
+              >
+                <Text style={[styles.resultBtnText, { color: '#fff' }]}>
+                  {isCreatingCustomer ? 'Saving…' : duplicateCustomer ? 'Use existing' : 'Save customer'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1327,7 +1707,7 @@ function SplitLeg({
                 onPress={() => onMethodChange(m)}
                 style={[styles.splitLegChip, { borderColor: active ? meta.color : colors.border, backgroundColor: active ? meta.color + '18' : colors.background }]}
               >
-                <Feather name={meta.icon} size={12} color={active ? meta.color : colors.mutedForeground} />
+                <PaymentIcon method={m} icon={meta.icon} size={12} color={active ? meta.color : colors.mutedForeground} />
               </Pressable>
             );
           })}
@@ -1371,6 +1751,49 @@ function BottomAction({
   );
 }
 
+// Single row used for both category-filtered and search-result product lists.
+function ProductRow({
+  p,
+  colors,
+  business,
+  addToCart,
+  setSearch,
+}: {
+  p: Product;
+  colors: any;
+  business: any;
+  addToCart: (p: Product) => void;
+  setSearch: (v: string) => void;
+}) {
+  const outOfStock = (p.stock_qty ?? 0) <= 0;
+  const lowStock = !outOfStock && (p.stock_qty ?? 0) <= (p.low_stock_alert ?? 5);
+  return (
+    <Pressable
+      onPress={() => {
+        if (outOfStock) return;
+        addToCart(p);
+        setSearch('');
+      }}
+      disabled={outOfStock}
+      style={[styles.productRow, { borderBottomColor: colors.border, opacity: outOfStock ? 0.5 : 1 }]}
+    >
+      <View style={[styles.productThumb, { backgroundColor: colors.background }]}>
+        <Feather name="image" size={16} color={colors.mutedForeground} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.productName, { color: colors.foreground }]} numberOfLines={1}>
+          {p.name}
+        </Text>
+        <Text style={[styles.productMeta, { color: colors.mutedForeground }]}>
+          {formatCurrency(p.selling_price ?? 0, business?.currency)} · {unitLabel(p.unit)} ·{' '}
+          {outOfStock ? 'Out of stock' : lowStock ? `Low stock (${p.stock_qty})` : `Stock ${p.stock_qty ?? 0}`}
+        </Text>
+      </View>
+      <Feather name="plus-circle" size={18} color={outOfStock ? colors.mutedForeground : colors.primary} />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   topBar: { paddingHorizontal: 16, paddingBottom: 14, backgroundColor: '#2563EB', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   topBarIconWrap: { width: 30, height: 30, borderRadius: 8, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
@@ -1378,6 +1801,21 @@ const styles = StyleSheet.create({
   topBarMeta: { fontFamily: F, fontSize: 11, color: '#DBEAFE' },
 
   wideRow: { flex: 1, flexDirection: 'row', padding: 12, gap: 12, alignItems: 'stretch' },
+
+  resumeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 10,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  resumeBannerText: { flex: 1, fontFamily: F, fontSize: 12.5, color: '#92400E', fontWeight: '600', minWidth: 180 },
+  resumeBannerBtn: { backgroundColor: '#2563EB', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8 },
+  resumeBannerBtnText: { fontFamily: F, fontSize: 12, fontWeight: '700', color: '#fff' },
+  resumeBannerBtnGhost: { borderWidth: 1, borderColor: '#92400E', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8 },
+  resumeBannerBtnGhostText: { fontFamily: F, fontSize: 12, fontWeight: '700', color: '#92400E' },
 
   panel: { borderWidth: 1, borderRadius: 12, padding: 14 },
   panelStacked: { width: '100%' },
@@ -1389,7 +1827,7 @@ const styles = StyleSheet.create({
   emptyText: { fontFamily: F, fontSize: 12 },
 
   searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, marginTop: 10 },
-  searchInput: { flex: 1, fontFamily: F, fontSize: 13 },
+  searchInput: { flex: 1, fontFamily: F, fontSize: 13, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}) },
 
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   categoryRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 9 },
@@ -1407,6 +1845,38 @@ const styles = StyleSheet.create({
   customerPill: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, alignSelf: 'flex-start' },
   customerPillText: { fontFamily: F, fontSize: 13, marginLeft: 6 },
   billMeta: { fontFamily: F, fontSize: 12, marginTop: 4 },
+
+  customerResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+  },
+  customerAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dupWarningBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 8,
+  },
+  dupWarningText: {
+    flex: 1,
+    fontFamily: F,
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 16,
+  },
 
   tableHeaderRow: { flexDirection: 'row', paddingVertical: 9, paddingHorizontal: 6, borderRadius: 8, marginBottom: 4 },
   th: { fontFamily: F, fontSize: 11, fontWeight: '700' },

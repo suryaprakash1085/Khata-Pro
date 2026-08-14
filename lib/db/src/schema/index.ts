@@ -17,3 +17,5 @@ export * from "./transaction_items";
 export * from "./sales_orders";
 export * from "./sales_order_items";
 export * from "./returns";
+export * from "./notifications";
+export * from "./promotions";

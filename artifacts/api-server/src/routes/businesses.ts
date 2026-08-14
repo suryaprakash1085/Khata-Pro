@@ -775,4 +775,25 @@ router.post("/businesses/:id/staff", requireAuth, async (req, res): Promise<void
   });
 });
 
+// GET /public/businesses  — no auth required, used by delivery-app to list stores
+router.get("/public/businesses", async (req, res): Promise<void> => {
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 20;
+  const offset = (page - 1) * limit;
+  const search = req.query.search as string | undefined;
+
+  let query = db.select().from(businessesTable).where(eq(businessesTable.isActive, true));
+  if (search) {
+    query = (query as any).where(ilike(businessesTable.businessName, `%${search}%`));
+  }
+
+  const businesses = await (query as any).limit(limit).offset(offset).orderBy(desc(businessesTable.createdAt));
+
+  const subs = await db.select().from(subscriptionsTable);
+  const subMap = new Map(subs.map((s) => [Number(s.businessId), s.plan]));
+
+  const data = businesses.map((b: any) => formatBusiness(b, subMap.get(Number(b.id)) ?? "free"));
+  res.json({ data });
+});
+
 export default router;

@@ -409,6 +409,126 @@ export interface ProductListResponse {
   limit: number;
 }
 
+export type PromotionPromotionType = typeof PromotionPromotionType[keyof typeof PromotionPromotionType];
+
+
+export const PromotionPromotionType = {
+  bogo: 'bogo',
+  percentage: 'percentage',
+} as const;
+
+export type PromotionApplyTo = typeof PromotionApplyTo[keyof typeof PromotionApplyTo];
+
+
+export const PromotionApplyTo = {
+  all: 'all',
+  selected: 'selected',
+} as const;
+
+export type PromotionStatus = typeof PromotionStatus[keyof typeof PromotionStatus];
+
+
+export const PromotionStatus = {
+  active: 'active',
+  inactive: 'inactive',
+} as const;
+
+export interface Promotion {
+  id: number;
+  business_id: number;
+  name: string;
+  promotion_type: PromotionPromotionType;
+  apply_to: PromotionApplyTo;
+  start_date: string;
+  end_date: string;
+  status: PromotionStatus;
+  /** @nullable */
+  discount_percentage?: number | null;
+  product_ids?: number[];
+  product_names?: string[];
+  created_at: string;
+}
+
+export type PromotionInputPromotionType = typeof PromotionInputPromotionType[keyof typeof PromotionInputPromotionType];
+
+
+export const PromotionInputPromotionType = {
+  bogo: 'bogo',
+  percentage: 'percentage',
+} as const;
+
+export type PromotionInputApplyTo = typeof PromotionInputApplyTo[keyof typeof PromotionInputApplyTo];
+
+
+export const PromotionInputApplyTo = {
+  all: 'all',
+  selected: 'selected',
+} as const;
+
+export type PromotionInputStatus = typeof PromotionInputStatus[keyof typeof PromotionInputStatus];
+
+
+export const PromotionInputStatus = {
+  active: 'active',
+  inactive: 'inactive',
+} as const;
+
+export interface PromotionInput {
+  business_id: number;
+  name: string;
+  promotion_type: PromotionInputPromotionType;
+  apply_to: PromotionInputApplyTo;
+  start_date: string;
+  end_date: string;
+  status?: PromotionInputStatus;
+  discount_percentage?: number;
+  product_ids?: number[];
+}
+
+export type PromotionUpdateApplyTo = typeof PromotionUpdateApplyTo[keyof typeof PromotionUpdateApplyTo];
+
+
+export const PromotionUpdateApplyTo = {
+  all: 'all',
+  selected: 'selected',
+} as const;
+
+export type PromotionUpdateStatus = typeof PromotionUpdateStatus[keyof typeof PromotionUpdateStatus];
+
+
+export const PromotionUpdateStatus = {
+  active: 'active',
+  inactive: 'inactive',
+} as const;
+
+export interface PromotionUpdate {
+  name?: string;
+  apply_to?: PromotionUpdateApplyTo;
+  start_date?: string;
+  end_date?: string;
+  status?: PromotionUpdateStatus;
+  product_ids?: number[];
+}
+
+export type PromotionStatusUpdateStatus = typeof PromotionStatusUpdateStatus[keyof typeof PromotionStatusUpdateStatus];
+
+
+export const PromotionStatusUpdateStatus = {
+  active: 'active',
+  inactive: 'inactive',
+} as const;
+
+export interface PromotionStatusUpdate {
+  status: PromotionStatusUpdateStatus;
+}
+
+export interface PromotionListResponse {
+  data: Promotion[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface Vendor {
   id: number;
   business_id: number;
@@ -776,6 +896,8 @@ export interface Delivery {
   business_id: number;
   customer_id: number;
   /** @nullable */
+  sales_order_id?: number | null;
+  /** @nullable */
   driver_id?: number | null;
   pickup_address: string;
   drop_address: string;
@@ -811,6 +933,7 @@ export const DeliveryInputPaymentMethod = {
 export interface DeliveryInput {
   business_id: number;
   customer_id: number;
+  sales_order_id?: number;
   pickup_address: string;
   drop_address: string;
   notes?: string;
@@ -1316,6 +1439,25 @@ category?: string;
 low_stock?: boolean;
 page?: number;
 limit?: number;
+};
+
+export type ListPromotionsParams = {
+business_id: number;
+status?: ListPromotionsStatus;
+page?: number;
+limit?: number;
+};
+
+export type ListPromotionsStatus = typeof ListPromotionsStatus[keyof typeof ListPromotionsStatus];
+
+
+export const ListPromotionsStatus = {
+  active: 'active',
+  inactive: 'inactive',
+} as const;
+
+export type ListActivePromotionsParams = {
+business_id: number;
 };
 
 export type ListVendorsParams = {
