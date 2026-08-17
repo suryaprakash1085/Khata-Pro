@@ -1,9 +1,3 @@
-// Place this file at app/order-track-management.tsx
-//
-// Admin screen: full order/delivery tracking with status timeline,
-// status advancement, cancellation, and driver assignment.
-// Mirrors the data-fetching pattern used in app/delivery-list.tsx.
-
 import React, { useState } from 'react';
 import {
   ActivityIndicator,

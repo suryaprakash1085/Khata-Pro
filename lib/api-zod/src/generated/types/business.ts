@@ -15,6 +15,8 @@ export interface Business {
   /** @nullable */
   gstin?: string | null;
   /** @nullable */
+  description?: string | null;
+  /** @nullable */
   phone?: string | null;
   /** @nullable */
   email?: string | null;

@@ -9,6 +9,7 @@ import {
   UpdateCustomerParams,
   DeleteCustomerParams,
 } from "@workspace/api-zod";
+import { requireCustomerAuth } from "../middlewares/customerAuth";
 
 const router: IRouter = Router();
 
@@ -137,6 +138,18 @@ router.delete("/customers/:id", requireAuth, async (req, res): Promise<void> => 
     return;
   }
   res.json({ message: "Customer deleted" });
+});
+
+// PUT /customers/me/push-token  (customer app calls this after login/permission grant)
+router.put("/customers/me/push-token", requireCustomerAuth, async (req, res): Promise<void> => {
+  const { customerId } = (req as any).customer;
+  const { push_token } = req.body;
+  if (!push_token || typeof push_token !== "string") {
+    res.status(400).json({ error: "push_token is required" });
+    return;
+  }
+  await db.update(customersTable).set({ pushToken: push_token }).where(eq(customersTable.id, customerId));
+  res.json({ success: true });
 });
 
 export default router;

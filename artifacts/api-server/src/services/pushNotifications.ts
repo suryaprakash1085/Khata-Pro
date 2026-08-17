@@ -73,3 +73,28 @@ export async function notifyDriverOfNewDelivery(
     { deliveryId, type: "delivery_assigned" }
   );
 }
+
+export async function notifyCustomerOrderConfirmed(
+  pushToken: string,
+  orderId: number
+): Promise<void> {
+  await sendPushNotification(
+    pushToken,
+    "Order Confirmed",
+    `Your order #${orderId} has been confirmed.`,
+    { orderId, type: "order_confirmed" }
+  );
+}
+
+export async function notifyCustomerDriverAssigned(
+  pushToken: string,
+  driverName: string,
+  deliveryId: number
+): Promise<void> {
+  await sendPushNotification(
+    pushToken,
+    "Delivery Partner Assigned",
+    `${driverName} has been assigned to deliver your order.`,
+    { deliveryId, type: "driver_assigned" }
+  );
+}
