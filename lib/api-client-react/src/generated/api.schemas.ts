@@ -87,6 +87,8 @@ export interface Business {
   /** @nullable */
   gstin?: string | null;
   /** @nullable */
+  description?: string | null;
+  /** @nullable */
   phone?: string | null;
   /** @nullable */
   email?: string | null;
@@ -116,6 +118,7 @@ export interface BusinessInput {
   business_name: string;
   business_type: string;
   gstin?: string;
+  description?: string;
   phone?: string;
   email?: string;
   address_line1?: string;
@@ -133,6 +136,7 @@ export interface BusinessUpdate {
   business_name?: string;
   business_type?: string;
   gstin?: string;
+  description?: string;
   phone?: string;
   email?: string;
   address_line1?: string;

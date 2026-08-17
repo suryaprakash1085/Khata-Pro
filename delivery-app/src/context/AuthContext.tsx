@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ﻿
 // ﻿// // import React, { createContext, useState, ReactNode, useEffect } from 'react';
 // // // import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -679,6 +680,8 @@
 // //   );
 // // };
 
+=======
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 // import React, { createContext, useState, ReactNode, useEffect } from 'react';
 // import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -687,6 +690,16 @@
 
 
 
+<<<<<<< HEAD
+=======
+// // TODO: replace with your api-server's actual base URL
+
+
+// // TODO: confirm this against: select id, name from businesses where name ilike '%green cart%';
+// const GREEN_CART_BUSINESS_ID = 8;
+
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 // interface User {
 //   id: number;
 //   name: string;
@@ -707,7 +720,12 @@
 //   logout: () => Promise<void>;
 //   updateUser: (userData: Partial<User>) => Promise<boolean>;
 
+<<<<<<< HEAD
   
+=======
+//   // logout: () => void;
+//   // updateUser: (userData: User) => Promise<boolean>;
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 
 //   checkAuth: () => Promise<void>;
 //   refreshUser: () => Promise<void>;
@@ -718,7 +736,8 @@
 //   loading: true,
 //   signup: async () => ({ success: false, message: '' }),
 //   login: async () => ({ success: false, message: '' }),
-//   logout: async () => {},
+ 
+//  logout: async () => {},
 //   updateUser: async () => false,
 //   checkAuth: async () => {},
 //   refreshUser: async () => {},
@@ -781,6 +800,7 @@
 //   }
 //   return json;
 // }
+
 
 // // Fetch whichever business was most recently registered — no hardcoding.
 // // Uses the public, unauthenticated /public/businesses endpoint which is
@@ -851,12 +871,19 @@
 //       });
 
 
+<<<<<<< HEAD
 //       // 👈 debug log
+=======
+//       console.log('🔑 SIGNUP RESULT:', JSON.stringify(result)); // 👈 debug log
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 
 //       authToken = result.token;
 //       await AsyncStorage.setItem('authToken', result.token);
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 //       authToken = result.token;
 //       // TODO: persist authToken to AsyncStorage here
 
@@ -898,7 +925,11 @@
 //     try {
 //       setLoading(true);
 
+<<<<<<< HEAD
 // <<<<<<< HEAD
+=======
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 //       const result = await apiRequestWithoutAuth('/customer-auth/login', { phone, password });
 //       console.log('🔑 LOGIN RESULT:', JSON.stringify(result)); // 👈 debug log
 
@@ -917,6 +948,7 @@
 //         phone: result.customer.phone,
 //         email: result.customer.email,
 //         business_id: result.customer.business_id,
+
 //         business_name: result.customer.business_name || 'Unknown Store',
 //         business_plan: result.customer.business_plan || 'FREE',
 //       };
@@ -928,12 +960,21 @@
 
 //       return { success: true, message: 'Logged in successfully!', user: userWithBusiness };
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 //         business_name: 'The Green Cart',
 //         business_plan: 'FREE',
 //       };
 
 //       setUser(userWithBusiness);
 //       return { success: true, message: 'Logged in successfully!', user: userWithBusiness };
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 //     } catch (error: any) {
 //       console.error('Login error:', error);
 //       return { success: false, message: error.message || 'Login failed' };
@@ -952,12 +993,20 @@
 //     authToken = null;
 //     await AsyncStorage.removeItem('authToken');
 //     await AsyncStorage.removeItem('userData');
+<<<<<<< HEAD
+=======
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 //     // Business is fixed (Green Cart) for now — nothing to refresh from a "latest business" lookup anymore
 //   };
 
 //   const logout = () => {
 //     authToken = null;
 //     // TODO: clear AsyncStorage token here
+<<<<<<< HEAD
+=======
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 //     setUser(null);
 //   };
 
@@ -1062,7 +1111,6 @@ interface AuthProviderProps {
 // Token management
 let authToken: string | null = null;
 
-// Helper: Get auth headers
 const getAuthHeaders = () => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -1073,17 +1121,14 @@ const getAuthHeaders = () => {
   return headers;
 };
 
-// API request with auth support for different methods
 async function apiRequestWithAuth(path: string, body: any, method: string = 'POST') {
   const options: RequestInit = {
     method,
     headers: getAuthHeaders(),
   };
-
   if (method !== 'GET') {
     options.body = JSON.stringify(body);
   }
-
   const res = await fetch(`${API_BASE_URL}${path}`, options);
   const json = await res.json();
   if (!res.ok) {
@@ -1092,7 +1137,6 @@ async function apiRequestWithAuth(path: string, body: any, method: string = 'POS
   return json;
 }
 
-// API request without auth (for login/signup)
 async function apiRequestWithoutAuth(path: string, body: any) {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
@@ -1106,7 +1150,11 @@ async function apiRequestWithoutAuth(path: string, body: any) {
   return json;
 }
 
+<<<<<<< HEAD
 // Fetch whichever business was most recently registered
+=======
+// Fetch whichever business was most recently registered — no hardcoding.
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 async function getCurrentBusinessId(): Promise<number> {
   const res = await fetch(`${API_BASE_URL}/public/businesses?limit=1`);
   const json = await res.json();
@@ -1129,7 +1177,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(true);
       const token = await AsyncStorage.getItem('authToken');
       const userData = await AsyncStorage.getItem('userData');
-
       if (token && userData) {
         authToken = token;
         setUser(JSON.parse(userData));
@@ -1153,7 +1200,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('🏪 SIGNUP - using business ID:', businessId);
 
       const result = await apiRequestWithoutAuth('/customer-auth/signup', {
+<<<<<<< HEAD
         businessId: businessId,
+=======
+        businessId,
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
         name: data.name,
         phone: data.phone,
         email: data.email,
@@ -1166,7 +1217,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       authToken = result.token;
       await AsyncStorage.setItem('authToken', result.token);
 
+<<<<<<< HEAD
       // Create user object
+=======
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
       const userWithBusiness: User = {
         id: result.customer.id,
         name: result.customer.name,
@@ -1230,8 +1284,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const refreshUser = async () => {
+<<<<<<< HEAD
     // Nothing to refresh from a "latest business" lookup here
     // The business tied to this customer is fixed at signup time
+=======
+    // Nothing to refresh from a "latest business" lookup here —
+    // the business tied to this customer is fixed at signup time.
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   };
 
   const logout = async () => {
@@ -1250,21 +1309,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return false;
       }
 
-      // Prepare update data - only send fields that are provided
       const updatePayload: any = {};
       if (userData.name !== undefined) updatePayload.name = userData.name;
       if (userData.email !== undefined) updatePayload.email = userData.email;
       if (userData.phone !== undefined) updatePayload.phone = userData.phone;
       if (userData.address !== undefined) updatePayload.address = userData.address;
 
-      // Make PUT request to update customer
       const result = await apiRequestWithAuth(
         `/customers/${user.id}`,
         updatePayload,
         'PUT'
       );
 
-      // Format the response to match your user structure
       const updatedUser: User = {
         id: result.id,
         name: result.name,
@@ -1276,7 +1332,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         business_plan: result.business_plan || user.business_plan || 'FREE',
       };
 
-      // Update state and storage
       setUser(updatedUser);
       await AsyncStorage.setItem('userData', JSON.stringify(updatedUser));
 

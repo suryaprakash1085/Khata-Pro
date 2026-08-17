@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // // // // // // // import React, { useState, useContext, useEffect } from 'react';
 // // // // // // // import {
 // // // // // // //   View,
@@ -9528,6 +9529,8 @@
 // });
 
 // export default AddressSelectionScreen;
+=======
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 import React, { useState, useContext, useEffect } from 'react';
 import {
   View,
@@ -9846,8 +9849,39 @@ const AddressSelectionScreen: React.FC<AddressSelectionScreenProps> = ({
       console.log('Latitude:', latitude);
       console.log('Longitude:', longitude);
 
+<<<<<<< HEAD
       try {
         const results = await Location.reverseGeocodeAsync({
+=======
+        const city =
+          result.city ||
+          result.district ||
+          result.subregion ||
+          '';
+
+        const state = result.region || '';
+        const pincode = result.postalCode || '';
+
+        let formattedAddress = [
+          result.name,
+          result.street,
+          result.streetNumber,
+          result.city,
+        ]
+          .filter(Boolean)
+          .join(', ');
+
+        if (!formattedAddress) {
+          formattedAddress = `${latitude}, ${longitude}`;
+        }
+
+        setFormData(prev => ({
+          ...prev,
+          address: formattedAddress,
+          city,
+          state,
+          pincode,
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
           latitude,
           longitude,
         });

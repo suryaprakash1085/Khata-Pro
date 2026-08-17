@@ -12,6 +12,7 @@ import {
 } from "@workspace/db";
 import { CreateSalesOrderBody, UpdateSalesOrderBody, UpdateSalesOrderStatusBody } from "@workspace/api-zod";
 import { eq, and, gte, sql, desc, count, inArray } from "drizzle-orm";
+import { notifyCustomerOrderConfirmed } from "../services/pushNotifications";
 
 const router: IRouter = Router();
 
@@ -333,15 +334,22 @@ router.put("/sales-orders/:id/status", requireAuth, async (req, res): Promise<vo
     .where(and(eq(salesOrdersTable.id, id), eq(salesOrdersTable.isDeleted, false))).returning();
 
   // Notify the customer when the order gets confirmed (invoiced)
-  if (status === "invoiced" && existing.status !== "invoiced") {
-    await db.insert(notificationsTable).values({
-      businessId: order.businessId,
-      customerId: order.customerId,
-      type: "order_confirmed",
-      message: `Your order #${order.id} has been confirmed!`,
-    });
-    // TODO: push notification call goes here (Phase 2)
+// Notify the customer when the order gets confirmed (invoiced)
+if (status === "invoiced" && existing.status !== "invoiced") {
+  await db.insert(notificationsTable).values({
+    businessId: order.businessId,
+    customerId: order.customerId,
+    type: "order_confirmed",
+    message: `Your order #${order.id} has been confirmed!`,
+  });
+
+  const [customerForPush] = await db.select().from(customersTable).where(eq(customersTable.id, order.customerId));
+  if (customerForPush?.pushToken) {
+    notifyCustomerOrderConfirmed(customerForPush.pushToken, Number(order.id)).catch(err =>
+      console.error("[sales-orders] Failed to send order-confirmed push:", err)
+    );
   }
+}
 
   const [customer] = await db.select({ name: customersTable.name }).from(customersTable).where(eq(customersTable.id, Number(order.customerId)));
   res.json(formatSalesOrder(order, customer?.name));

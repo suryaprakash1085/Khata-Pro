@@ -1,10 +1,17 @@
+<<<<<<< HEAD
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+=======
+
+
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   FlatList,
   Image,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -50,8 +57,6 @@ const STATUS_META: Record<DeliveryStatus, { label: string; color: string; bg: st
   cancelled: { label: 'Cancelled', color: '#6B7280', bg: '#F3F4F6' },
 };
 
-// 🔶 NEW — payment status pill colors. Only rendered if the field actually
-// exists on the order — see the `salesOrder as any` note near topBar below.
 const PAYMENT_STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   paid: { label: 'Paid', color: '#15803D', bg: '#DCFCE7' },
   unpaid: { label: 'Unpaid', color: '#B91C1C', bg: '#FEE2E2' },
@@ -78,14 +83,116 @@ function formatCurrency(n?: number | null) {
   return `₹${n.toFixed(2)}`;
 }
 
-// 🔶 NEW — small helper for the tinted circular icon badge used in every
-// section header (Customer / Delivery / Driver / Items / Summary), matching
-// the reference mockup's purple-badge look.
 function SectionIconBadge({ name, color, tint }: { name: React.ComponentProps<typeof Feather>['name']; color: string; tint: string }) {
   return (
     <View style={[styles.iconBadge, { backgroundColor: tint }]}>
       <Feather name={name} size={14} color={color} />
     </View>
+  );
+}
+
+// 🔶 FIX — RN's native <Modal> renders through a separate root-level portal.
+// On react-native-web this is unreliable: it can silently fail to mount,
+// and because it portals OUTSIDE this component's tree, it also renders on
+// top of everything else on the page — including a sidebar/layout wrapper
+// that lives above this screen, hiding it entirely.
+//
+// Replacing it with a plain absolutely-positioned <View> keeps the overlay
+// INSIDE this screen's own tree (so it respects the surrounding layout and
+// doesn't blank out a sidebar), and behaves consistently on web + native.
+function ScreenOverlay({
+  visible,
+  children,
+  transparentBackdrop = true,
+  elevated = false,
+  fullscreen = false,
+}: {
+  visible: boolean;
+  children: React.ReactNode;
+  transparentBackdrop?: boolean;
+  elevated?: boolean;
+  fullscreen?: boolean;
+}) {
+  if (!visible) return null;
+  return (
+    <View
+      style={[
+        StyleSheet.absoluteFillObject,
+        elevated ? styles.overlayRootElevated : styles.overlayRoot,
+        // 🔶 FIX — the base overlay styles use alignItems:'center' so small
+        // dialogs (Assign Driver, Confirm) sit centered. That same
+        // alignItems:'center' was shrinking the FULL-SCREEN Order Details
+        // content down to its intrinsic width instead of stretching it —
+        // so the visible "card" you saw was actually centered and narrow,
+        // while the real button hitbox sat somewhere else entirely
+        // (explains both the overlap-with-list glitch and Assign Driver's
+        // clicks not registering at all). fullscreen overlays must stretch.
+        fullscreen && styles.overlayFullscreen,
+        { backgroundColor: transparentBackdrop ? 'rgba(0,0,0,0.5)' : 'transparent' },
+      ]}
+    >
+      {children}
+    </View>
+  );
+}
+
+// 🔶 FIX — replaces Alert.alert(), which does not reliably show a native
+// dialog on react-native-web. Same "Confirm this order?" copy/behavior.
+function ConfirmDialog({
+  visible,
+  title,
+  message,
+  confirmLabel = 'Confirm',
+  loading,
+  onCancel,
+  onConfirm,
+  colors,
+}: {
+  visible: boolean;
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  loading?: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+  colors: ReturnType<typeof useColors>;
+}) {
+  if (!visible) return null;
+  return (
+    <ScreenOverlay visible={visible} elevated>
+      <View style={styles.confirmDialogWrap}>
+        <View style={[styles.confirmDialogCard, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+          <Text style={[styles.confirmDialogTitle, { color: colors.foreground }]}>{title}</Text>
+          <Text style={[styles.confirmDialogMessage, { color: colors.mutedForeground }]}>{message}</Text>
+          <View style={styles.confirmDialogButtons}>
+            <Pressable
+              onPress={onCancel}
+              disabled={loading}
+              style={[styles.confirmDialogCancelBtn, { borderColor: colors.border, borderRadius: colors.radius }]}
+            >
+              <Text style={{ color: colors.foreground, fontSize: 14, fontFamily: FONT_FAMILY, fontWeight: '600' }}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              onPress={onConfirm}
+              disabled={loading}
+              style={[
+                styles.confirmDialogConfirmBtn,
+                { backgroundColor: colors.primary, borderRadius: colors.radius },
+                loading && styles.footerBtnDisabled,
+              ]}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color={colors.primaryForeground} />
+              ) : (
+                <Text style={{ color: colors.primaryForeground, fontSize: 14, fontFamily: FONT_FAMILY, fontWeight: '700' }}>
+                  {confirmLabel}
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </ScreenOverlay>
   );
 }
 
@@ -101,7 +208,9 @@ export default function DeliveryListScreen() {
   const [detailsTarget, setDetailsTarget] = useState<Delivery | null>(null);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
 
-  // ---- Deliveries list (unchanged) ----
+  // 🔶 NEW — local confirm-dialog state (replaces Alert.alert)
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+
   const deliveryParams = {
     business_id: business?.id as number,
     status: statusFilter === 'all' ? undefined : statusFilter,
@@ -120,7 +229,6 @@ export default function DeliveryListScreen() {
   const deliveries: Delivery[] = deliveryData?.data ?? [];
   const total = deliveryData?.total ?? 0;
 
-  // ---- Available drivers (unchanged) ----
   const driverParams = { business_id: business?.id as number, status: 'available' as const, limit: 100 };
   const { data: driverData, isLoading: isLoadingDrivers } = useListDrivers(driverParams, {
     query: { enabled: !!business?.id && assignModalOpen, queryKey: getListDriversQueryKey(driverParams) },
@@ -145,7 +253,6 @@ export default function DeliveryListScreen() {
   const salesOrderId = activeDelivery?.sales_order_id ?? undefined;
   const {
     data: salesOrder,
-    isLoading: isLoadingSalesOrder,
     refetch: refetchSalesOrder,
   } = useGetSalesOrder(salesOrderId as number, {
     query: {
@@ -200,28 +307,28 @@ export default function DeliveryListScreen() {
     setDetailsTarget(null);
   };
 
-  const handleConfirmOrder = () => {
+  // 🔶 CHANGED — opens the ConfirmDialog instead of Alert.alert
+  const handleConfirmOrderPress = () => {
     if (!salesOrder) return;
-    Alert.alert('Confirm this order?', 'The customer will be notified that their order has been confirmed.', [
-      { text: 'Cancel', style: 'cancel' },
+    setConfirmDialogOpen(true);
+  };
+
+  const handleConfirmOrderSubmit = () => {
+    if (!salesOrder) return;
+    confirmOrder.mutate(
+      { id: salesOrder.id, data: { status: 'confirmed' } },
       {
-        text: 'Confirm',
-        onPress: () => {
-          confirmOrder.mutate(
-            { id: salesOrder.id, data: { status: 'confirmed' } },
-            {
-              onSuccess: () => {
-                refetch();
-                refetchSalesOrder();
-              },
-              onError: () => {
-                Alert.alert('Could not confirm order', 'Please try again.');
-              },
-            },
-          );
+        onSuccess: () => {
+          setConfirmDialogOpen(false);
+          refetch();
+          refetchSalesOrder();
+        },
+        onError: () => {
+          // Keep the dialog open and let the button's disabled/loading
+          // state reset so the admin can retry.
         },
       },
-    ]);
+    );
   };
 
   const renderDeliveryCard = ({ item }: { item: Delivery }) => {
@@ -275,10 +382,6 @@ export default function DeliveryListScreen() {
     );
   };
 
-  // 🔶 NEW — payment_status / discount / delivery_charge are read defensively
-  // with `as any` because they are NOT yet in the generated SalesOrder type.
-  // Add them to the OpenAPI spec + Drizzle schema, re-run Orval, then remove
-  // the `as any` casts. Until then these sections simply don't render.
   const salesOrderAny = salesOrder as (typeof salesOrder & {
     payment_status?: string;
     discount?: number;
@@ -361,14 +464,11 @@ export default function DeliveryListScreen() {
         />
       )}
 
-      {/* Assign driver modal (unchanged) */}
-      <Modal
-        visible={assignModalOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setAssignModalOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
+      {/* 🔶 CHANGED — Assign driver overlay, was <Modal transparent>.
+          elevated because this can be opened FROM WITHIN the Order Details
+          overlay and must stack above it. */}
+      <ScreenOverlay visible={assignModalOpen} elevated>
+        <View style={styles.modalCenterWrap}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
             <View style={styles.modalHeaderRow}>
               <Text style={[styles.modalTitle, { color: colors.foreground }]}>
@@ -418,12 +518,14 @@ export default function DeliveryListScreen() {
             )}
           </View>
         </View>
-      </Modal>
+      </ScreenOverlay>
 
-      {/* Order Details modal — restyled to match reference mockup:
-          tinted icon badges, product thumbnails, payment status pill,
-          discount/delivery charge rows, notification confirmation line. */}
-      <Modal visible={detailsModalOpen} animationType="slide" onRequestClose={closeDetails}>
+      {/* 🔶 CHANGED — Order Details overlay, was <Modal animationType="slide">.
+          transparentBackdrop=false because this is a full-screen view, not
+          a centered dialog. Being a plain View (not a portal), it stays
+          inside this screen's tree — it will sit inside whatever layout/
+          sidebar wrapper renders this screen, instead of covering it. */}
+      <ScreenOverlay visible={detailsModalOpen} transparentBackdrop={false} fullscreen>
         <View style={{ flex: 1, backgroundColor: colors.background }}>
           <View style={[styles.detailsHeader, { paddingTop: insets.top + 12, borderBottomColor: colors.border }]}>
             <Pressable onPress={closeDetails} hitSlop={8} style={styles.detailsBackBtn}>
@@ -458,8 +560,7 @@ export default function DeliveryListScreen() {
             </View>
           ) : (
             <>
-              <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 20 }}>
-                {/* Top status strip */}
+              <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 20 }}>
                 {activeDelivery && (
                   <View style={[styles.topBar, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
                     <View style={styles.topBarItem}>
@@ -490,7 +591,6 @@ export default function DeliveryListScreen() {
                         </Text>
                       </View>
                     )}
-                    {/* 🔶 Only shows once payment_status exists on SalesOrder — see note above */}
                     {paymentStatusMeta && (
                       <View style={styles.topBarItem}>
                         <View style={styles.iconLineRow}>
@@ -513,7 +613,6 @@ export default function DeliveryListScreen() {
                   </View>
                 )}
 
-                {/* 3-column info grid */}
                 <View style={styles.gridRow}>
                   {(customer?.name || customer?.phone || salesOrder?.customer_name || activeDelivery?.customer_id) && (
                     <View style={[styles.gridCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
@@ -608,9 +707,6 @@ export default function DeliveryListScreen() {
                         <Text style={[styles.tableHeaderCell, styles.colPrice, { color: colors.mutedForeground }]}>Total</Text>
                       </View>
                       {orderItems.map((it, idx) => {
-                        // 🔶 product_image not in current item type — cast
-                        // defensively, thumbnail simply won't render until
-                        // the schema/spec has it.
                         const image = (it as typeof it & { product_image?: string }).product_image;
                         return (
                           <View key={it.id ?? idx} style={[styles.tableRow, { borderBottomColor: colors.border }]}>
@@ -652,7 +748,6 @@ export default function DeliveryListScreen() {
                           <Text style={[styles.fieldValue, { color: colors.foreground, marginTop: 0 }]}>{formatCurrency(subtotal)}</Text>
                         </View>
                       )}
-                      {/* 🔶 delivery_charge / discount — only if present on SalesOrder */}
                       {salesOrderAny?.delivery_charge !== undefined && (
                         <View style={styles.summaryRow}>
                           <Text style={[styles.fieldSub, { color: colors.mutedForeground }]}>Delivery Charge</Text>
@@ -684,7 +779,6 @@ export default function DeliveryListScreen() {
                 </View>
               </ScrollView>
 
-              {/* Bottom action bar */}
               <View style={[styles.bottomBar, { borderTopColor: colors.border, backgroundColor: colors.card, paddingBottom: insets.bottom + 12 }]}>
                 <View style={styles.bottomBarLeft}>
                   <View style={[styles.bottomIconBadge, { backgroundColor: colors.primary }]}>
@@ -718,22 +812,11 @@ export default function DeliveryListScreen() {
 
                     {salesOrderId && isOrderPending && (
                       <Pressable
-                        onPress={handleConfirmOrder}
-                        disabled={confirmOrder.isPending}
-                        style={[
-                          styles.footerPrimaryBtn,
-                          { backgroundColor: colors.primary, borderRadius: colors.radius },
-                          confirmOrder.isPending && styles.footerBtnDisabled,
-                        ]}
+                        onPress={handleConfirmOrderPress}
+                        style={[styles.footerPrimaryBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
                       >
-                        {confirmOrder.isPending ? (
-                          <ActivityIndicator size="small" color={colors.primaryForeground} />
-                        ) : (
-                          <Feather name="check-circle" size={16} color={colors.primaryForeground} />
-                        )}
-                        <Text style={[styles.footerPrimaryBtnText, { color: colors.primaryForeground }]}>
-                          {confirmOrder.isPending ? 'Confirming…' : 'Confirm Order'}
-                        </Text>
+                        <Feather name="check-circle" size={16} color={colors.primaryForeground} />
+                        <Text style={[styles.footerPrimaryBtnText, { color: colors.primaryForeground }]}>Confirm Order</Text>
                       </Pressable>
                     )}
 
@@ -745,7 +828,6 @@ export default function DeliveryListScreen() {
                     )}
                   </View>
 
-                  {/* 🔶 NEW — matches the small check-line under the buttons in the mockup */}
                   {salesOrderId && (
                     <View style={styles.notifyRow}>
                       <Feather name="check" size={11} color={colors.primary} />
@@ -759,7 +841,19 @@ export default function DeliveryListScreen() {
             </>
           )}
         </View>
-      </Modal>
+      </ScreenOverlay>
+
+      {/* 🔶 NEW — confirm dialog, replaces Alert.alert */}
+      <ConfirmDialog
+        visible={confirmDialogOpen}
+        title="Confirm this order?"
+        message="The customer will be notified that their order has been confirmed."
+        confirmLabel="Confirm"
+        loading={confirmOrder.isPending}
+        onCancel={() => setConfirmDialogOpen(false)}
+        onConfirm={handleConfirmOrderSubmit}
+        colors={colors}
+      />
     </View>
   );
 }
@@ -794,8 +888,35 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 13, fontFamily: FONT_FAMILY },
   retryBtn: { paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, marginTop: 4 },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { width: '100%', maxWidth: 420, maxHeight: '80%', padding: 22, borderRadius: 16 },
+  // 🔶 NEW — overlay root (replaces Modal wrapper). zIndex/elevation keep it
+  // above this screen's own content without escaping to a root portal.
+  overlayRoot: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+    elevation: 20,
+  },
+  // 🔶 FIX — Assign Driver can be opened FROM WITHIN the Order Details
+  // overlay. Both overlays previously shared zIndex 1000, and since
+  // Details is declared later in JSX, it painted on top and silently
+  // blocked clicks on the Assign Driver panel underneath it. Bumping
+  // this above overlayRoot's 1000 fixes the stacking regardless of
+  // declaration order.
+  overlayRootElevated: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1100,
+    elevation: 21,
+  },
+  // 🔶 NEW — overrides the centered alignItems for full-screen overlays
+  // (Order Details) so the content stretches to fill instead of shrinking
+  // to a centered, narrow column.
+  overlayFullscreen: {
+    justifyContent: 'flex-start',
+    alignItems: 'stretch',
+  },
+  modalCenterWrap: { width: '100%', maxWidth: 420, maxHeight: '80%', padding: 20 },
+  modalContent: { width: '100%', maxHeight: '100%', padding: 22, borderRadius: 16 },
   modalHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   modalTitle: { fontSize: 17, fontFamily: FONT_FAMILY, fontWeight: '700', flex: 1, marginRight: 10 },
 
@@ -813,7 +934,6 @@ const styles = StyleSheet.create({
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   sectionHeader: { fontSize: 14, fontFamily: FONT_FAMILY, fontWeight: '700' },
 
-  // 🔶 NEW — tinted circular icon badge for section headers
   iconBadge: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
 
   fieldLabel: { fontSize: 11, fontFamily: FONT_FAMILY },
@@ -845,7 +965,6 @@ const styles = StyleSheet.create({
   colQty: { width: 40, textAlign: 'center' },
   colPrice: { width: 76, textAlign: 'right' },
 
-  // 🔶 NEW — product thumbnail in items table
   productCell: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   productThumb: { width: 28, height: 28, borderRadius: 6 },
   productThumbFallback: { alignItems: 'center', justifyContent: 'center' },
@@ -870,7 +989,6 @@ const styles = StyleSheet.create({
   bottomBarRight: { alignItems: 'flex-end', gap: 6 },
   bottomBarButtons: { flexDirection: 'row', gap: 10 },
 
-  // 🔶 NEW — "Customer will receive a notification" line
   notifyRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   notifyText: { fontSize: 11, fontFamily: FONT_FAMILY },
 
@@ -884,5 +1002,18 @@ const styles = StyleSheet.create({
   footerSecondaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 16, borderWidth: 1 },
   footerSecondaryBtnText: { fontSize: 14, fontFamily: FONT_FAMILY, fontWeight: '600' },
   footerBtnDisabled: { opacity: 0.6 },
+<<<<<<< HEAD
 });
 
+=======
+
+  // 🔶 NEW — confirm dialog card
+  confirmDialogWrap: { width: '100%', maxWidth: 380, padding: 20 },
+  confirmDialogCard: { padding: 22 },
+  confirmDialogTitle: { fontSize: 17, fontFamily: FONT_FAMILY, fontWeight: '700' },
+  confirmDialogMessage: { fontSize: 13, fontFamily: FONT_FAMILY, marginTop: 8, lineHeight: 19 },
+  confirmDialogButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 20 },
+  confirmDialogCancelBtn: { paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1 },
+  confirmDialogConfirmBtn: { paddingVertical: 10, paddingHorizontal: 18, minWidth: 90, alignItems: 'center' },
+});
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17

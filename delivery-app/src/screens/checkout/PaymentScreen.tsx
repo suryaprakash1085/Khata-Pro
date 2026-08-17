@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // // // // // // // import React, { useState, useContext } from 'react';
 // // // // // // // import {
 // // // // // // //   View,
@@ -9562,6 +9563,9 @@
 
 // // export default PaymentScreen;
 
+=======
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 // import React, { useState, useContext } from 'react';
 // import {
 //   View,
@@ -9581,7 +9585,15 @@
 // import { OrderContext } from '../../context/OrderContext';
 // import { AuthContext } from '../../context/AuthContext';
 // import { supabase } from '../../services/supabaseClient';
+<<<<<<< HEAD
 // import { useCreatePublicSalesOrder } from '@workspace/api-client-react';
+=======
+// import { useCreatePublicSalesOrder } from '@workspace/api-client-react'; // ← NEW: real backend order creation
+
+// import {
+//   useCreatePublicSalesOrder,
+// } from '@workspace/api-client-react';
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 
 // // ============================================================
 // // RAZORPAY
@@ -9602,9 +9614,14 @@
 //   route: any;
 // }
 
+
 // // ============================================================
 // // GENERATE LOCAL ORDER ID
 // // ============================================================
+
+
+// // ✅ Generate unique order ID (used only for local/UI display; the real
+// // order id of record is the sales_order.id returned by the backend)
 
 // const generateUniqueOrderId = () => {
 //   const timestamp = Date.now().toString(36).toUpperCase();
@@ -9648,6 +9665,10 @@
 //           </Text>
 
 //           {/* DETAILS */}
+<<<<<<< HEAD
+=======
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 //           <View style={styles.successDetails}>
 //             <View style={styles.successRow}>
 //               <Text style={styles.successLabel}>Order ID</Text>
@@ -9684,6 +9705,10 @@
 //           </TouchableOpacity>
 
 //           {/* CONTINUE SHOPPING */}
+<<<<<<< HEAD
+=======
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 //           <TouchableOpacity
 //             style={styles.successButtonSecondary}
 //             onPress={onContinueShopping}
@@ -9702,12 +9727,27 @@
 // // PAYMENT SCREEN
 // // ============================================================
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 // const PaymentScreen: React.FC<PaymentScreenProps> = ({
 //   navigation,
 //   route,
 // }) => {
+<<<<<<< HEAD
+=======
+
+
+//   const createSalesOrder = useCreatePublicSalesOrder();
+
+//   const [selectedMethod, setSelectedMethod] = useState<string>('razorpay');
+//   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 //   // ==========================================================
-//   // ROUTE PARAMS
+//   // ROUTE PARAMS - UPDATED to receive deliveryFee and tax
 //   // ==========================================================
 
 //   const {
@@ -9715,9 +9755,15 @@
 //     restaurantName,
 //     cartItems,
 //     address,
+<<<<<<< HEAD
 //     deliveryFee = 40,
 //     tax = 0,
 //     subtotal = 0,
+=======
+//     deliveryFee,  // ✅ Added
+//     tax,          // ✅ Added
+//     subtotal,     // ✅ Added
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 //   } = route.params || {};
 
 //   // ==========================================================
@@ -9788,6 +9834,10 @@
 //     console.log('✅ Selected payment method:', methodId);
 //   };
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 //   // ==========================================================
 //   // RECORD TRANSACTION
 //   // ==========================================================
@@ -9796,12 +9846,36 @@
 //     orderId: string,
 //     paymentMethod: 'Razorpay' | 'Cash on Delivery'
 //   ) => {
+<<<<<<< HEAD
 //     if (!user?.business_id || !user?.id) {
 //       console.log('⚠️ Missing business_id or user id — skipped transaction record');
+=======
+
+//     if (
+//       !user?.business_id ||
+//       !user?.id
+//     ) {
+//       console.log(
+//         '⚠️ Missing business_id or user id — skipped transaction record'
+//       );
+
+
+//   // ✅ Record this order in the transactions ledger table.
+//   // paymentMethod: 'Razorpay' -> paid now -> "you_got" (money received)
+//   // paymentMethod: 'Cash on Delivery' -> payment pending -> "you_gave" (credit owed)
+//   // 🔴 TODO: open Supabase → transactions table → click the 'type' and
+//   // 'payment_mode' column headers to confirm these exact string values are
+//   // valid options in your enums. Update the two lines below if they differ.
+//   const recordTransaction = async (orderId: string, paymentMethod: 'Razorpay' | 'Cash on Delivery') => {
+//     if (!user?.business_id || !user?.id) {
+//       console.log('⚠️ Missing business_id or user id — skipped transaction record');
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 //       return;
 //     }
 
 //     const itemDescription =
+<<<<<<< HEAD
 //       cartItems?.map((item: any) => `${item.name} x${item.quantity}`).join(', ') ||
 //       'Order';
 
@@ -9822,18 +9896,91 @@
 //           entry_date: new Date().toISOString().split('T')[0],
 //           created_by: user.id,
 //           is_deleted: false,
+=======
+//       cartItems
+//         ?.map(
+//           (item: any) =>
+//             `${item.name} x${item.quantity}`
+//         )
+//         .join(', ') ||
+//       'Order';
+
+//     const paymentMode =
+//       paymentMethod === 'Razorpay'
+//         ? 'online'
+//         : 'cash';
+
+//     const transactionType =
+//       paymentMethod === 'Razorpay'
+//         ? 'you_got'
+//         : 'you_gave';
+
+//     const {
+//       data,
+//       error,
+//     } = await supabase
+//       .from('transactions')
+//       .insert([
+//         {
+//           business_id:
+//             user.business_id,
+
+//           customer_id:
+//             user.id,
+
+//           type:
+//             transactionType,
+
+//           amount:
+//             totalAmount,
+
+//           balance_after:
+//             totalAmount,
+
+//           description:
+//             `${itemDescription} (Order ${orderId})`,
+
+//           payment_mode:
+//             paymentMode,
+
+//           entry_date:
+//             new Date()
+//               .toISOString()
+//               .split('T')[0],
+
+//           created_by:
+//             user.id,
+
+//           is_deleted:
+//             false,
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 //         },
 //       ])
 //       .select();
 
 //     if (error) {
+<<<<<<< HEAD
 //       console.error('❌ Failed to record transaction:', error);
 //     } else if (!data || data.length === 0) {
 //       console.warn('⚠️ Transaction insert returned no row');
+=======
+//       console.error(
+//         '❌ Failed to record transaction:',
+//         error
+//       );
+//     } else if (
+//       !data ||
+//       data.length === 0
+//     ) {
+//       console.warn(
+//         '⚠️ Transaction insert returned no row'
+//       );
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 //     } else {
 //       console.log('✅ Transaction recorded:', data);
 //     }
 //   };
+
 
 //   // ==========================================================
 //   // CREATE SALES ORDER - SINGLE DECLARATION (FIXED)
@@ -9876,14 +10023,54 @@
 //       data: payload,
 //     });
 
+<<<<<<< HEAD
 //     console.log('✅ Sales order created:', salesOrder);
+=======
+//   // ← NEW: single shared helper — creates the sales order on the real
+//   // backend (api-server). The backend automatically creates the matching
+//   // `deliveries` row in the same request (see POST /sales-orders route),
+//   // so no separate Supabase insert into `deliveries` is needed anymore.
+//   const placeOrderOnBackend = async () => {
+//     if (!user?.business_id || !user?.id || !address) {
+//       throw new Error('Missing business, customer, or address details.');
+//     }
+//     if (!cartItems || cartItems.length === 0) {
+//       throw new Error('Cart is empty.');
+//     }
+
+//     const fullAddress = `${address.address}, ${address.city}, ${address.state || ''} - ${address.pincode}`;
+
+//     const salesOrder = await createSalesOrder.mutateAsync({
+//       data: {
+//         business_id: user.business_id,
+//         customer_id: user.id,
+//         channel: 'online',
+//         shipping_address: fullAddress,
+//         description: cartItems.map((it: any) => `${it.name} x${it.quantity}`).join(', ') || 'Order',
+//         tax: 0,
+//         items: cartItems.map((it: any) => ({
+//           product_id: it.id,
+//           qty: it.quantity,
+//           unit_price: it.price,
+//         })),
+//       },
+//     });
+
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 //     return salesOrder;
 //   };
+
 
 //   // ==========================================================
 //   // PAY BUTTON
 //   // ==========================================================
 
+<<<<<<< HEAD
+=======
+//   // ✅ Handle Pay Button Click
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 //   const handlePayNow = () => {
 //     if (selectedMethod === 'razorpay') {
 //       handleRazorpayPayment();
@@ -9971,11 +10158,17 @@
 //   // WEB RAZORPAY
 //   // ==========================================================
 
+<<<<<<< HEAD
 //   const openRazorpayWeb = () => {
 //     const win = window as any;
     
 //     // FIXED: Use type assertion for mobileNumber
 //     const userPhone = (user as any)?.mobileNumber || address?.phone || '9876543210';
+=======
+
+//   const openRazorpayWeb =
+//     () => {
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 
 //     const options = {
 //       description: 'Order Payment',
@@ -9997,10 +10190,145 @@
 //           setIsProcessing(false);
 //           Alert.alert('Payment Cancelled', 'You cancelled the payment');
 //         },
+<<<<<<< HEAD
 //       },
 //       handler: function (response: any) {
 //         handlePaymentSuccess(response);
 //       },
+=======
+
+//         theme: {
+//           color:
+//             '#fc8019',
+//         },
+
+//         modal: {
+
+//           ondismiss:
+//             function () {
+
+//               setIsProcessing(
+//                 false
+//               );
+
+//               Alert.alert(
+//                 'Payment Cancelled',
+//                 'You cancelled the payment'
+//               );
+//             },
+//         },
+
+//   // ✅ Handle Payment Success (Razorpay) — now creates the order on the
+//   // real backend instead of writing directly into Supabase `deliveries`.
+//   const handlePaymentSuccess = async (data: any) => {
+//     const localOrderId = generateUniqueOrderId();
+
+//     try {
+//       const salesOrder = await placeOrderOnBackend();
+
+//       addOrder({
+//         id: localOrderId,
+//         restaurantName: restaurantName || 'QuickBite',
+//         items:
+//           cartItems?.map((item: any) => ({
+//             name: item.name,
+//             quantity: item.quantity,
+//             price: item.price,
+//           })) || [],
+//         total: totalAmount || 0,
+//         status: 'Placed',
+//         createdAt: new Date().toISOString(),
+//       });
+//       clearCart();
+
+//       // Record this sale in the transactions ledger too
+//       await recordTransaction(localOrderId, 'Razorpay');
+
+//       setIsProcessing(false);
+//       setOrderDetails({
+//         orderId: `ORD-MS${salesOrder.id}`,
+//         total: totalAmount,
+//         items: cartItems,
+//         paymentMethod: 'Razorpay',
+//         paymentStatus: 'Paid',
+//       });
+//       setShowSuccessModal(true);
+//     } catch (err: any) {
+//       console.error('❌ Failed to create sales order:', err);
+//       setIsProcessing(false);
+//       Alert.alert('Order Failed', err?.message || 'Could not place your order. Please try again.');
+//     }
+//   };
+
+//   // ✅ Handle Cash on Delivery — now creates the order on the real backend
+//   // instead of writing directly into Supabase `deliveries`.
+//   const handleCashOnDelivery = async () => {
+//     setIsProcessing(true);
+//     const localOrderId = generateUniqueOrderId();
+
+//     try {
+//       const salesOrder = await placeOrderOnBackend();
+
+//       addOrder({
+//         id: localOrderId,
+//         restaurantName: restaurantName || 'QuickBite',
+//         items:
+//           cartItems?.map((item: any) => ({
+//             name: item.name,
+//             quantity: item.quantity,
+//             price: item.price,
+//           })) || [],
+//         total: totalAmount || 0,
+//         status: 'Placed',
+//         createdAt: new Date().toISOString(),
+//       });
+//       clearCart();
+
+//       // Record this sale in the transactions ledger too
+//       await recordTransaction(localOrderId, 'Cash on Delivery');
+
+//       setOrderDetails({
+//         orderId: `ORD-MS${salesOrder.id}`,
+//         total: totalAmount,
+//         items: cartItems,
+//         paymentMethod: 'Cash on Delivery',
+//         paymentStatus: 'Confirmed',
+//       });
+//       setShowSuccessModal(true);
+//     } catch (err: any) {
+//       console.error('❌ Failed to create sales order:', err);
+//       Alert.alert('Order Failed', err?.message || 'Could not place your order. Please try again.');
+//     } finally {
+//       setIsProcessing(false);
+//     }
+//   };
+
+//   // ✅ Handle Success Modal - View Orders
+//   const handleViewOrders = () => {
+//     setShowSuccessModal(false);
+//     setOrderDetails(null);
+//     navigation.navigate('Orders');
+//   };
+
+
+//         handler:
+//           function (
+//             response: any
+//           ) {
+
+//             handlePaymentSuccess(
+//               response
+//             );
+//           },
+//       };
+
+//       const rzp =
+//         new win.Razorpay(
+//           options
+//         );
+
+//       rzp.open();
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 //     };
 
 //     const rzp = new win.Razorpay(options);
@@ -10011,8 +10339,13 @@
 //   // RAZORPAY SUCCESS
 //   // ==========================================================
 
+<<<<<<< HEAD
 //   const handlePaymentSuccess = async (data: any) => {
 //     const localOrderId = generateUniqueOrderId();
+=======
+//   const handlePaymentSuccess =
+//     async (data: any) => {
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 
 //     try {
 //       const salesOrder = await placeOrderOnBackend();
@@ -10106,11 +10439,29 @@
 //   // VIEW ORDERS
 //   // ==========================================================
 
+<<<<<<< HEAD
 //   const handleViewOrders = () => {
 //     setShowSuccessModal(false);
 //     setOrderDetails(null);
 //     navigation.navigate('Orders');
 //   };
+=======
+//   const handleViewOrders =
+//     () => {
+
+//       setShowSuccessModal(
+//         false
+//       );
+
+//       setOrderDetails(
+//         null
+//       );
+
+//       navigation.navigate(
+//         'Orders'
+//       );
+//     };
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 
 //   // ==========================================================
 //   // CONTINUE SHOPPING
@@ -10226,18 +10577,129 @@
 //           </TouchableOpacity>
 //         ))}
 
+<<<<<<< HEAD
 //         {/* ORDER SUMMARY */}
 //         <View style={styles.summaryCard}>
 //           <Text style={styles.summaryTitle}>Order Summary</Text>
+=======
+//                 <View
+//                   style={
+//                     styles.checkmark
+//                   }
+//                 >
+//                   <Icon
+//                     name="checkmark-circle"
+//                     size={24}
+//                     color="#28a745"
+//                   />
+//                 </View>
+
+//               )}
+
+//             </TouchableOpacity>
+
+//           )
+//         )}
+
+//         {/* ==================================================
+//             ORDER SUMMARY - UPDATED with deliveryFee and tax
+//         ================================================== */}
+
+//         <View
+//           style={styles.summaryCard}
+//         >
+
+//           <Text
+//             style={
+//               styles.summaryTitle
+//             }
+//           >
+//             Order Summary
+//           </Text>
+
+//           {/* Item Total / Subtotal */}
+//           <View
+//             style={
+//               styles.summaryRow
+//             }
+//           >
+
+//             <Text
+//               style={
+//                 styles.summaryLabel
+//               }
+//             >
+//               Item Total
+//             </Text>
+
+//             <Text
+//               style={
+//                 styles.summaryValue
+//               }
+//             >
+//               ₹{subtotal || totalAmount}
+//             </Text>
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 
 //           <View style={styles.summaryRow}>
 //             <Text style={styles.summaryLabel}>Item Total</Text>
 //             <Text style={styles.summaryValue}>₹{finalSubtotal}</Text>
 //           </View>
 
+<<<<<<< HEAD
 //           <View style={styles.summaryRow}>
 //             <Text style={styles.summaryLabel}>Delivery Fee</Text>
 //             <Text style={styles.summaryValue}>₹{deliveryFee}</Text>
+=======
+//           {/* Delivery Fee */}
+//           <View
+//             style={
+//               styles.summaryRow
+//             }
+//           >
+
+//             <Text
+//               style={
+//                 styles.summaryLabel
+//               }
+//             >
+//               Delivery Fee
+//             </Text>
+
+//             <Text
+//               style={
+//                 styles.summaryValue
+//               }
+//             >
+//               ₹{deliveryFee || 0}
+//             </Text>
+
+//           </View>
+
+//           {/* Tax */}
+//           <View
+//             style={
+//               styles.summaryRow
+//             }
+//           >
+
+//             <Text
+//               style={
+//                 styles.summaryLabel
+//               }
+//             >
+//               Tax (GST 18%)
+//             </Text>
+
+//             <Text
+//               style={
+//                 styles.summaryValue
+//               }
+//             >
+//               ₹{tax || 0}
+//             </Text>
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 //           </View>
 
 //           <View style={styles.summaryRow}>
@@ -10532,7 +10994,14 @@
 //     marginLeft: 8,
 //   },
 
+<<<<<<< HEAD
 //   // SUMMARY
+=======
+//   // ==========================================================
+//   // SUMMARY - UPDATED with proper delivery fee display
+//   // ==========================================================
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 //   summaryCard: {
 //     backgroundColor: '#ffffff',
 //     marginHorizontal: 16,
@@ -10771,6 +11240,11 @@
 // });
 
 // export default PaymentScreen;
+<<<<<<< HEAD
+=======
+
+import React, { useState, useContext } from 'react';
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 
 import React, { useState, useContext } from 'react';
 import {
@@ -10791,7 +11265,11 @@ import { CartContext } from '../../context/CartContext';
 import { OrderContext } from '../../context/OrderContext';
 import { AuthContext } from '../../context/AuthContext';
 import { supabase } from '../../services/supabaseClient';
+<<<<<<< HEAD
 import { useCreatePublicSalesOrder } from '@workspace/api-client-react';
+=======
+import { useCreatePublicSalesOrder } from '@workspace/api-client-react'; // real backend order creation
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 
 // ============================================================
 // RAZORPAY
@@ -10816,6 +11294,11 @@ interface PaymentScreenProps {
 // GENERATE LOCAL ORDER ID
 // ============================================================
 
+<<<<<<< HEAD
+=======
+// Generate unique order ID (used only for local/UI display; the real
+// order id of record is the sales_order.id returned by the backend)
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 const generateUniqueOrderId = () => {
   const timestamp = Date.now().toString(36).toUpperCase();
   const random = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -10838,12 +11321,7 @@ const PaymentSuccessModal = ({
   }
 
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
       <View style={styles.successOverlay}>
         <View style={styles.successContainer}>
           {/* SUCCESS ICON */}
@@ -10853,38 +11331,58 @@ const PaymentSuccessModal = ({
 
           {/* TITLE */}
           <Text style={styles.successTitle}>Order Successful! 🎉</Text>
+<<<<<<< HEAD
           <Text style={styles.successSubtitle}>
             Your order has been placed successfully
           </Text>
+=======
+          <Text style={styles.successSubtitle}>Your order has been placed successfully</Text>
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 
           {/* DETAILS */}
           <View style={styles.successDetails}>
             <View style={styles.successRow}>
               <Text style={styles.successLabel}>Order ID</Text>
+<<<<<<< HEAD
               <Text style={styles.successValue}>
                 {orderDetails?.orderId || 'ORD-123456'}
               </Text>
+=======
+              <Text style={styles.successValue}>{orderDetails?.orderId || 'ORD-123456'}</Text>
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
             </View>
 
             <View style={styles.successRow}>
               <Text style={styles.successLabel}>Payment Method</Text>
+<<<<<<< HEAD
               <Text style={styles.successValue}>
                 {orderDetails?.paymentMethod || 'Cash on Delivery'}
               </Text>
+=======
+              <Text style={styles.successValue}>{orderDetails?.paymentMethod || 'Cash on Delivery'}</Text>
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
             </View>
 
             <View style={styles.successRow}>
               <Text style={styles.successLabel}>Total Amount</Text>
+<<<<<<< HEAD
               <Text style={[styles.successValue, styles.successTotal]}>
                 ₹{orderDetails?.total || 0}
               </Text>
+=======
+              <Text style={[styles.successValue, styles.successTotal]}>₹{orderDetails?.total || 0}</Text>
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
             </View>
 
             <View style={styles.successRow}>
               <Text style={styles.successLabel}>Payment Status</Text>
+<<<<<<< HEAD
               <Text style={[styles.successValue, styles.successStatus]}>
                 {orderDetails?.paymentStatus || 'Confirmed'}
               </Text>
+=======
+              <Text style={[styles.successValue, styles.successStatus]}>{orderDetails?.paymentStatus || 'Confirmed'}</Text>
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
             </View>
           </View>
 
@@ -10894,6 +11392,7 @@ const PaymentSuccessModal = ({
           </TouchableOpacity>
 
           {/* CONTINUE SHOPPING */}
+<<<<<<< HEAD
           <TouchableOpacity
             style={styles.successButtonSecondary}
             onPress={onContinueShopping}
@@ -10901,6 +11400,10 @@ const PaymentSuccessModal = ({
             <Text style={styles.successButtonSecondaryText}>
               Continue Shopping
             </Text>
+=======
+          <TouchableOpacity style={styles.successButtonSecondary} onPress={onContinueShopping}>
+            <Text style={styles.successButtonSecondaryText}>Continue Shopping</Text>
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
           </TouchableOpacity>
         </View>
       </View>
@@ -10912,10 +11415,14 @@ const PaymentSuccessModal = ({
 // PAYMENT SCREEN
 // ============================================================
 
+<<<<<<< HEAD
 const PaymentScreen: React.FC<PaymentScreenProps> = ({
   navigation,
   route,
 }) => {
+=======
+const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   // ==========================================================
   // ROUTE PARAMS
   // ==========================================================
@@ -10925,9 +11432,15 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
     restaurantName,
     cartItems,
     address,
+<<<<<<< HEAD
     deliveryFee = 40,
     tax = 0,
     subtotal = 0,
+=======
+    deliveryFee,
+    tax,
+    subtotal,
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   } = route.params || {};
 
   // ==========================================================
@@ -10952,6 +11465,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
   const [orderDetails, setOrderDetails] = useState<any>(null);
+<<<<<<< HEAD
 
   // ==========================================================
   // CALCULATE TAX IF NOT PROVIDED
@@ -10970,6 +11484,8 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
   // Recalculate total to ensure accuracy
   const calculatedTotal = finalSubtotal + finalDeliveryFee + finalTax;
   const displayTotal = totalAmount > 0 ? totalAmount : calculatedTotal;
+=======
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 
   // ==========================================================
   // PAYMENT METHODS
@@ -11007,18 +11523,32 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
   // RECORD TRANSACTION
   // ==========================================================
 
+<<<<<<< HEAD
   const recordTransaction = async (
     orderId: string,
     paymentMethod: 'Razorpay' | 'Cash on Delivery'
   ) => {
+=======
+  // Record this order in the transactions ledger table.
+  // paymentMethod: 'Razorpay' -> paid now -> "you_got" (money received)
+  // paymentMethod: 'Cash on Delivery' -> payment pending -> "you_gave" (credit owed)
+  // TODO: open Supabase → transactions table → click the 'type' and
+  // 'payment_mode' column headers to confirm these exact string values are
+  // valid options in your enums. Update the two lines below if they differ.
+  const recordTransaction = async (orderId: string, paymentMethod: 'Razorpay' | 'Cash on Delivery') => {
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
     if (!user?.business_id || !user?.id) {
       console.log('⚠️ Missing business_id or user id — skipped transaction record');
       return;
     }
 
+<<<<<<< HEAD
     const itemDescription =
       cartItems?.map((item: any) => `${item.name} x${item.quantity}`).join(', ') ||
       'Order';
+=======
+    const itemDescription = cartItems?.map((item: any) => `${item.name} x${item.quantity}`).join(', ') || 'Order';
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 
     const paymentMode = paymentMethod === 'Razorpay' ? 'online' : 'cash';
     const transactionType = paymentMethod === 'Razorpay' ? 'you_got' : 'you_gave';
@@ -11030,8 +11560,13 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
           business_id: user.business_id,
           customer_id: user.id,
           type: transactionType,
+<<<<<<< HEAD
           amount: displayTotal,
           balance_after: displayTotal,
+=======
+          amount: totalAmount,
+          balance_after: totalAmount,
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
           description: `${itemDescription} (Order ${orderId})`,
           payment_mode: paymentMode,
           entry_date: new Date().toISOString().split('T')[0],
@@ -11054,14 +11589,30 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
   // CREATE SALES ORDER - SINGLE DECLARATION (FIXED)
   // ==========================================================
 
+  // Single shared helper — creates the sales order on the real backend
+  // (api-server). The backend automatically creates the matching
+  // `deliveries` row in the same request (see POST /sales-orders route),
+  // so no separate Supabase insert into `deliveries` is needed anymore.
   const placeOrderOnBackend = async () => {
+<<<<<<< HEAD
     if (!user?.business_id || !user?.id || !address) {
       throw new Error('Missing business, customer, or address details.');
     }
+=======
+    // --------------------------------------------------------
+    // BASIC VALIDATION
+    // --------------------------------------------------------
+
+    if (!user?.business_id || !user?.id || !address) {
+      throw new Error('Missing business, customer, or address details.');
+    }
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
     if (!cartItems || cartItems.length === 0) {
       throw new Error('Cart is empty.');
     }
 
+<<<<<<< HEAD
     const fullAddress = `${address.address}, ${address.city}, ${address.state || ''} - ${address.pincode}`;
 
     // Convert product_id to number
@@ -11070,6 +11621,77 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
       qty: Number(item.quantity),
       unit_price: Number(item.price),
     }));
+=======
+    // --------------------------------------------------------
+    // ADDRESS
+    // --------------------------------------------------------
+
+    const fullAddress = `${address.address}, ${address.city}, ${address.state || ''} - ${address.pincode}`;
+
+    // --------------------------------------------------------
+    // IMPORTANT: BACKEND EXPECTS product_id AS NUMBER
+    // --------------------------------------------------------
+
+    const formattedItems = cartItems.map((item: any, index: number) => {
+      /*
+       * CartContext stores: id: String(product.id)
+       * Therefore item.id is a STRING.
+       * Backend expects: product_id: number
+       * So convert it here.
+       */
+      const productId = Number(item.id);
+      const quantity = Number(item.quantity);
+      const unitPrice = Number(item.price);
+
+      // VALIDATE PRODUCT ID
+      if (!Number.isFinite(productId) || productId <= 0) {
+        console.error('❌ Invalid product ID:', { index, item, productId });
+        throw new Error(`Invalid product ID for "${item.name}". Product ID must be a number.`);
+      }
+
+      // VALIDATE QUANTITY
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        throw new Error(`Invalid quantity for "${item.name}".`);
+      }
+
+      // VALIDATE PRICE
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        throw new Error(`Invalid price for "${item.name}".`);
+      }
+
+      return {
+        product_id: productId,
+        qty: quantity,
+        unit_price: unitPrice,
+      };
+    });
+
+    console.log('📦 Sales order items:', formattedItems);
+
+    // --------------------------------------------------------
+    // FINAL PAYLOAD
+    // --------------------------------------------------------
+
+    const payload = {
+      business_id: Number(user.business_id),
+      customer_id: Number(user.id),
+      channel: 'online',
+      shipping_address: fullAddress,
+      description: cartItems.map((item: any) => `${item.name} x${item.quantity}`).join(', ') || 'Order',
+      tax: 0,
+      items: formattedItems,
+    };
+
+    console.log('🚀 Creating sales order:', JSON.stringify(payload, null, 2));
+
+    // --------------------------------------------------------
+    // API REQUEST
+    // --------------------------------------------------------
+
+    const salesOrder = await createSalesOrder.mutateAsync({ data: payload });
+
+    console.log('✅ Sales order created:', salesOrder);
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 
     console.log('📦 Sales order items:', formattedItems);
 
@@ -11118,6 +11740,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
       // WEB
       if (Platform.OS === 'web') {
         const win = window as any;
+<<<<<<< HEAD
 
         if (!win.Razorpay) {
           const script = document.createElement('script');
@@ -11126,14 +11749,34 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
           script.onload = () => {
             openRazorpayWeb();
           };
+=======
+
+        if (!win.Razorpay) {
+          const script = document.createElement('script');
+          script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          script.async = true;
+
+          script.onload = () => {
+            openRazorpayWeb();
+          };
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
           script.onerror = () => {
             setIsProcessing(false);
             Alert.alert('Payment Error', 'Unable to load Razorpay.');
           };
+<<<<<<< HEAD
+=======
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
           document.body.appendChild(script);
         } else {
           openRazorpayWeb();
         }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
         return;
       }
 
@@ -11142,19 +11785,30 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
         throw new Error('Razorpay is not available.');
       }
 
+<<<<<<< HEAD
       // FIXED: Use type assertion for mobileNumber
       const userPhone = (user as any)?.mobileNumber || address?.phone || '9876543210';
 
+=======
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
       const options = {
         description: 'Order Payment',
         image: 'https://your-logo-url.com/logo.png',
         currency: 'INR',
         key: 'rzp_test_TLzyiBcmji4cvD',
+<<<<<<< HEAD
         amount: Math.round(Number(displayTotal) * 100),
         name: 'QuickBite',
         prefill: {
           email: user?.email || 'customer@example.com',
           contact: userPhone,
+=======
+        amount: Math.round(Number(totalAmount) * 100),
+        name: 'QuickBite',
+        prefill: {
+          email: user?.email || 'customer@example.com',
+          contact: user?.phone || address?.phone || '9876543210',
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
           name: user?.name || address?.name || 'Customer',
         },
         theme: {
@@ -11170,10 +11824,14 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
         .catch((error: any) => {
           console.error('❌ Payment error:', error);
           setIsProcessing(false);
+<<<<<<< HEAD
           Alert.alert(
             'Payment Failed',
             error?.description || 'Something went wrong. Please try again.'
           );
+=======
+          Alert.alert('Payment Failed', error?.description || 'Something went wrong. Please try again.');
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
         });
     } catch (error: any) {
       console.error('❌ Razorpay initialization error:', error);
@@ -11188,20 +11846,31 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
 
   const openRazorpayWeb = () => {
     const win = window as any;
+<<<<<<< HEAD
     
     // FIXED: Use type assertion for mobileNumber
     const userPhone = (user as any)?.mobileNumber || address?.phone || '9876543210';
+=======
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 
     const options = {
       description: 'Order Payment',
       image: 'https://your-logo-url.com/logo.png',
       currency: 'INR',
       key: 'rzp_test_TLzyiBcmji4cvD',
+<<<<<<< HEAD
       amount: Math.round(Number(displayTotal) * 100),
       name: 'QuickBite',
       prefill: {
         email: user?.email || 'customer@example.com',
         contact: userPhone,
+=======
+      amount: Math.round(Number(totalAmount) * 100),
+      name: 'QuickBite',
+      prefill: {
+        email: user?.email || 'customer@example.com',
+        contact: user?.phone || address?.phone || '9876543210',
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
         name: user?.name || address?.name || 'Customer',
       },
       theme: {
@@ -11226,6 +11895,11 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
   // RAZORPAY SUCCESS
   // ==========================================================
 
+<<<<<<< HEAD
+=======
+  // Creates the order on the real backend instead of writing directly
+  // into Supabase `deliveries`.
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   const handlePaymentSuccess = async (data: any) => {
     const localOrderId = generateUniqueOrderId();
 
@@ -11235,6 +11909,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
       addOrder({
         id: localOrderId,
         restaurantName: restaurantName || 'QuickBite',
+<<<<<<< HEAD
         items:
           cartItems?.map((item: any) => ({
             name: item.name,
@@ -11247,6 +11922,20 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
       });
 
       clearCart();
+=======
+        items: cartItems?.map((item: any) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+        })) || [],
+        total: totalAmount || 0,
+        status: 'Placed',
+        createdAt: new Date().toISOString(),
+      });
+
+      clearCart();
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
       await recordTransaction(localOrderId, 'Razorpay');
 
       setIsProcessing(false);
@@ -11272,18 +11961,30 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
   // CASH ON DELIVERY
   // ==========================================================
 
+<<<<<<< HEAD
+=======
+  // Creates the order on the real backend instead of writing directly
+  // into Supabase `deliveries`.
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   const handleCashOnDelivery = async () => {
     setIsProcessing(true);
     const localOrderId = generateUniqueOrderId();
 
     try {
       console.log('💵 Cash on Delivery selected');
+<<<<<<< HEAD
+=======
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
       const salesOrder = await placeOrderOnBackend();
+      console.log('✅ COD sales order created:', salesOrder);
+
       console.log('✅ COD sales order created:', salesOrder);
 
       addOrder({
         id: localOrderId,
         restaurantName: restaurantName || 'QuickBite',
+<<<<<<< HEAD
         items:
           cartItems?.map((item: any) => ({
             name: item.name,
@@ -11296,6 +11997,20 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
       });
 
       clearCart();
+=======
+        items: cartItems?.map((item: any) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+        })) || [],
+        total: totalAmount || 0,
+        status: 'Placed',
+        createdAt: new Date().toISOString(),
+      });
+
+      clearCart();
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
       await recordTransaction(localOrderId, 'Cash on Delivery');
 
       setOrderDetails({
@@ -11305,13 +12020,18 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
         paymentMethod: 'Cash on Delivery',
         paymentStatus: 'Confirmed',
       });
+
       setShowSuccessModal(true);
     } catch (err: any) {
       console.error('❌ Failed to create COD sales order:', err);
+<<<<<<< HEAD
       Alert.alert(
         'Order Failed',
         err?.message || 'Could not place your order. Please try again.'
       );
+=======
+      Alert.alert('Order Failed', err?.message || 'Could not place your order. Please try again.');
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
     } finally {
       setIsProcessing(false);
     }
@@ -11341,7 +12061,11 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
   // NO AMOUNT
   // ==========================================================
 
+<<<<<<< HEAD
   if (!displayTotal || displayTotal === 0) {
+=======
+  if (!totalAmount || totalAmount === 0) {
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContent}>
@@ -11368,19 +12092,30 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Icon name="arrow-back" size={24} color="#282c3f" />
         </TouchableOpacity>
+<<<<<<< HEAD
         <Text style={styles.headerTitle}>Payment</Text>
+=======
+
+        <Text style={styles.headerTitle}>Payment</Text>
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
         <View style={{ width: 40 }} />
       </View>
 
       {/* CONTENT */}
+<<<<<<< HEAD
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+=======
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
         {/* DELIVERY ADDRESS */}
         {address && (
           <View style={styles.addressSection}>
             <Text style={styles.addressTitle}>Delivery Address</Text>
+<<<<<<< HEAD
             <View style={styles.addressCard}>
               <Text style={styles.addressName}>{address.name || 'Customer'}</Text>
               <Text style={styles.addressDetail}>{address.address}</Text>
@@ -11390,6 +12125,19 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
               <Text style={styles.addressDetail}>
                 {address.city}, {address.state || ''} - {address.pincode}
               </Text>
+=======
+
+            <View style={styles.addressCard}>
+              <Text style={styles.addressName}>{address.name || 'Customer'}</Text>
+              <Text style={styles.addressDetail}>{address.address}</Text>
+
+              {address.landmark && <Text style={styles.addressDetail}>📍 {address.landmark}</Text>}
+
+              <Text style={styles.addressDetail}>
+                {address.city}, {address.state || ''} - {address.pincode}
+              </Text>
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
               <Text style={styles.addressPhone}>📞 {address.phone || 'Not provided'}</Text>
             </View>
           </View>
@@ -11399,12 +12147,21 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
         <View style={styles.amountCard}>
           <View style={styles.amountRow}>
             <Text style={styles.amountLabel}>Amount to Pay</Text>
+<<<<<<< HEAD
+=======
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
             <View style={styles.secureBadgeSmall}>
               <Icon name="lock-closed" size={12} color="#ffffff" />
               <Text style={styles.secureBadgeSmallText}>Secure</Text>
             </View>
           </View>
+<<<<<<< HEAD
           <Text style={styles.amountValue}>₹{displayTotal}</Text>
+=======
+
+          <Text style={styles.amountValue}>₹{totalAmount}</Text>
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
           <Text style={styles.amountSubtext}>Including all taxes & fees</Text>
         </View>
 
@@ -11414,10 +12171,14 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
         {paymentMethods.map((method) => (
           <TouchableOpacity
             key={method.id}
+<<<<<<< HEAD
             style={[
               styles.methodItem,
               selectedMethod === method.id && styles.methodSelected,
             ]}
+=======
+            style={[styles.methodItem, selectedMethod === method.id && styles.methodSelected]}
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
             onPress={() => handleSelectMethod(method.id)}
             disabled={isProcessing}
           >
@@ -11425,6 +12186,24 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
               <View style={[styles.methodIcon, { backgroundColor: method.bg }]}>
                 <Icon name={method.icon} size={22} color={method.color} />
               </View>
+              <View style={styles.methodInfo}>
+                <Text style={[styles.methodName, selectedMethod === method.id && styles.methodNameSelected]}>
+                  {method.name}
+                </Text>
+                <Text style={styles.methodDescription}>{method.description}</Text>
+              </View>
+            </View>
+
+<<<<<<< HEAD
+            {selectedMethod === method.id && (
+              <View style={styles.checkmark}>
+                <Icon name="checkmark-circle" size={24} color="#28a745" />
+              </View>
+            )}
+          </TouchableOpacity>
+        ))}
+
+=======
               <View style={styles.methodInfo}>
                 <Text style={[styles.methodName, selectedMethod === method.id && styles.methodNameSelected]}>
                   {method.name}
@@ -11441,30 +12220,47 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
           </TouchableOpacity>
         ))}
 
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
         {/* ORDER SUMMARY */}
         <View style={styles.summaryCard}>
           <Text style={styles.summaryTitle}>Order Summary</Text>
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Item Total</Text>
+<<<<<<< HEAD
             <Text style={styles.summaryValue}>₹{finalSubtotal}</Text>
+=======
+            <Text style={styles.summaryValue}>₹{subtotal || totalAmount}</Text>
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
           </View>
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Delivery Fee</Text>
+<<<<<<< HEAD
             <Text style={styles.summaryValue}>₹{finalDeliveryFee}</Text>
+=======
+            <Text style={styles.summaryValue}>₹{deliveryFee || 0}</Text>
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
           </View>
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Tax (GST 18%)</Text>
+<<<<<<< HEAD
             <Text style={styles.summaryValue}>₹{finalTax}</Text>
+=======
+            <Text style={styles.summaryValue}>₹{tax || 0}</Text>
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
           </View>
 
           <View style={styles.summaryDivider} />
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryTotalLabel}>Total</Text>
+<<<<<<< HEAD
             <Text style={styles.summaryTotalValue}>₹{displayTotal}</Text>
+=======
+            <Text style={styles.summaryTotalValue}>₹{totalAmount}</Text>
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
           </View>
         </View>
 
@@ -11482,9 +12278,13 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
             <ActivityIndicator size="small" color="#ffffff" />
           ) : (
             <Text style={styles.payButtonText}>
+<<<<<<< HEAD
               {selectedMethod === 'cash'
                 ? `Place Order ₹${displayTotal}`
                 : `Pay ₹${displayTotal}`}
+=======
+              {selectedMethod === 'cash' ? `Place Order ₹${totalAmount}` : `Pay ₹${totalAmount}`}
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
             </Text>
           )}
         </TouchableOpacity>
@@ -11496,9 +12296,13 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#fc8019" />
             <Text style={styles.loadingText}>Processing Order...</Text>
+<<<<<<< HEAD
             <Text style={styles.loadingSubtext}>
               Please wait, do not close the app
             </Text>
+=======
+            <Text style={styles.loadingSubtext}>Please wait, do not close the app</Text>
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
           </View>
         </View>
       )}
@@ -11524,21 +12328,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-
   centerContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
-
   errorText: {
     fontSize: 18,
     fontWeight: '600',
     color: '#282c3f',
     marginTop: 16,
   },
-
   goBackButton: {
     backgroundColor: '#fc8019',
     paddingHorizontal: 32,
@@ -11546,14 +12347,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 16,
   },
-
   goBackButtonText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
   },
+<<<<<<< HEAD
 
   // HEADER
+=======
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -11565,22 +12368,22 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f5',
   },
-
   backButton: {
     padding: 4,
   },
-
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#282c3f',
   },
-
   scrollContent: {
     paddingBottom: 100,
   },
+<<<<<<< HEAD
 
   // ADDRESS
+=======
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   addressSection: {
     backgroundColor: '#ffffff',
     marginHorizontal: 16,
@@ -11590,39 +12393,37 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e8e8e8',
   },
-
   addressTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: '#282c3f',
     marginBottom: 8,
   },
-
   addressCard: {
     backgroundColor: '#f8f9fa',
     borderRadius: 8,
     padding: 12,
   },
-
   addressName: {
     fontSize: 15,
     fontWeight: '600',
     color: '#282c3f',
   },
-
   addressDetail: {
     fontSize: 14,
     color: '#757575',
     marginTop: 2,
   },
-
   addressPhone: {
     fontSize: 14,
     color: '#757575',
     marginTop: 4,
   },
+<<<<<<< HEAD
 
   // AMOUNT
+=======
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   amountCard: {
     backgroundColor: '#fc8019',
     marginHorizontal: 16,
@@ -11635,34 +12436,29 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-
   amountRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-
   amountLabel: {
     fontSize: 14,
     color: '#ffffff',
     opacity: 0.9,
     fontWeight: '500',
   },
-
   amountValue: {
     fontSize: 36,
     fontWeight: '700',
     color: '#ffffff',
     marginTop: 4,
   },
-
   amountSubtext: {
     fontSize: 12,
     color: '#ffffff',
     opacity: 0.7,
     marginTop: 4,
   },
-
   secureBadgeSmall: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -11671,15 +12467,17 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
-
   secureBadgeSmallText: {
     fontSize: 11,
     color: '#ffffff',
     marginLeft: 4,
     fontWeight: '500',
   },
+<<<<<<< HEAD
 
   // SECTION
+=======
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
@@ -11688,8 +12486,11 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 12,
   },
+<<<<<<< HEAD
 
   // PAYMENT METHODS
+=======
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   methodItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -11702,18 +12503,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#f0f0f5',
   },
-
   methodSelected: {
     borderColor: '#fc8019',
     backgroundColor: '#fff5ec',
   },
-
   methodLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
-
   methodIcon: {
     width: 44,
     height: 44,
@@ -11722,32 +12520,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 14,
   },
-
   methodInfo: {
     flex: 1,
   },
-
   methodName: {
     fontSize: 15,
     fontWeight: '500',
     color: '#282c3f',
   },
-
   methodNameSelected: {
     color: '#fc8019',
   },
-
   methodDescription: {
     fontSize: 12,
     color: '#7e808c',
     marginTop: 2,
   },
-
   checkmark: {
     marginLeft: 8,
   },
+<<<<<<< HEAD
 
   // SUMMARY
+=======
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   summaryCard: {
     backgroundColor: '#ffffff',
     marginHorizontal: 16,
@@ -11757,53 +12553,48 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#f0f0f5',
   },
-
   summaryTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: '#282c3f',
     marginBottom: 12,
   },
-
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 4,
   },
-
   summaryLabel: {
     fontSize: 13,
     color: '#7e808c',
   },
-
   summaryValue: {
     fontSize: 13,
     color: '#282c3f',
   },
-
   summaryDivider: {
     height: 1,
     backgroundColor: '#f0f0f5',
     marginVertical: 8,
   },
-
   summaryTotalLabel: {
     fontSize: 15,
     fontWeight: '600',
     color: '#282c3f',
   },
-
   summaryTotalValue: {
     fontSize: 15,
     fontWeight: '700',
     color: '#fc8019',
   },
-
   footerSpacer: {
     height: 20,
   },
+<<<<<<< HEAD
 
   // PAY BUTTON
+=======
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   payButtonContainer: {
     position: 'absolute',
     bottom: 0,
@@ -11816,25 +12607,25 @@ const styles = StyleSheet.create({
     borderTopColor: '#f0f0f5',
     elevation: 4,
   },
-
   payButton: {
     backgroundColor: '#fc8019',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
   },
-
   payButtonDisabled: {
     backgroundColor: '#ccc',
   },
-
   payButtonText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
   },
+<<<<<<< HEAD
 
   // LOADING
+=======
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   loadingOverlay: {
     position: 'absolute',
     top: 0,
@@ -11845,7 +12636,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
   loadingContainer: {
     backgroundColor: '#ffffff',
     padding: 30,
@@ -11853,28 +12643,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minWidth: 200,
   },
-
   loadingText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#282c3f',
     marginTop: 12,
   },
-
   loadingSubtext: {
     fontSize: 12,
     color: '#7e808c',
     marginTop: 4,
   },
+<<<<<<< HEAD
 
   // SUCCESS MODAL
+=======
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   successOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-
   successContainer: {
     backgroundColor: '#ffffff',
     borderRadius: 24,
@@ -11888,7 +12678,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
-
   successIconContainer: {
     width: 100,
     height: 100,
@@ -11898,7 +12687,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-
   successTitle: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -11906,14 +12694,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: 'center',
   },
-
   successSubtitle: {
     fontSize: 14,
     color: '#7e808c',
     marginBottom: 20,
     textAlign: 'center',
   },
-
   successDetails: {
     width: '100%',
     backgroundColor: '#f8f9fa',
@@ -11921,7 +12707,6 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 20,
   },
-
   successRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -11929,29 +12714,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
   },
-
   successLabel: {
     fontSize: 14,
     color: '#7e808c',
   },
-
   successValue: {
     fontSize: 14,
     color: '#282c3f',
     fontWeight: '500',
   },
-
   successTotal: {
     color: '#fc8019',
     fontWeight: '700',
     fontSize: 16,
   },
-
   successStatus: {
     color: '#28a745',
     fontWeight: '600',
   },
-
   successButton: {
     backgroundColor: '#fc8019',
     borderRadius: 12,
@@ -11961,13 +12741,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
-
   successButtonText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
   },
-
   successButtonSecondary: {
     borderRadius: 12,
     paddingVertical: 12,
@@ -11977,7 +12755,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#fc8019',
   },
-
   successButtonSecondaryText: {
     color: '#fc8019',
     fontSize: 16,

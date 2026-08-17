@@ -2254,6 +2254,8 @@ components:
           type: string
         gstin:
           type: ["string", "null"]
+        description:                      # 🆕
+          type: ["string", "null"]
         phone:
           type: ["string", "null"]
         email:
@@ -2297,6 +2299,8 @@ components:
           type: string
         gstin:
           type: string
+        description:                      # 🆕
+          type: string
         phone:
           type: string
         email:
@@ -2331,6 +2335,8 @@ components:
         business_type:
           type: string
         gstin:
+          type: string
+        description:                      # 🆕
           type: string
         phone:
           type: string

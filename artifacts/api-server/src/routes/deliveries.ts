@@ -1,10 +1,11 @@
 import { Router, type IRouter } from "express";
-import { db, deliveriesTable, driversTable, notificationsTable } from "@workspace/db";
+import { db, deliveriesTable, driversTable, notificationsTable, customersTable } from "@workspace/db";
 import { eq, and, count, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { requireDriverAuth } from "../middlewares/driverAuth";
 import { CreateDeliveryBody, UpdateDeliveryBody, AssignDriverBody, UpdateDeliveryStatusBody } from "@workspace/api-zod";
-import { notifyDriverOfNewDelivery } from "../services/pushNotifications";
+import { notifyDriverOfNewDelivery, notifyCustomerDriverAssigned } from "../services/pushNotifications";
+
 
 const router: IRouter = Router();
 
@@ -14,6 +15,14 @@ function formatDelivery(d: any) {
     business_id: Number(d.businessId),
     customer_id: Number(d.customerId),
     driver_id: d.driverId !== null ? Number(d.driverId) : null,
+    // 🔶 FIX — these columns already exist on deliveriesTable (set correctly
+    // on insert in sales-orders.ts) but were never mapped into the response,
+    // so the frontend always saw the delivery as "not linked to an order"
+    // even when sales_order_id was set in the DB.
+    sales_order_id: d.salesOrderId !== null && d.salesOrderId !== undefined ? Number(d.salesOrderId) : null,
+    amount: d.amount !== null && d.amount !== undefined ? parseFloat(d.amount) : null,
+    payment_method: d.paymentMethod ?? null,
+    distance_km: d.distanceKm !== null && d.distanceKm !== undefined ? parseFloat(d.distanceKm) : null,
     pickup_address: d.pickupAddress,
     drop_address: d.dropAddress,
     status: d.status,
@@ -117,7 +126,6 @@ router.put("/deliveries/:id", requireAuth, async (req, res): Promise<void> => {
 });
 
 // POST /deliveries/:id/assign  (admin assigns a driver -> status becomes "assigned")
-// NEW: also fires a push notification to the driver's phone.
 router.post("/deliveries/:id/assign", requireAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
@@ -136,8 +144,6 @@ router.post("/deliveries/:id/assign", requireAuth, async (req, res): Promise<voi
     return;
   }
 
-  // Fire-and-forget push notification — don't let a bad token/Expo hiccup
-  // block the assignment response.
   const [driver] = await db.select().from(driversTable).where(eq(driversTable.id, parsed.data.driver_id));
   if (driver?.pushToken) {
     notifyDriverOfNewDelivery(driver.pushToken, Number(delivery.id), delivery.dropAddress).catch(err =>
@@ -145,7 +151,13 @@ router.post("/deliveries/:id/assign", requireAuth, async (req, res): Promise<voi
     );
   }
 
-  // In-app notification record (so it shows up even if push fails/is missed)
+  const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, delivery.customerId));
+if (customer?.pushToken && driver) {
+  notifyCustomerDriverAssigned(customer.pushToken, driver.name, Number(delivery.id)).catch(err =>
+    console.error("[deliveries] Failed to send customer assignment push:", err)
+  );
+}
+
   await db.insert(notificationsTable).values({
     businessId: delivery.businessId,
     driverId: parsed.data.driver_id,
@@ -155,7 +167,6 @@ router.post("/deliveries/:id/assign", requireAuth, async (req, res): Promise<voi
 
   res.json(formatDelivery(delivery));
 });
-
 
 // PUT /deliveries/:id/status  (staff/admin dashboard use — unchanged)
 router.put("/deliveries/:id/status", requireAuth, async (req, res): Promise<void> => {
@@ -181,9 +192,7 @@ router.put("/deliveries/:id/status", requireAuth, async (req, res): Promise<void
 });
 
 // ============================================================
-// NEW: driver-app (delivery-app) routes — secured with requireDriverAuth,
-// automatically scoped to the logged-in driver's own id/business from
-// the JWT (not a client-supplied query param — can't see other drivers' deliveries)
+// driver-app (delivery-app) routes — secured with requireDriverAuth
 // ============================================================
 
 // GET /deliveries/my
@@ -224,7 +233,6 @@ router.put("/deliveries/:id/my-status", requireDriverAuth, async (req, res): Pro
     return;
   }
 
-  // Ownership check — driver can only update deliveries assigned to them
   const [existing] = await db.select().from(deliveriesTable).where(eq(deliveriesTable.id, id));
   if (!existing || Number(existing.driverId) !== driverId) {
     res.status(404).json({ error: "Delivery not found" });

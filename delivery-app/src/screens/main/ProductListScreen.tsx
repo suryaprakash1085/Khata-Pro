@@ -95,7 +95,7 @@ export default function ProductListScreen({ route, navigation }: any) {
       const response = await axios.get(url);
       console.log('✅ Response received:', response.data);
 
-      let productsData = [];
+      let productsData: any[] = [];
       if (Array.isArray(response.data)) {
         productsData = response.data;
       } else if (response.data?.data && Array.isArray(response.data.data)) {

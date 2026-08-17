@@ -14,7 +14,10 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { AuthContext } from '../../context/AuthContext';
 
+<<<<<<< HEAD
 // const EditProfileScreen = ({ navigation }) => {
+=======
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   const EditProfileScreen = ({ navigation }: { navigation: any }) => {
   const { user, updateUser } = useContext(AuthContext);
 

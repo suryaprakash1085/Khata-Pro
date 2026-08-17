@@ -360,8 +360,8 @@ const isOwner = user?.role === 'owner';
       <EditableRow
         icon="map-pin"
         label="Address"
-        value={business?.address ?? ''}
-        onSave={(val) => saveBusinessField({ address: val })}
+        value={business?.address_line1 ?? ''}
+        onSave={(val) => saveBusinessField({ address_line1: val })}
         saving={updateBusiness.isPending}
       />
       <InfoRow icon="dollar-sign" label="Currency" value={business?.currency ?? 'INR'} />

@@ -1,116 +1,6 @@
-﻿// import apiClient from '../api/client';
-// import { storeToken, removeToken, storeUser, removeUser } from '../utils/storage';
-// import { User } from '../types';
-
-// export const authService = {
-//   login: async (credentials: { email: string; password: string }) => {
-//     try {
-//       const response = await apiClient.post('/auth/login', credentials);
-//       const result = response.data ?? response;
-
-//       if (result?.token) {
-//         await storeToken(result.token);
-//         await storeUser(result.user);
-//       }
-
-//       return result;
-//     } catch (error) {
-//       throw error;
-//     }
-//   },
-
-//   signup: async (userData: Partial<User> & { password: string }) => {
-//     try {
-//       const response = await apiClient.post('/auth/signup', userData);
-//       const result = response.data ?? response;
-
-//       if (result?.token) {
-//         await storeToken(result.token);
-//         await storeUser(result.user);
-//       }
-
-//       return result;
-//     } catch (error) {
-//       throw error;
-//     }
-//   },
-
-//   logout: async () => {
-//     try {
-//       await apiClient.post('/auth/logout');
-//       await removeToken();
-//       await removeUser();
-//     } catch (error) {
-//       throw error;
-//     }
-//   },
-
-//   forgotPassword: async (email: string) => {
-//     try {
-//       return await apiClient.post('/auth/forgot-password', { email });
-//     } catch (error) {
-//       throw error;
-//     }
-//   },
-
-//   resetPassword: async (data: { token: string; password: string }) => {
-//     try {
-//       return await apiClient.post('/auth/reset-password', data);
-//     } catch (error) {
-//       throw error;
-//     }
-//   },
-
-//   getProfile: async () => {
-//     try {
-//       return await apiClient.get('/auth/profile');
-//     } catch (error) {
-//       throw error;
-//     }
-//   },
-
-// //   updateProfile: async (data: Partial<User>) => {
-// //     try {
-// //       // const response = await apiClient.put('/auth/profile', data);
-// //       // if (response.user) {
-// //       //   await storeUser(response.user);
-// //       // }
-// //       // return response;
-// //       const response = await apiClient.post('/auth/login', credentials);
-
-// // if (response.data.token) {
-// //   await storeToken(response.data.token);
-// //   await storeUser(response.data.user);
-// // }
-
-// // return response.data;
-// //     } catch (error) {
-// //       throw error;
-// //     }
-// //   },
-// updateProfile: async (data: Partial<User>) => {
-//   try {
-//     const response = await apiClient.put('/auth/profile', data);
-
-//     if (response.data.user) {
-//       await storeUser(response.data.user);
-//     }
-
-//     return response.data;
-//   } catch (error) {
-//     throw error;
-//   }
-// },
-//   verifyToken: async () => {
-//     try {
-//       return await apiClient.get('/auth/verify');
-//     } catch (error) {
-//       throw error;
-//     }
-//   },
-// };
-import axios from 'axios';
-import { getToken, removeToken, removeUser } from '../utils/storage';
+﻿import axios from 'axios';
+import { getToken, removeToken, removeUser, setToken, setUser } from '../utils/storage';
+import { registerForPushNotificationsAsync, savePushTokenToServer } from './pushNotifications';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
@@ -140,31 +30,70 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token expired or invalid
+      // Token expired or invalid — clear local session.
+      // NOTE: no window.location redirect here — this is a React Native app,
+      // there is no `window`. Navigation on 401 should be handled by whatever
+      // screen/navigator watches auth state (e.g. AuthContext), not here.
       removeToken();
       removeUser();
-      // Redirect to login if needed
-      window.location.href = '/login';
     }
     return Promise.reject(error);
   }
 );
 
+// Shared helper — registers this device for push notifications and saves
+// the token to the backend. Never throws: a failure here should not block
+// login/signup.
+async function registerPushAfterAuth(authToken: string) {
+  try {
+    const pushToken = await registerForPushNotificationsAsync();
+    if (pushToken) {
+      await savePushTokenToServer(pushToken, authToken);
+    }
+  } catch (err) {
+    console.error('[authService] Push registration failed:', err);
+  }
+}
+
 export const authService = {
-  // Login
-  async login(credentials: { email: string; password: string }) {
+  // Login — backend expects { phone, password }, not email.
+  async login(credentials: { phone: string; password: string }) {
     try {
-      const response = await api.post('/auth/login', credentials);
+      const response = await api.post('/customer-auth/login', credentials);
+      const { token, customer } = response.data;
+
+      if (token) {
+        setToken(token);
+        setUser(customer);
+        // fire-and-forget — don't block login on push registration
+        registerPushAfterAuth(token);
+      }
+
       return response.data;
     } catch (error) {
       throw error;
     }
   },
 
-  // Signup / Register
-  async signup(data: { name: string; email: string; phone: string; password: string }) {
+  // Signup / Register — backend expects { businessId, name, phone, email?, address?, password }
+  async signup(data: {
+    businessId: number;
+    name: string;
+    phone: string;
+    email?: string;
+    address?: string;
+    password: string;
+  }) {
     try {
-      const response = await api.post('/auth/register', data);
+      const response = await api.post('/customer-auth/signup', data);
+      const { token, customer } = response.data;
+
+      if (token) {
+        setToken(token);
+        setUser(customer);
+        registerPushAfterAuth(token);
+      }
+
       return response.data;
     } catch (error) {
       throw error;
@@ -174,50 +103,18 @@ export const authService = {
   // Get current user (verify token with backend)
   async getCurrentUser() {
     try {
-      const response = await api.get('/auth/me');
+      const response = await api.get('/customer-auth/me');
       return response.data;
     } catch (error) {
       throw error;
     }
   },
 
-  // Logout
+  // Logout — no backend /customer-auth/logout route exists yet, so this
+  // just clears local session. Add a backend route later if you need to
+  // invalidate tokens server-side (e.g. a token blocklist).
   async logout() {
-    try {
-      const response = await api.post('/auth/logout');
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  // Update profile
-  async updateProfile(userData: any) {
-    try {
-      const response = await api.put('/auth/profile', userData);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  // Send OTP
-  async sendOTP(phone: string) {
-    try {
-      const response = await api.post('/auth/send-otp', { phone });
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  // Verify OTP
-  async verifyOTP(phone: string, otp: string) {
-    try {
-      const response = await api.post('/auth/verify-otp', { phone, otp });
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    removeToken();
+    removeUser();
   },
 };

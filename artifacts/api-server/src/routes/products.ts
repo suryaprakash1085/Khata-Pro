@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // // // import { Router, type IRouter } from "express";
 // // // import { db, productsTable } from "@workspace/db";
 // // // import { eq, and, or, ilike, count, desc, lte } from "drizzle-orm";
@@ -825,6 +826,8 @@
 // });
 
 // export default router;
+=======
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 import { Router, type IRouter } from "express";
 import { db, productsTable } from "@workspace/db";
 import { 
@@ -874,9 +877,17 @@ function formatProduct(p: any) {
 // GET /public/products
 router.get("/public/products", async (req, res): Promise<void> => {
   try {
+<<<<<<< HEAD
     const businessId = req.query.business_id ? parseInt(req.query.business_id as string, 10) : undefined;
     const conditions: any[] = [eq(productsTable.isDeleted, false)];
     if (businessId) conditions.push(eq(productsTable.businessId, businessId));
+=======
+
+    const businessId = req.query.business_id ? parseInt(req.query.business_id as string, 10) : undefined;
+    const conditions: any[] = [eq(productsTable.isDeleted, false)];
+    if (businessId) conditions.push(eq(productsTable.businessId, businessId));
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 
     const products = await db
       .select()
@@ -925,7 +936,7 @@ router.get("/public/products/suggestions", async (req, res): Promise<void> => {
     }
 
     const businessId = cartProducts[0]?.businessId;
-    const categories = [...new Set(cartProducts.map(p => p.category).filter(Boolean))];
+    const categories = [...new Set(cartProducts.map(p => p.category).filter((c): c is string => c !== null && c !== undefined))];
 
     if (!businessId || categories.length === 0) {
       res.json([]);

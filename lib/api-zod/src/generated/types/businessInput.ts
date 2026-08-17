@@ -10,6 +10,7 @@ export interface BusinessInput {
   business_name: string;
   business_type: string;
   gstin?: string;
+  description?: string;
   phone?: string;
   email?: string;
   address_line1?: string;

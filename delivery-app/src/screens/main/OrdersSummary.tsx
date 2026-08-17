@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // // // // // // // import React, { useContext } from 'react';
 // // // // // // // import {
 // // // // // // //   View,
@@ -2830,6 +2831,8 @@
 
 // export default OrdersSummary;
 
+=======
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 import React, { useContext } from 'react';
 import {
   View,
@@ -2845,15 +2848,25 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { OrderContext } from '../../context/OrderContext';
 import { CartContext } from '../../context/CartContext';
 
+<<<<<<< HEAD
 const OrdersSummary = ({ navigation }: { navigation: any }) => {
+=======
+  const OrdersSummary = ({ navigation }: { navigation: any }) => {
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   const { orders } = useContext(OrderContext);
   const { cartItems } = useContext(CartContext);
 
   // Calculate order statistics
   const totalOrders = orders?.length || 0;
+<<<<<<< HEAD
   const deliveredOrders = orders?.filter((o: any) => o.status === 'Delivered').length || 0;
   const cancelledOrders = orders?.filter((o: any) => o.status === 'Cancelled').length || 0;
   const totalSpent = orders?.reduce((sum: number, order: any) => {
+=======
+  const deliveredOrders = orders?.filter((o) => o.status === 'Delivered').length || 0;
+  const cancelledOrders = orders?.filter((o) => o.status === 'Cancelled').length || 0;
+  const totalSpent = orders?.reduce((sum, number, order: any) => {
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
     if (order.status !== 'Cancelled') {
       return sum + (order.total || 0);
     }
@@ -2865,8 +2878,16 @@ const OrdersSummary = ({ navigation }: { navigation: any }) => {
   const getDeliveredOrders = () => {
     if (!orders || orders.length === 0) return [];
     
+<<<<<<< HEAD
     // Filter orders that are delivered
     const delivered = orders.filter((order: any) => 
+=======
+    // Filter orders that are placed (not pending, not cancelled)
+    const placedOrders = orders.filter((order: any) =>
+      order.status === 'Placed' || 
+      order.status === 'Confirmed' || 
+      order.status === 'Processing' ||
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
       order.status === 'Delivered'
     );
     
@@ -2885,6 +2906,10 @@ const OrdersSummary = ({ navigation }: { navigation: any }) => {
       sum + ((item.price || 0) * (item.quantity || 1)), 0
     );
 
+<<<<<<< HEAD
+=======
+ const renderOrderItem = (item: any, index: number) => {
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
     return (
       <View key={index} style={styles.deliveredOrderCard}>
         <View style={styles.deliveredOrderHeader}>
@@ -2939,6 +2964,14 @@ const OrdersSummary = ({ navigation }: { navigation: any }) => {
     );
   };
 
+<<<<<<< HEAD
+=======
+  // Calculate total of the latest order
+ const totalOrderAmount = orderItems.reduce((sum: number, item: any) => 
+  sum + ((item.price || 0) * (item.quantity || 1)), 0
+);
+
+>>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
