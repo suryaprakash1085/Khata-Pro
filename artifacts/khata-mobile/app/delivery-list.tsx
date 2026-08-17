@@ -1,15 +1,8 @@
-<<<<<<< HEAD
-import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-=======
 
 
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   FlatList,
   Image,
   Platform,
@@ -1002,10 +995,6 @@ const styles = StyleSheet.create({
   footerSecondaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 16, borderWidth: 1 },
   footerSecondaryBtnText: { fontSize: 14, fontFamily: FONT_FAMILY, fontWeight: '600' },
   footerBtnDisabled: { opacity: 0.6 },
-<<<<<<< HEAD
-});
-
-=======
 
   // 🔶 NEW — confirm dialog card
   confirmDialogWrap: { width: '100%', maxWidth: 380, padding: 20 },
@@ -1016,4 +1005,3 @@ const styles = StyleSheet.create({
   confirmDialogCancelBtn: { paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1 },
   confirmDialogConfirmBtn: { paddingVertical: 10, paddingHorizontal: 18, minWidth: 90, alignItems: 'center' },
 });
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17

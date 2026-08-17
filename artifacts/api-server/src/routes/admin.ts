@@ -145,30 +145,10 @@ router.get("/admin/analytics", requireAdmin, async (req, res): Promise<void> => 
       planMap[row.plan] = Number(row.count);
     }
 
-<<<<<<< HEAD
-  // Format recent signups
-  const subs = await db.select().from(subscriptionsTable);
-  const subMap = new Map(subs.map((s) => [Number(s.businessId), s.plan]));
-  const formattedSignups = recentSignups.map((b) => ({
-    id: Number(b.id),
-    owner_id: Number(b.ownerId),
-    business_name: b.businessName,
-    business_type: b.businessType,
-    gstin: b.gstin,
-    address: b.addressLine1,
-    logo_url: b.logoUrl,
-    currency: b.currency,
-    financial_year_start: b.financialYearStart,
-    is_active: b.isActive,
-    plan: subMap.get(Number(b.id)) ?? "free",
-    created_at: b.createdAt,
-  }));
-=======
     // Format recent signups
     const subs = await db
       .select()
       .from(subscriptionsTable);
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 
     const subMap = new Map(
       subs.map((s) => [

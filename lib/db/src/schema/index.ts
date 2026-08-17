@@ -17,12 +17,6 @@ export * from "./transaction_items";
 export * from "./sales_orders";
 export * from "./sales_order_items";
 export * from "./returns";
-<<<<<<< HEAD
-
-export * from "./notifications";
-
-=======
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 export * from "./notifications";
 export * from "./promotions";
 

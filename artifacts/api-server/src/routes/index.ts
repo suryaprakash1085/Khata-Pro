@@ -17,12 +17,7 @@ import salesOrdersRouter from "./sales-orders";
 import returnsRouter from './returns';
 import paymentsRouter from "./paymentsRoutes";
 import customerAuthRouter from "./customer-auth";
-<<<<<<< HEAD
-
-
-=======
 import notificationsRouter from "./notifications"; // 🔶 FIX — was never imported/registered, causing 404s
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 
 import promotionsRouter from "./promotions";
 
@@ -49,16 +44,10 @@ router.use(salesOrdersRouter);
 router.use(returnsRouter);
 router.use(paymentsRouter);
 router.use(customerAuthRouter);
-<<<<<<< HEAD
-
-router.use(promotionsRouter);
-
-=======
 router.use(promotionsRouter);
 // 🔶 FIX — mounted at /notifications. notifications.ts defines its route as
 // GET "/", so the final path is GET /notifications (→ /api/notifications
 // once your outer app-level /api prefix is applied).
 router.use("/notifications", notificationsRouter);
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 
 export default router;

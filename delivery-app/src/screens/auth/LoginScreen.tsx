@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-﻿import React, { useState, useContext } from 'react';
-=======
 import React, { useState, useContext } from 'react';
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 import {
   View,
   Text,
@@ -24,15 +20,6 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-<<<<<<< HEAD
- 
-  // Error states
-  const [phoneError, setPhoneError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
- 
-  const { login } = useContext(AuthContext);
- 
-=======
 
   // Error states
   const [phoneError, setPhoneError] = useState('');
@@ -40,16 +27,10 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
 
   const { login } = useContext(AuthContext);
 
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   // Validation function for password (live, while typing)
   const validatePasswordInput = (text: string) => {
     setPassword(text);
     setPasswordError('');
-<<<<<<< HEAD
- 
-=======
-
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
     if (text.length === 0) {
       return;
     }
@@ -192,11 +173,6 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
         <View style={styles.formContainer}>
           <Text style={styles.title}>Sign In</Text>
           <Text style={styles.subtitle2}>Login to your account</Text>
-<<<<<<< HEAD
- 
-=======
-
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
           <View style={styles.inputWrapper}>
             <View style={styles.inputContainer}>
               <Icon name="call-outline" size={20} color="#7e808c" style={styles.inputIcon} />
@@ -213,11 +189,6 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
             </View>
             {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
           </View>
-<<<<<<< HEAD
- 
-=======
-
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
           <View style={styles.inputWrapper}>
             <View style={styles.inputContainer}>
               <Icon name="lock-closed-outline" size={20} color="#7e808c" style={styles.inputIcon} />
@@ -240,11 +211,6 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
             </View>
             {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
           </View>
-<<<<<<< HEAD
- 
-=======
-
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
             onPress={handleLogin}

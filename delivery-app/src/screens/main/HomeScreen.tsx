@@ -31,11 +31,7 @@ import {
 import { Picker } from '@react-native-picker/picker';
  
 const { width } = Dimensions.get('window');
-<<<<<<< HEAD
-
-=======
  
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
 export default function HomeScreen({ navigation }: any) {
   const [searchText, setSearchText] = useState<string>('');
   const [products, setProducts] = useState<any[]>([]);
@@ -47,11 +43,7 @@ export default function HomeScreen({ navigation }: any) {
     selectedBusiness,
     setSelectedBusiness,
   } = useContext(SelectedBusinessContext);
-<<<<<<< HEAD
-
-=======
  
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   // =====================================================
   // CART CONTEXT
   // =====================================================
@@ -107,11 +99,7 @@ export default function HomeScreen({ navigation }: any) {
   useEffect(() => {
     console.log('🏪 USER OBJECT:', user);
   }, [user]);
-<<<<<<< HEAD
-
-=======
  
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   // Load products ONLY for the selected shop
   useEffect(() => {
     if (!selectedBusinessId) {
@@ -122,11 +110,7 @@ export default function HomeScreen({ navigation }: any) {
       .then((res) => setProducts(res.data))
       .catch((err) => console.error('Failed to load products:', err));
   }, [selectedBusinessId]);
-<<<<<<< HEAD
-
-=======
  
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   // =====================================================
   // SEARCH FUNCTIONALITY
   // =====================================================
@@ -145,8 +129,6 @@ export default function HomeScreen({ navigation }: any) {
   };
  
   // =====================================================
-<<<<<<< HEAD
-=======
   // CATEGORY
   // =====================================================
   const renderCategory = ({ item }: { item: Category }) => (
@@ -164,17 +146,12 @@ export default function HomeScreen({ navigation }: any) {
   );
  
   // =====================================================
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   // BUSINESS NAME
   // =====================================================
   const businessName = user?.business_name || 'No Business Found';
   const plan = user?.business_plan || 'FREE';
   const displayName = businessName.length > 20 ? businessName.substring(0, 20) + '...' : businessName;
-<<<<<<< HEAD
-
-=======
  
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   // =====================================================
   // SHOP CHANGE (For horizontal scroll icons ONLY)
   // =====================================================
@@ -186,15 +163,6 @@ export default function HomeScreen({ navigation }: any) {
       setProducts([]);
       return;
     }
-<<<<<<< HEAD
-
-    const business = businesses.find(
-      biz => String(biz.id) === String(businessId)
-    );
-
-    setSelectedBusinessId(Number(businessId));
-
-=======
  
     const business = businesses.find(
       biz => String(biz.id) === String(businessId)
@@ -202,18 +170,13 @@ export default function HomeScreen({ navigation }: any) {
  
     setSelectedBusinessId(Number(businessId));
  
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
     if (business) {
       setSelectedBusiness({
         id: business.id,
         name: business.business_name,
       });
     }
-<<<<<<< HEAD
-
-=======
  
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
     console.log('🏪 Selected Shop:', business);
   };
  
@@ -241,11 +204,7 @@ export default function HomeScreen({ navigation }: any) {
           <Text style={styles.storeName} numberOfLines={1}>
             {item.business_name || 'Unnamed Store'}
           </Text>
-<<<<<<< HEAD
-          
-=======
          
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
           <Text style={styles.storeType} numberOfLines={1}>
             {item.business_type || 'General Store'}
           </Text>
@@ -296,20 +255,12 @@ export default function HomeScreen({ navigation }: any) {
             </View>
           </View>
         </View>
-<<<<<<< HEAD
-
-=======
  
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
         <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
           <Icon name="person-circle-outline" size={40} color={colors.primary} />
         </TouchableOpacity>
       </View>
-<<<<<<< HEAD
-
-=======
  
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
       {/* SEARCH */}
       <View style={styles.searchContainer}>
         <Icon name="search" size={20} color={colors.gray} style={styles.searchIcon} />
@@ -320,9 +271,6 @@ export default function HomeScreen({ navigation }: any) {
           onChangeText={handleSearch}
         />
       </View>
-<<<<<<< HEAD
-
-=======
  
       {/* OFFERS SECTION */}
       <View style={styles.offersSection}>
@@ -367,7 +315,6 @@ export default function HomeScreen({ navigation }: any) {
         </View>
       </View>
  
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
       {/* AVAILABLE STORES */}
       <View style={styles.restaurantsSection}>
         <View style={styles.sectionHeader}>
@@ -379,11 +326,7 @@ export default function HomeScreen({ navigation }: any) {
           <View style={styles.emptyProducts}>
             <Icon name="storefront-outline" size={45} color="#b5b5b5" />
             <Text style={styles.emptyProductsText}>
-<<<<<<< HEAD
-              {searchText.trim() !== '' 
-=======
               {searchText.trim() !== ''
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
                 ? `No stores found matching "${searchText}"`
                 : 'No stores available'}
             </Text>
@@ -396,8 +339,6 @@ export default function HomeScreen({ navigation }: any) {
           ))
         )}
       </View>
-<<<<<<< HEAD
-=======
  
       {/* STORES NEAR YOU */}
       <View style={styles.restaurantsSection}>
@@ -416,7 +357,6 @@ export default function HomeScreen({ navigation }: any) {
           </TouchableOpacity>
         ))}
       </View>
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
     </ScrollView>
   );
 }
@@ -498,8 +438,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
   },
-<<<<<<< HEAD
-=======
   offersSection: {
     marginVertical: 8,
   },
@@ -543,7 +481,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
   },
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   restaurantsSection: {
     marginVertical: 8,
     paddingBottom: 30,
@@ -554,15 +491,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-<<<<<<< HEAD
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 12,
-  },
-=======
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
   storeCount: {
     fontSize: 14,
     color: colors.textLight,
@@ -631,9 +559,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     textAlign: 'center',
   },
-<<<<<<< HEAD
-});
-=======
   offerCard2: {
     backgroundColor: colors.lightGray,
     borderRadius: 12,
@@ -651,5 +576,3 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 });
- 
->>>>>>> 54571b9db09ab889e729432cc5d0441746689f17
