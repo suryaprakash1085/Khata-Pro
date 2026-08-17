@@ -62,7 +62,7 @@ router.get("/admin/analytics", requireAdmin, async (req, res): Promise<void> => 
     business_name: b.businessName,
     business_type: b.businessType,
     gstin: b.gstin,
-    address: b.address,
+    address: b.addressLine1,
     logo_url: b.logoUrl,
     currency: b.currency,
     financial_year_start: b.financialYearStart,

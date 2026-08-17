@@ -14,7 +14,8 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { AuthContext } from '../../context/AuthContext';
 
-const EditProfileScreen = ({ navigation }) => {
+// const EditProfileScreen = ({ navigation }) => {
+  const EditProfileScreen = ({ navigation }: { navigation: any }) => {
   const { user, updateUser } = useContext(AuthContext);
 
   const [name, setName] = useState<string>('');

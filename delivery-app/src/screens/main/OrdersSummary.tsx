@@ -1,3 +1,1019 @@
+// // // // // // // import React, { useContext } from 'react';
+// // // // // // // import {
+// // // // // // //   View,
+// // // // // // //   Text,
+// // // // // // //   StyleSheet,
+// // // // // // //   SafeAreaView,
+// // // // // // //   StatusBar,
+// // // // // // //   TouchableOpacity,
+// // // // // // //   ScrollView,
+// // // // // // // } from 'react-native';
+// // // // // // // import Icon from 'react-native-vector-icons/Ionicons';
+// // // // // // // import { OrderContext } from '../../context/OrderContext';
+// // // // // // // import { CartContext } from '../../context/CartContext';
+
+// // // // // // // const OrdersSummary = ({ navigation }) => {
+// // // // // // //   const { orders } = useContext(OrderContext);
+// // // // // // //   const { cartItems } = useContext(CartContext);
+
+// // // // // // //   // Calculate order statistics
+// // // // // // //   const totalOrders = orders?.length || 0;
+// // // // // // //   const deliveredOrders = orders?.filter((o) => o.status === 'Delivered').length || 0;
+// // // // // // //   const cancelledOrders = orders?.filter((o) => o.status === 'Cancelled').length || 0;
+// // // // // // //   const totalSpent = orders?.reduce((sum, order) => {
+// // // // // // //     if (order.status !== 'Cancelled') {
+// // // // // // //       return sum + (order.total || 0);
+// // // // // // //     }
+// // // // // // //     return sum;
+// // // // // // //   }, 0) || 0;
+// // // // // // //   const itemsInCart = cartItems?.length || 0;
+
+// // // // // // //   return (
+// // // // // // //     <SafeAreaView style={styles.container}>
+// // // // // // //       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      
+// // // // // // //       {/* Header with Back Button */}
+// // // // // // //       <View style={styles.header}>
+// // // // // // //         <TouchableOpacity 
+// // // // // // //           style={styles.backButton}
+// // // // // // //           onPress={() => navigation.goBack()}
+// // // // // // //           activeOpacity={0.7}
+// // // // // // //         >
+// // // // // // //           <Icon name="arrow-back" size={24} color="#282c3f" />
+// // // // // // //         </TouchableOpacity>
+// // // // // // //         <Text style={styles.headerTitle}>Order Summary</Text>
+// // // // // // //         <View style={styles.headerPlaceholder} />
+// // // // // // //       </View>
+
+// // // // // // //       <ScrollView showsVerticalScrollIndicator={false}>
+// // // // // // //         {/* Order Summary Card */}
+// // // // // // //         <View style={styles.orderSummaryContainer}>
+// // // // // // //           {/* Total Orders */}
+// // // // // // //           <View style={styles.orderSummaryRow}>
+// // // // // // //             <View style={styles.rowLeft}>
+// // // // // // //               <Icon name="receipt-outline" size={20} color="#fc8019" />
+// // // // // // //               <Text style={styles.orderSummaryLabel}>Total Orders</Text>
+// // // // // // //             </View>
+// // // // // // //             <Text style={styles.orderSummaryValue}>{totalOrders}</Text>
+// // // // // // //           </View>
+
+// // // // // // //           {/* Delivered */}
+// // // // // // //           <View style={styles.orderSummaryRow}>
+// // // // // // //             <View style={styles.rowLeft}>
+// // // // // // //               <Icon name="checkmark-circle-outline" size={20} color="#28a745" />
+// // // // // // //               <Text style={styles.orderSummaryLabel}>Delivered</Text>
+// // // // // // //             </View>
+// // // // // // //             <Text style={[styles.orderSummaryValue, { color: '#28a745' }]}>
+// // // // // // //               {deliveredOrders}
+// // // // // // //             </Text>
+// // // // // // //           </View>
+
+// // // // // // //           {/* Cancelled */}
+// // // // // // //           <View style={styles.orderSummaryRow}>
+// // // // // // //             <View style={styles.rowLeft}>
+// // // // // // //               <Icon name="close-circle-outline" size={20} color="#dc3545" />
+// // // // // // //               <Text style={styles.orderSummaryLabel}>Cancelled</Text>
+// // // // // // //             </View>
+// // // // // // //             <Text style={[styles.orderSummaryValue, { color: '#dc3545' }]}>
+// // // // // // //               {cancelledOrders}
+// // // // // // //             </Text>
+// // // // // // //           </View>
+
+// // // // // // //           {/* Total Spent */}
+// // // // // // //           <View style={styles.orderSummaryRow}>
+// // // // // // //             <View style={styles.rowLeft}>
+// // // // // // //               <Icon name="cash-outline" size={20} color="#fc8019" />
+// // // // // // //               <Text style={styles.orderSummaryLabel}>Total Spent</Text>
+// // // // // // //             </View>
+// // // // // // //             <Text style={[styles.orderSummaryValue, { color: '#fc8019', fontWeight: '700' }]}>
+// // // // // // //               ₹{totalSpent}
+// // // // // // //             </Text>
+// // // // // // //           </View>
+
+// // // // // // //           {/* Items in Cart */}
+// // // // // // //           <View style={[styles.orderSummaryRow, styles.lastRow]}>
+// // // // // // //             <View style={styles.rowLeft}>
+// // // // // // //               <Icon name="cart-outline" size={20} color="#17a2b8" />
+// // // // // // //               <Text style={styles.orderSummaryLabel}>Items in Cart</Text>
+// // // // // // //             </View>
+// // // // // // //             <Text style={styles.orderSummaryValue}>{itemsInCart}</Text>
+// // // // // // //           </View>
+// // // // // // //         </View>
+
+// // // // // // //         {/* No Orders Message */}
+// // // // // // //         {totalOrders === 0 && (
+// // // // // // //           <View style={styles.emptyContainer}>
+// // // // // // //             <Icon name="cart-outline" size={60} color="#e0e0e0" />
+// // // // // // //             <Text style={styles.emptyTitle}>No Orders Yet</Text>
+// // // // // // //             <Text style={styles.emptySubtitle}>
+// // // // // // //               You haven't placed any orders yet. Start ordering now!
+// // // // // // //             </Text>
+// // // // // // //           </View>
+// // // // // // //         )}
+// // // // // // //       </ScrollView>
+// // // // // // //     </SafeAreaView>
+// // // // // // //   );
+// // // // // // // };
+
+// // // // // // // const styles = StyleSheet.create({
+// // // // // // //   container: {
+// // // // // // //     flex: 1,
+// // // // // // //     backgroundColor: '#f8f9fa',
+// // // // // // //   },
+// // // // // // //   header: {
+// // // // // // //     backgroundColor: '#ffffff',
+// // // // // // //     flexDirection: 'row',
+// // // // // // //     alignItems: 'center',
+// // // // // // //     justifyContent: 'space-between',
+// // // // // // //     paddingHorizontal: 16,
+// // // // // // //     paddingVertical: 14,
+// // // // // // //     borderBottomWidth: 1,
+// // // // // // //     borderBottomColor: '#f0f0f5',
+// // // // // // //     elevation: 2,
+// // // // // // //     shadowColor: '#000',
+// // // // // // //     shadowOffset: {
+// // // // // // //       width: 0,
+// // // // // // //       height: 2,
+// // // // // // //     },
+// // // // // // //     shadowOpacity: 0.05,
+// // // // // // //     shadowRadius: 4,
+// // // // // // //   },
+// // // // // // //   backButton: {
+// // // // // // //     padding: 4,
+// // // // // // //     width: 40,
+// // // // // // //   },
+// // // // // // //   headerTitle: {
+// // // // // // //     fontSize: 18,
+// // // // // // //     fontWeight: '600',
+// // // // // // //     color: '#282c3f',
+// // // // // // //   },
+// // // // // // //   headerPlaceholder: {
+// // // // // // //     width: 40,
+// // // // // // //   },
+// // // // // // //   orderSummaryContainer: {
+// // // // // // //     backgroundColor: '#ffffff',
+// // // // // // //     marginHorizontal: 16,
+// // // // // // //     marginTop: 20,
+// // // // // // //     borderRadius: 12,
+// // // // // // //     paddingHorizontal: 20,
+// // // // // // //     paddingVertical: 8,
+// // // // // // //     shadowColor: '#000',
+// // // // // // //     shadowOffset: {
+// // // // // // //       width: 0,
+// // // // // // //       height: 2,
+// // // // // // //     },
+// // // // // // //     shadowOpacity: 0.05,
+// // // // // // //     shadowRadius: 4,
+// // // // // // //     elevation: 2,
+// // // // // // //   },
+// // // // // // //   orderSummaryRow: {
+// // // // // // //     flexDirection: 'row',
+// // // // // // //     justifyContent: 'space-between',
+// // // // // // //     alignItems: 'center',
+// // // // // // //     paddingVertical: 12,
+// // // // // // //     borderBottomWidth: 1,
+// // // // // // //     borderBottomColor: '#f0f0f5',
+// // // // // // //   },
+// // // // // // //   rowLeft: {
+// // // // // // //     flexDirection: 'row',
+// // // // // // //     alignItems: 'center',
+// // // // // // //   },
+// // // // // // //   lastRow: {
+// // // // // // //     borderBottomWidth: 0,
+// // // // // // //   },
+// // // // // // //   orderSummaryLabel: {
+// // // // // // //     fontSize: 15,
+// // // // // // //     color: '#282c3f',
+// // // // // // //     marginLeft: 12,
+// // // // // // //   },
+// // // // // // //   orderSummaryValue: {
+// // // // // // //     fontSize: 16,
+// // // // // // //     color: '#282c3f',
+// // // // // // //     fontWeight: '600',
+// // // // // // //   },
+// // // // // // //   emptyContainer: {
+// // // // // // //     alignItems: 'center',
+// // // // // // //     justifyContent: 'center',
+// // // // // // //     paddingVertical: 60,
+// // // // // // //     marginHorizontal: 16,
+// // // // // // //   },
+// // // // // // //   emptyTitle: {
+// // // // // // //     fontSize: 20,
+// // // // // // //     fontWeight: '600',
+// // // // // // //     color: '#282c3f',
+// // // // // // //     marginTop: 16,
+// // // // // // //   },
+// // // // // // //   emptySubtitle: {
+// // // // // // //     fontSize: 14,
+// // // // // // //     color: '#7e808c',
+// // // // // // //     textAlign: 'center',
+// // // // // // //     marginTop: 8,
+// // // // // // //     paddingHorizontal: 20,
+// // // // // // //   },
+// // // // // // // });
+
+// // // // // // // export default OrdersSummary;
+// // // // // // import React, { useContext } from 'react';
+// // // // // // import {
+// // // // // //   View,
+// // // // // //   Text,
+// // // // // //   StyleSheet,
+// // // // // //   SafeAreaView,
+// // // // // //   StatusBar,
+// // // // // //   TouchableOpacity,
+// // // // // //   ScrollView,
+// // // // // //   Image,
+// // // // // // } from 'react-native';
+// // // // // // import Icon from 'react-native-vector-icons/Ionicons';
+// // // // // // import { OrderContext } from '../../context/OrderContext';
+// // // // // // import { CartContext } from '../../context/CartContext';
+
+// // // // // // const OrdersSummary = ({ navigation }) => {
+// // // // // //   const { orders } = useContext(OrderContext);
+// // // // // //   const { cartItems } = useContext(CartContext);
+
+// // // // // //   // Calculate order statistics
+// // // // // //   const totalOrders = orders?.length || 0;
+// // // // // //   const deliveredOrders = orders?.filter((o) => o.status === 'Delivered').length || 0;
+// // // // // //   const cancelledOrders = orders?.filter((o) => o.status === 'Cancelled').length || 0;
+// // // // // //   const totalSpent = orders?.reduce((sum, order) => {
+// // // // // //     if (order.status !== 'Cancelled') {
+// // // // // //       return sum + (order.total || 0);
+// // // // // //     }
+// // // // // //     return sum;
+// // // // // //   }, 0) || 0;
+// // // // // //   const itemsInCart = cartItems?.length || 0;
+
+// // // // // //   // Get the latest order items (or all order items)
+// // // // // //   const getOrderItems = () => {
+// // // // // //     if (!orders || orders.length === 0) return [];
+    
+// // // // // //     // Get the most recent order
+// // // // // //     const latestOrder = orders[orders.length - 1];
+// // // // // //     return latestOrder?.items || [];
+// // // // // //   };
+
+// // // // // //   const orderItems = getOrderItems();
+
+// // // // // //   const renderOrderItem = (item, index) => {
+// // // // // //     return (
+// // // // // //       <View key={index} style={styles.orderItemCard}>
+// // // // // //         <View style={styles.orderItemImageContainer}>
+// // // // // //           {item.image ? (
+// // // // // //             <Image source={{ uri: item.image }} style={styles.orderItemImage} />
+// // // // // //           ) : (
+// // // // // //             <View style={styles.orderItemImagePlaceholder}>
+// // // // // //               <Icon name="fast-food-outline" size={30} color="#fc8019" />
+// // // // // //             </View>
+// // // // // //           )}
+// // // // // //         </View>
+// // // // // //         <View style={styles.orderItemInfo}>
+// // // // // //           <Text style={styles.orderItemName}>{item.name || 'Food Item'}</Text>
+// // // // // //           <Text style={styles.orderItemQuantity}>Qty: {item.quantity || 1}</Text>
+// // // // // //           <Text style={styles.orderItemPrice}>₹{item.price || 0}</Text>
+// // // // // //         </View>
+// // // // // //         <View style={styles.orderItemTotal}>
+// // // // // //           <Text style={styles.orderItemTotalPrice}>
+// // // // // //             ₹{(item.price || 0) * (item.quantity || 1)}
+// // // // // //           </Text>
+// // // // // //         </View>
+// // // // // //       </View>
+// // // // // //     );
+// // // // // //   };
+
+// // // // // //   return (
+// // // // // //     <SafeAreaView style={styles.container}>
+// // // // // //       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      
+// // // // // //       {/* Header with Back Button */}
+// // // // // //       <View style={styles.header}>
+// // // // // //         <TouchableOpacity 
+// // // // // //           style={styles.backButton}
+// // // // // //           onPress={() => navigation.goBack()}
+// // // // // //           activeOpacity={0.7}
+// // // // // //         >
+// // // // // //           <Icon name="arrow-back" size={24} color="#282c3f" />
+// // // // // //         </TouchableOpacity>
+// // // // // //         <Text style={styles.headerTitle}>Order Summary</Text>
+// // // // // //         <View style={styles.headerPlaceholder} />
+// // // // // //       </View>
+
+// // // // // //       <ScrollView showsVerticalScrollIndicator={false}>
+// // // // // //         {/* Order Summary Card */}
+// // // // // //         <View style={styles.orderSummaryContainer}>
+// // // // // //           <Text style={styles.orderSummaryTitle}>Order Summary</Text>
+          
+// // // // // //           {/* Total Orders */}
+// // // // // //           <View style={styles.orderSummaryRow}>
+// // // // // //             <View style={styles.rowLeft}>
+// // // // // //               <Icon name="receipt-outline" size={20} color="#fc8019" />
+// // // // // //               <Text style={styles.orderSummaryLabel}>Total Orders</Text>
+// // // // // //             </View>
+// // // // // //             <Text style={styles.orderSummaryValue}>{totalOrders}</Text>
+// // // // // //           </View>
+
+// // // // // //           {/* Delivered */}
+// // // // // //           <View style={styles.orderSummaryRow}>
+// // // // // //             <View style={styles.rowLeft}>
+// // // // // //               <Icon name="checkmark-circle-outline" size={20} color="#28a745" />
+// // // // // //               <Text style={styles.orderSummaryLabel}>Delivered</Text>
+// // // // // //             </View>
+// // // // // //             <Text style={[styles.orderSummaryValue, { color: '#28a745' }]}>
+// // // // // //               {deliveredOrders}
+// // // // // //             </Text>
+// // // // // //           </View>
+
+// // // // // //           {/* Cancelled */}
+// // // // // //           <View style={styles.orderSummaryRow}>
+// // // // // //             <View style={styles.rowLeft}>
+// // // // // //               <Icon name="close-circle-outline" size={20} color="#dc3545" />
+// // // // // //               <Text style={styles.orderSummaryLabel}>Cancelled</Text>
+// // // // // //             </View>
+// // // // // //             <Text style={[styles.orderSummaryValue, { color: '#dc3545' }]}>
+// // // // // //               {cancelledOrders}
+// // // // // //             </Text>
+// // // // // //           </View>
+
+// // // // // //           {/* Total Spent */}
+// // // // // //           <View style={styles.orderSummaryRow}>
+// // // // // //             <View style={styles.rowLeft}>
+// // // // // //               <Icon name="cash-outline" size={20} color="#fc8019" />
+// // // // // //               <Text style={styles.orderSummaryLabel}>Total Spent</Text>
+// // // // // //             </View>
+// // // // // //             <Text style={[styles.orderSummaryValue, { color: '#fc8019', fontWeight: '700' }]}>
+// // // // // //               ₹{totalSpent}
+// // // // // //             </Text>
+// // // // // //           </View>
+
+// // // // // //           {/* Items in Cart */}
+// // // // // //           <View style={[styles.orderSummaryRow, styles.lastRow]}>
+// // // // // //             <View style={styles.rowLeft}>
+// // // // // //               <Icon name="cart-outline" size={20} color="#17a2b8" />
+// // // // // //               <Text style={styles.orderSummaryLabel}>Items in Cart</Text>
+// // // // // //             </View>
+// // // // // //             <Text style={styles.orderSummaryValue}>{itemsInCart}</Text>
+// // // // // //           </View>
+// // // // // //         </View>
+
+// // // // // //         {/* Order Items Section */}
+// // // // // //         {orderItems.length > 0 && (
+// // // // // //           <View style={styles.orderItemsContainer}>
+// // // // // //             <View style={styles.orderItemsHeader}>
+// // // // // //               <Text style={styles.orderItemsTitle}>Ordered Items</Text>
+// // // // // //               <Text style={styles.orderItemsCount}>{orderItems.length} items</Text>
+// // // // // //             </View>
+            
+// // // // // //             {orderItems.map((item, index) => renderOrderItem(item, index))}
+            
+// // // // // //             {/* Order Total */}
+// // // // // //             <View style={styles.orderTotalContainer}>
+// // // // // //               <Text style={styles.orderTotalLabel}>Order Total</Text>
+// // // // // //               <Text style={styles.orderTotalAmount}>
+// // // // // //                 ₹{orderItems.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 1)), 0)}
+// // // // // //               </Text>
+// // // // // //             </View>
+// // // // // //           </View>
+// // // // // //         )}
+
+// // // // // //         {/* No Orders Message */}
+// // // // // //         {totalOrders === 0 && (
+// // // // // //           <View style={styles.emptyContainer}>
+// // // // // //             <Icon name="cart-outline" size={60} color="#e0e0e0" />
+// // // // // //             <Text style={styles.emptyTitle}>No Orders Yet</Text>
+// // // // // //             <Text style={styles.emptySubtitle}>
+// // // // // //               You haven't placed any orders yet. Start ordering now!
+// // // // // //             </Text>
+// // // // // //           </View>
+// // // // // //         )}
+// // // // // //       </ScrollView>
+// // // // // //     </SafeAreaView>
+// // // // // //   );
+// // // // // // };
+
+// // // // // // const styles = StyleSheet.create({
+// // // // // //   container: {
+// // // // // //     flex: 1,
+// // // // // //     backgroundColor: '#f8f9fa',
+// // // // // //   },
+// // // // // //   header: {
+// // // // // //     backgroundColor: '#ffffff',
+// // // // // //     flexDirection: 'row',
+// // // // // //     alignItems: 'center',
+// // // // // //     justifyContent: 'space-between',
+// // // // // //     paddingHorizontal: 16,
+// // // // // //     paddingVertical: 14,
+// // // // // //     borderBottomWidth: 1,
+// // // // // //     borderBottomColor: '#f0f0f5',
+// // // // // //     elevation: 2,
+// // // // // //     shadowColor: '#000',
+// // // // // //     shadowOffset: {
+// // // // // //       width: 0,
+// // // // // //       height: 2,
+// // // // // //     },
+// // // // // //     shadowOpacity: 0.05,
+// // // // // //     shadowRadius: 4,
+// // // // // //   },
+// // // // // //   backButton: {
+// // // // // //     padding: 4,
+// // // // // //     width: 40,
+// // // // // //   },
+// // // // // //   headerTitle: {
+// // // // // //     fontSize: 18,
+// // // // // //     fontWeight: '600',
+// // // // // //     color: '#282c3f',
+// // // // // //   },
+// // // // // //   headerPlaceholder: {
+// // // // // //     width: 40,
+// // // // // //   },
+// // // // // //   orderSummaryContainer: {
+// // // // // //     backgroundColor: '#ffffff',
+// // // // // //     marginHorizontal: 16,
+// // // // // //     marginTop: 16,
+// // // // // //     borderRadius: 12,
+// // // // // //     paddingHorizontal: 16,
+// // // // // //     paddingVertical: 12,
+// // // // // //     shadowColor: '#000',
+// // // // // //     shadowOffset: {
+// // // // // //       width: 0,
+// // // // // //       height: 2,
+// // // // // //     },
+// // // // // //     shadowOpacity: 0.05,
+// // // // // //     shadowRadius: 4,
+// // // // // //     elevation: 2,
+// // // // // //   },
+// // // // // //   orderSummaryTitle: {
+// // // // // //     fontSize: 16,
+// // // // // //     fontWeight: '600',
+// // // // // //     color: '#282c3f',
+// // // // // //     marginBottom: 8,
+// // // // // //   },
+// // // // // //   orderSummaryRow: {
+// // // // // //     flexDirection: 'row',
+// // // // // //     justifyContent: 'space-between',
+// // // // // //     alignItems: 'center',
+// // // // // //     paddingVertical: 10,
+// // // // // //     borderBottomWidth: 1,
+// // // // // //     borderBottomColor: '#f0f0f5',
+// // // // // //   },
+// // // // // //   rowLeft: {
+// // // // // //     flexDirection: 'row',
+// // // // // //     alignItems: 'center',
+// // // // // //   },
+// // // // // //   lastRow: {
+// // // // // //     borderBottomWidth: 0,
+// // // // // //   },
+// // // // // //   orderSummaryLabel: {
+// // // // // //     fontSize: 14,
+// // // // // //     color: '#282c3f',
+// // // // // //     marginLeft: 12,
+// // // // // //   },
+// // // // // //   orderSummaryValue: {
+// // // // // //     fontSize: 15,
+// // // // // //     color: '#282c3f',
+// // // // // //     fontWeight: '600',
+// // // // // //   },
+// // // // // //   // Order Items Styles
+// // // // // //   orderItemsContainer: {
+// // // // // //     backgroundColor: '#ffffff',
+// // // // // //     marginHorizontal: 16,
+// // // // // //     marginTop: 16,
+// // // // // //     borderRadius: 12,
+// // // // // //     paddingHorizontal: 16,
+// // // // // //     paddingVertical: 12,
+// // // // // //     shadowColor: '#000',
+// // // // // //     shadowOffset: {
+// // // // // //       width: 0,
+// // // // // //       height: 2,
+// // // // // //     },
+// // // // // //     shadowOpacity: 0.05,
+// // // // // //     shadowRadius: 4,
+// // // // // //     elevation: 2,
+// // // // // //   },
+// // // // // //   orderItemsHeader: {
+// // // // // //     flexDirection: 'row',
+// // // // // //     justifyContent: 'space-between',
+// // // // // //     alignItems: 'center',
+// // // // // //     marginBottom: 12,
+// // // // // //     paddingBottom: 8,
+// // // // // //     borderBottomWidth: 1,
+// // // // // //     borderBottomColor: '#f0f0f5',
+// // // // // //   },
+// // // // // //   orderItemsTitle: {
+// // // // // //     fontSize: 16,
+// // // // // //     fontWeight: '600',
+// // // // // //     color: '#282c3f',
+// // // // // //   },
+// // // // // //   orderItemsCount: {
+// // // // // //     fontSize: 13,
+// // // // // //     color: '#7e808c',
+// // // // // //   },
+// // // // // //   orderItemCard: {
+// // // // // //     flexDirection: 'row',
+// // // // // //     alignItems: 'center',
+// // // // // //     paddingVertical: 10,
+// // // // // //     borderBottomWidth: 1,
+// // // // // //     borderBottomColor: '#f5f5f5',
+// // // // // //   },
+// // // // // //   orderItemImageContainer: {
+// // // // // //     width: 60,
+// // // // // //     height: 60,
+// // // // // //     borderRadius: 8,
+// // // // // //     marginRight: 12,
+// // // // // //     backgroundColor: '#f8f9fa',
+// // // // // //     overflow: 'hidden',
+// // // // // //   },
+// // // // // //   orderItemImage: {
+// // // // // //     width: '100%',
+// // // // // //     height: '100%',
+// // // // // //     resizeMode: 'cover',
+// // // // // //   },
+// // // // // //   orderItemImagePlaceholder: {
+// // // // // //     width: '100%',
+// // // // // //     height: '100%',
+// // // // // //     justifyContent: 'center',
+// // // // // //     alignItems: 'center',
+// // // // // //     backgroundColor: '#fff5ed',
+// // // // // //   },
+// // // // // //   orderItemInfo: {
+// // // // // //     flex: 1,
+// // // // // //   },
+// // // // // //   orderItemName: {
+// // // // // //     fontSize: 14,
+// // // // // //     fontWeight: '500',
+// // // // // //     color: '#282c3f',
+// // // // // //   },
+// // // // // //   orderItemQuantity: {
+// // // // // //     fontSize: 12,
+// // // // // //     color: '#7e808c',
+// // // // // //     marginTop: 2,
+// // // // // //   },
+// // // // // //   orderItemPrice: {
+// // // // // //     fontSize: 12,
+// // // // // //     color: '#7e808c',
+// // // // // //     marginTop: 2,
+// // // // // //   },
+// // // // // //   orderItemTotal: {
+// // // // // //     alignItems: 'flex-end',
+// // // // // //   },
+// // // // // //   orderItemTotalPrice: {
+// // // // // //     fontSize: 15,
+// // // // // //     fontWeight: '700',
+// // // // // //     color: '#fc8019',
+// // // // // //   },
+// // // // // //   orderTotalContainer: {
+// // // // // //     flexDirection: 'row',
+// // // // // //     justifyContent: 'space-between',
+// // // // // //     alignItems: 'center',
+// // // // // //     marginTop: 12,
+// // // // // //     paddingTop: 12,
+// // // // // //     borderTopWidth: 2,
+// // // // // //     borderTopColor: '#f0f0f5',
+// // // // // //   },
+// // // // // //   orderTotalLabel: {
+// // // // // //     fontSize: 16,
+// // // // // //     fontWeight: '600',
+// // // // // //     color: '#282c3f',
+// // // // // //   },
+// // // // // //   orderTotalAmount: {
+// // // // // //     fontSize: 18,
+// // // // // //     fontWeight: '700',
+// // // // // //     color: '#fc8019',
+// // // // // //   },
+// // // // // //   emptyContainer: {
+// // // // // //     alignItems: 'center',
+// // // // // //     justifyContent: 'center',
+// // // // // //     paddingVertical: 60,
+// // // // // //     marginHorizontal: 16,
+// // // // // //   },
+// // // // // //   emptyTitle: {
+// // // // // //     fontSize: 20,
+// // // // // //     fontWeight: '600',
+// // // // // //     color: '#282c3f',
+// // // // // //     marginTop: 16,
+// // // // // //   },
+// // // // // //   emptySubtitle: {
+// // // // // //     fontSize: 14,
+// // // // // //     color: '#7e808c',
+// // // // // //     textAlign: 'center',
+// // // // // //     marginTop: 8,
+// // // // // //     paddingHorizontal: 20,
+// // // // // //   },
+// // // // // // });
+
+// // // // // // export default OrdersSummary;
+
+// // // // // import React, { useContext } from 'react';
+// // // // // import {
+// // // // //   View,
+// // // // //   Text,
+// // // // //   StyleSheet,
+// // // // //   SafeAreaView,
+// // // // //   StatusBar,
+// // // // //   TouchableOpacity,
+// // // // //   ScrollView,
+// // // // //   Image,
+// // // // // } from 'react-native';
+// // // // // import Icon from 'react-native-vector-icons/Ionicons';
+// // // // // import { OrderContext } from '../../context/OrderContext';
+// // // // // import { CartContext } from '../../context/CartContext';
+
+// // // // // const OrdersSummary = ({ navigation }) => {
+// // // // //   const { orders } = useContext(OrderContext);
+// // // // //   const { cartItems } = useContext(CartContext);
+
+// // // // //   // Calculate order statistics
+// // // // //   const totalOrders = orders?.length || 0;
+// // // // //   const deliveredOrders = orders?.filter((o) => o.status === 'Delivered').length || 0;
+// // // // //   const cancelledOrders = orders?.filter((o) => o.status === 'Cancelled').length || 0;
+// // // // //   const totalSpent = orders?.reduce((sum, order) => {
+// // // // //     if (order.status !== 'Cancelled') {
+// // // // //       return sum + (order.total || 0);
+// // // // //     }
+// // // // //     return sum;
+// // // // //   }, 0) || 0;
+// // // // //   const itemsInCart = cartItems?.length || 0;
+
+// // // // //   // Get all order items from all orders
+// // // // //   const getAllOrderItems = () => {
+// // // // //     if (!orders || orders.length === 0) return [];
+    
+// // // // //     // Get items from all orders and flatten them
+// // // // //     const allItems = [];
+// // // // //     orders.forEach(order => {
+// // // // //       if (order.items && order.items.length > 0) {
+// // // // //         order.items.forEach(item => {
+// // // // //           allItems.push({
+// // // // //             ...item,
+// // // // //             orderId: order.id,
+// // // // //             orderDate: order.date,
+// // // // //             orderStatus: order.status,
+// // // // //           });
+// // // // //         });
+// // // // //       }
+// // // // //     });
+// // // // //     return allItems;
+// // // // //   };
+
+// // // // //   const orderItems = getAllOrderItems();
+
+// // // // //   const renderOrderItem = (item, index) => {
+// // // // //     return (
+// // // // //       <View key={index} style={styles.orderItemCard}>
+// // // // //         <View style={styles.orderItemImageContainer}>
+// // // // //           {item.image ? (
+// // // // //             <Image source={{ uri: item.image }} style={styles.orderItemImage} />
+// // // // //           ) : (
+// // // // //             <View style={styles.orderItemImagePlaceholder}>
+// // // // //               <Icon name="fast-food-outline" size={30} color="#fc8019" />
+// // // // //             </View>
+// // // // //           )}
+// // // // //         </View>
+// // // // //         <View style={styles.orderItemInfo}>
+// // // // //           <Text style={styles.orderItemName}>{item.name || 'Food Item'}</Text>
+// // // // //           <View style={styles.orderItemDetails}>
+// // // // //             <Text style={styles.orderItemQuantity}>Qty: {item.quantity || 1}</Text>
+// // // // //             <Text style={styles.orderItemPrice}>₹{item.price || 0}</Text>
+// // // // //           </View>
+// // // // //         </View>
+// // // // //         <View style={styles.orderItemTotal}>
+// // // // //           <Text style={styles.orderItemTotalPrice}>
+// // // // //             ₹{(item.price || 0) * (item.quantity || 1)}
+// // // // //           </Text>
+// // // // //         </View>
+// // // // //       </View>
+// // // // //     );
+// // // // //   };
+
+// // // // //   // Calculate total of all items
+// // // // //   const totalOrderAmount = orderItems.reduce((sum, item) => 
+// // // // //     sum + ((item.price || 0) * (item.quantity || 1)), 0
+// // // // //   );
+
+// // // // //   return (
+// // // // //     <SafeAreaView style={styles.container}>
+// // // // //       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      
+// // // // //       {/* Header with Back Button */}
+// // // // //       <View style={styles.header}>
+// // // // //         <TouchableOpacity 
+// // // // //           style={styles.backButton}
+// // // // //           onPress={() => navigation.goBack()}
+// // // // //           activeOpacity={0.7}
+// // // // //         >
+// // // // //           <Icon name="arrow-back" size={24} color="#282c3f" />
+// // // // //         </TouchableOpacity>
+// // // // //         <Text style={styles.headerTitle}>Order Summary</Text>
+// // // // //         <View style={styles.headerPlaceholder} />
+// // // // //       </View>
+
+// // // // //       <ScrollView showsVerticalScrollIndicator={false}>
+// // // // //         {/* Order Summary Card */}
+// // // // //         <View style={styles.orderSummaryContainer}>
+// // // // //           <Text style={styles.orderSummaryTitle}>Order Summary</Text>
+          
+// // // // //           {/* Total Orders */}
+// // // // //           <View style={styles.orderSummaryRow}>
+// // // // //             <View style={styles.rowLeft}>
+// // // // //               <Icon name="receipt-outline" size={20} color="#fc8019" />
+// // // // //               <Text style={styles.orderSummaryLabel}>Total Orders</Text>
+// // // // //             </View>
+// // // // //             <Text style={styles.orderSummaryValue}>{totalOrders}</Text>
+// // // // //           </View>
+
+// // // // //           {/* Delivered */}
+// // // // //           <View style={styles.orderSummaryRow}>
+// // // // //             <View style={styles.rowLeft}>
+// // // // //               <Icon name="checkmark-circle-outline" size={20} color="#28a745" />
+// // // // //               <Text style={styles.orderSummaryLabel}>Delivered</Text>
+// // // // //             </View>
+// // // // //             <Text style={[styles.orderSummaryValue, { color: '#28a745' }]}>
+// // // // //               {deliveredOrders}
+// // // // //             </Text>
+// // // // //           </View>
+
+// // // // //           {/* Cancelled */}
+// // // // //           <View style={styles.orderSummaryRow}>
+// // // // //             <View style={styles.rowLeft}>
+// // // // //               <Icon name="close-circle-outline" size={20} color="#dc3545" />
+// // // // //               <Text style={styles.orderSummaryLabel}>Cancelled</Text>
+// // // // //             </View>
+// // // // //             <Text style={[styles.orderSummaryValue, { color: '#dc3545' }]}>
+// // // // //               {cancelledOrders}
+// // // // //             </Text>
+// // // // //           </View>
+
+// // // // //           {/* Total Spent */}
+// // // // //           <View style={styles.orderSummaryRow}>
+// // // // //             <View style={styles.rowLeft}>
+// // // // //               <Icon name="cash-outline" size={20} color="#fc8019" />
+// // // // //               <Text style={styles.orderSummaryLabel}>Total Spent</Text>
+// // // // //             </View>
+// // // // //             <Text style={[styles.orderSummaryValue, { color: '#fc8019', fontWeight: '700' }]}>
+// // // // //               ₹{totalSpent}
+// // // // //             </Text>
+// // // // //           </View>
+
+// // // // //           {/* Items in Cart */}
+// // // // //           <View style={[styles.orderSummaryRow, styles.lastRow]}>
+// // // // //             <View style={styles.rowLeft}>
+// // // // //               <Icon name="cart-outline" size={20} color="#17a2b8" />
+// // // // //               <Text style={styles.orderSummaryLabel}>Items in Cart</Text>
+// // // // //             </View>
+// // // // //             <Text style={styles.orderSummaryValue}>{itemsInCart}</Text>
+// // // // //           </View>
+// // // // //         </View>
+
+// // // // //         {/* Order Items Section */}
+// // // // //         {orderItems.length > 0 && (
+// // // // //           <View style={styles.orderItemsContainer}>
+// // // // //             <View style={styles.orderItemsHeader}>
+// // // // //               <Text style={styles.orderItemsTitle}>Ordered Items</Text>
+// // // // //               <Text style={styles.orderItemsCount}>{orderItems.length} items</Text>
+// // // // //             </View>
+            
+// // // // //             {orderItems.map((item, index) => renderOrderItem(item, index))}
+            
+// // // // //             {/* Order Total */}
+// // // // //             <View style={styles.orderTotalContainer}>
+// // // // //               <Text style={styles.orderTotalLabel}>Order Total</Text>
+// // // // //               <Text style={styles.orderTotalAmount}>
+// // // // //                 ₹{totalOrderAmount}
+// // // // //               </Text>
+// // // // //             </View>
+// // // // //           </View>
+// // // // //         )}
+
+// // // // //         {/* No Orders Message */}
+// // // // //         {totalOrders === 0 && (
+// // // // //           <View style={styles.emptyContainer}>
+// // // // //             <Icon name="cart-outline" size={60} color="#e0e0e0" />
+// // // // //             <Text style={styles.emptyTitle}>No Orders Yet</Text>
+// // // // //             <Text style={styles.emptySubtitle}>
+// // // // //               You haven't placed any orders yet. Start ordering now!
+// // // // //             </Text>
+// // // // //           </View>
+// // // // //         )}
+// // // // //       </ScrollView>
+// // // // //     </SafeAreaView>
+// // // // //   );
+// // // // // };
+
+// // // // // const styles = StyleSheet.create({
+// // // // //   container: {
+// // // // //     flex: 1,
+// // // // //     backgroundColor: '#f8f9fa',
+// // // // //   },
+// // // // //   header: {
+// // // // //     backgroundColor: '#ffffff',
+// // // // //     flexDirection: 'row',
+// // // // //     alignItems: 'center',
+// // // // //     justifyContent: 'space-between',
+// // // // //     paddingHorizontal: 16,
+// // // // //     paddingVertical: 14,
+// // // // //     borderBottomWidth: 1,
+// // // // //     borderBottomColor: '#f0f0f5',
+// // // // //     elevation: 2,
+// // // // //     shadowColor: '#000',
+// // // // //     shadowOffset: {
+// // // // //       width: 0,
+// // // // //       height: 2,
+// // // // //     },
+// // // // //     shadowOpacity: 0.05,
+// // // // //     shadowRadius: 4,
+// // // // //   },
+// // // // //   backButton: {
+// // // // //     padding: 4,
+// // // // //     width: 40,
+// // // // //   },
+// // // // //   headerTitle: {
+// // // // //     fontSize: 18,
+// // // // //     fontWeight: '600',
+// // // // //     color: '#282c3f',
+// // // // //   },
+// // // // //   headerPlaceholder: {
+// // // // //     width: 40,
+// // // // //   },
+// // // // //   orderSummaryContainer: {
+// // // // //     backgroundColor: '#ffffff',
+// // // // //     marginHorizontal: 16,
+// // // // //     marginTop: 16,
+// // // // //     borderRadius: 12,
+// // // // //     paddingHorizontal: 16,
+// // // // //     paddingVertical: 12,
+// // // // //     shadowColor: '#000',
+// // // // //     shadowOffset: {
+// // // // //       width: 0,
+// // // // //       height: 2,
+// // // // //     },
+// // // // //     shadowOpacity: 0.05,
+// // // // //     shadowRadius: 4,
+// // // // //     elevation: 2,
+// // // // //   },
+// // // // //   orderSummaryTitle: {
+// // // // //     fontSize: 16,
+// // // // //     fontWeight: '600',
+// // // // //     color: '#282c3f',
+// // // // //     marginBottom: 8,
+// // // // //   },
+// // // // //   orderSummaryRow: {
+// // // // //     flexDirection: 'row',
+// // // // //     justifyContent: 'space-between',
+// // // // //     alignItems: 'center',
+// // // // //     paddingVertical: 10,
+// // // // //     borderBottomWidth: 1,
+// // // // //     borderBottomColor: '#f0f0f5',
+// // // // //   },
+// // // // //   rowLeft: {
+// // // // //     flexDirection: 'row',
+// // // // //     alignItems: 'center',
+// // // // //   },
+// // // // //   lastRow: {
+// // // // //     borderBottomWidth: 0,
+// // // // //   },
+// // // // //   orderSummaryLabel: {
+// // // // //     fontSize: 14,
+// // // // //     color: '#282c3f',
+// // // // //     marginLeft: 12,
+// // // // //   },
+// // // // //   orderSummaryValue: {
+// // // // //     fontSize: 15,
+// // // // //     color: '#282c3f',
+// // // // //     fontWeight: '600',
+// // // // //   },
+// // // // //   // Order Items Styles
+// // // // //   orderItemsContainer: {
+// // // // //     backgroundColor: '#ffffff',
+// // // // //     marginHorizontal: 16,
+// // // // //     marginTop: 16,
+// // // // //     borderRadius: 12,
+// // // // //     paddingHorizontal: 16,
+// // // // //     paddingVertical: 12,
+// // // // //     shadowColor: '#000',
+// // // // //     shadowOffset: {
+// // // // //       width: 0,
+// // // // //       height: 2,
+// // // // //     },
+// // // // //     shadowOpacity: 0.05,
+// // // // //     shadowRadius: 4,
+// // // // //     elevation: 2,
+// // // // //     marginBottom: 20,
+// // // // //   },
+// // // // //   orderItemsHeader: {
+// // // // //     flexDirection: 'row',
+// // // // //     justifyContent: 'space-between',
+// // // // //     alignItems: 'center',
+// // // // //     marginBottom: 12,
+// // // // //     paddingBottom: 8,
+// // // // //     borderBottomWidth: 1,
+// // // // //     borderBottomColor: '#f0f0f5',
+// // // // //   },
+// // // // //   orderItemsTitle: {
+// // // // //     fontSize: 16,
+// // // // //     fontWeight: '600',
+// // // // //     color: '#282c3f',
+// // // // //   },
+// // // // //   orderItemsCount: {
+// // // // //     fontSize: 13,
+// // // // //     color: '#7e808c',
+// // // // //   },
+// // // // //   orderItemCard: {
+// // // // //     flexDirection: 'row',
+// // // // //     alignItems: 'center',
+// // // // //     paddingVertical: 10,
+// // // // //     borderBottomWidth: 1,
+// // // // //     borderBottomColor: '#f5f5f5',
+// // // // //   },
+// // // // //   orderItemImageContainer: {
+// // // // //     width: 60,
+// // // // //     height: 60,
+// // // // //     borderRadius: 8,
+// // // // //     marginRight: 12,
+// // // // //     backgroundColor: '#f8f9fa',
+// // // // //     overflow: 'hidden',
+// // // // //   },
+// // // // //   orderItemImage: {
+// // // // //     width: '100%',
+// // // // //     height: '100%',
+// // // // //     resizeMode: 'cover',
+// // // // //   },
+// // // // //   orderItemImagePlaceholder: {
+// // // // //     width: '100%',
+// // // // //     height: '100%',
+// // // // //     justifyContent: 'center',
+// // // // //     alignItems: 'center',
+// // // // //     backgroundColor: '#fff5ed',
+// // // // //   },
+// // // // //   orderItemInfo: {
+// // // // //     flex: 1,
+// // // // //   },
+// // // // //   orderItemName: {
+// // // // //     fontSize: 14,
+// // // // //     fontWeight: '500',
+// // // // //     color: '#282c3f',
+// // // // //   },
+// // // // //   orderItemDetails: {
+// // // // //     flexDirection: 'row',
+// // // // //     marginTop: 4,
+// // // // //     alignItems: 'center',
+// // // // //   },
+// // // // //   orderItemQuantity: {
+// // // // //     fontSize: 12,
+// // // // //     color: '#7e808c',
+// // // // //   },
+// // // // //   orderItemPrice: {
+// // // // //     fontSize: 12,
+// // // // //     color: '#7e808c',
+// // // // //     marginLeft: 10,
+// // // // //   },
+// // // // //   orderItemTotal: {
+// // // // //     alignItems: 'flex-end',
+// // // // //   },
+// // // // //   orderItemTotalPrice: {
+// // // // //     fontSize: 15,
+// // // // //     fontWeight: '700',
+// // // // //     color: '#fc8019',
+// // // // //   },
+// // // // //   orderTotalContainer: {
+// // // // //     flexDirection: 'row',
+// // // // //     justifyContent: 'space-between',
+// // // // //     alignItems: 'center',
+// // // // //     marginTop: 12,
+// // // // //     paddingTop: 12,
+// // // // //     borderTopWidth: 2,
+// // // // //     borderTopColor: '#f0f0f5',
+// // // // //   },
+// // // // //   orderTotalLabel: {
+// // // // //     fontSize: 16,
+// // // // //     fontWeight: '600',
+// // // // //     color: '#282c3f',
+// // // // //   },
+// // // // //   orderTotalAmount: {
+// // // // //     fontSize: 18,
+// // // // //     fontWeight: '700',
+// // // // //     color: '#fc8019',
+// // // // //   },
+// // // // //   emptyContainer: {
+// // // // //     alignItems: 'center',
+// // // // //     justifyContent: 'center',
+// // // // //     paddingVertical: 60,
+// // // // //     marginHorizontal: 16,
+// // // // //   },
+// // // // //   emptyTitle: {
+// // // // //     fontSize: 20,
+// // // // //     fontWeight: '600',
+// // // // //     color: '#282c3f',
+// // // // //     marginTop: 16,
+// // // // //   },
+// // // // //   emptySubtitle: {
+// // // // //     fontSize: 14,
+// // // // //     color: '#7e808c',
+// // // // //     textAlign: 'center',
+// // // // //     marginTop: 8,
+// // // // //     paddingHorizontal: 20,
+// // // // //   },
+// // // // // });
+
+// // // // // export default OrdersSummary;
 // // // // import React, { useContext } from 'react';
 // // // // import {
 // // // //   View,
@@ -7,6 +1023,7 @@
 // // // //   StatusBar,
 // // // //   TouchableOpacity,
 // // // //   ScrollView,
+// // // //   Image,
 // // // // } from 'react-native';
 // // // // import Icon from 'react-native-vector-icons/Ionicons';
 // // // // import { OrderContext } from '../../context/OrderContext';
@@ -28,6 +1045,79 @@
 // // // //   }, 0) || 0;
 // // // //   const itemsInCart = cartItems?.length || 0;
 
+// // // //   // Get only placed orders (payment completed)
+// // // //   const getPlacedOrders = () => {
+// // // //     if (!orders || orders.length === 0) return [];
+    
+// // // //     // Filter orders that are placed (not pending, not cancelled)
+// // // //     const placedOrders = orders.filter(order => 
+// // // //       order.status === 'Placed' || 
+// // // //       order.status === 'Confirmed' || 
+// // // //       order.status === 'Processing' ||
+// // // //       order.status === 'Delivered'
+// // // //     );
+    
+// // // //     return placedOrders;
+// // // //   };
+
+// // // //   const placedOrders = getPlacedOrders();
+
+// // // //   // Get all items from placed orders
+// // // //   const getAllOrderItems = () => {
+// // // //     if (!placedOrders || placedOrders.length === 0) return [];
+    
+// // // //     const allItems = [];
+// // // //     placedOrders.forEach(order => {
+// // // //       if (order.items && order.items.length > 0) {
+// // // //         order.items.forEach(item => {
+// // // //           allItems.push({
+// // // //             ...item,
+// // // //             orderId: order.id,
+// // // //             orderDate: order.date,
+// // // //             orderStatus: order.status,
+// // // //             orderTotal: order.total,
+// // // //           });
+// // // //         });
+// // // //       }
+// // // //     });
+// // // //     return allItems;
+// // // //   };
+
+// // // //   const orderItems = getAllOrderItems();
+
+// // // //   const renderOrderItem = (item, index) => {
+// // // //     return (
+// // // //       <View key={index} style={styles.orderItemCard}>
+// // // //         <View style={styles.orderItemImageContainer}>
+// // // //           {item.image ? (
+// // // //             <Image source={{ uri: item.image }} style={styles.orderItemImage} />
+// // // //           ) : (
+// // // //             <View style={styles.orderItemImagePlaceholder}>
+// // // //               <Icon name="fast-food-outline" size={30} color="#fc8019" />
+// // // //             </View>
+// // // //           )}
+// // // //         </View>
+// // // //         <View style={styles.orderItemInfo}>
+// // // //           <Text style={styles.orderItemName}>{item.name || 'Food Item'}</Text>
+// // // //           <View style={styles.orderItemDetails}>
+// // // //             <Text style={styles.orderItemQuantity}>Qty: {item.quantity || 1}</Text>
+// // // //             <Text style={styles.orderItemPrice}>₹{item.price || 0}</Text>
+// // // //           </View>
+// // // //         </View>
+// // // //         <View style={styles.orderItemTotal}>
+// // // //           <Text style={styles.orderItemTotalPrice}>
+// // // //             ₹{(item.price || 0) * (item.quantity || 1)}
+// // // //           </Text>
+// // // //         </View>
+// // // //       </View>
+// // // //     );
+// // // //   };
+
+// // // //   // Calculate total of all items from placed orders
+// // // //   const totalOrderAmount = orderItems.reduce((sum, item) => 
+// // // //     sum + ((item.price || 0) * (item.quantity || 1)), 0
+// // // //   );
+
 // // // //   return (
 // // // //     <SafeAreaView style={styles.container}>
 // // // //       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
@@ -48,6 +1138,8 @@
 // // // //       <ScrollView showsVerticalScrollIndicator={false}>
 // // // //         {/* Order Summary Card */}
 // // // //         <View style={styles.orderSummaryContainer}>
+// // // //           <Text style={styles.orderSummaryTitle}>Order Summary</Text>
+          
 // // // //           {/* Total Orders */}
 // // // //           <View style={styles.orderSummaryRow}>
 // // // //             <View style={styles.rowLeft}>
@@ -100,13 +1192,31 @@
 // // // //           </View>
 // // // //         </View>
 
-// // // //         {/* No Orders Message */}
-// // // //         {totalOrders === 0 && (
+// // // //         {/* Placed Orders Items Section */}
+// // // //         {orderItems.length > 0 ? (
+// // // //           <View style={styles.orderItemsContainer}>
+// // // //             <View style={styles.orderItemsHeader}>
+// // // //               <Text style={styles.orderItemsTitle}>Placed Orders</Text>
+// // // //               <Text style={styles.orderItemsCount}>{orderItems.length} items</Text>
+// // // //             </View>
+            
+// // // //             {orderItems.map((item, index) => renderOrderItem(item, index))}
+            
+// // // //             {/* Order Total */}
+// // // //             <View style={styles.orderTotalContainer}>
+// // // //               <Text style={styles.orderTotalLabel}>Order Total</Text>
+// // // //               <Text style={styles.orderTotalAmount}>
+// // // //                 ₹{totalOrderAmount}
+// // // //               </Text>
+// // // //             </View>
+// // // //           </View>
+// // // //         ) : (
+// // // //           // No Placed Orders Message
 // // // //           <View style={styles.emptyContainer}>
 // // // //             <Icon name="cart-outline" size={60} color="#e0e0e0" />
-// // // //             <Text style={styles.emptyTitle}>No Orders Yet</Text>
+// // // //             <Text style={styles.emptyTitle}>No Placed Orders</Text>
 // // // //             <Text style={styles.emptySubtitle}>
-// // // //               You haven't placed any orders yet. Start ordering now!
+// // // //               You haven't placed any orders yet. Complete payment to see your orders here!
 // // // //             </Text>
 // // // //           </View>
 // // // //         )}
@@ -153,10 +1263,10 @@
 // // // //   orderSummaryContainer: {
 // // // //     backgroundColor: '#ffffff',
 // // // //     marginHorizontal: 16,
-// // // //     marginTop: 20,
+// // // //     marginTop: 16,
 // // // //     borderRadius: 12,
-// // // //     paddingHorizontal: 20,
-// // // //     paddingVertical: 8,
+// // // //     paddingHorizontal: 16,
+// // // //     paddingVertical: 12,
 // // // //     shadowColor: '#000',
 // // // //     shadowOffset: {
 // // // //       width: 0,
@@ -166,11 +1276,17 @@
 // // // //     shadowRadius: 4,
 // // // //     elevation: 2,
 // // // //   },
+// // // //   orderSummaryTitle: {
+// // // //     fontSize: 16,
+// // // //     fontWeight: '600',
+// // // //     color: '#282c3f',
+// // // //     marginBottom: 8,
+// // // //   },
 // // // //   orderSummaryRow: {
 // // // //     flexDirection: 'row',
 // // // //     justifyContent: 'space-between',
 // // // //     alignItems: 'center',
-// // // //     paddingVertical: 12,
+// // // //     paddingVertical: 10,
 // // // //     borderBottomWidth: 1,
 // // // //     borderBottomColor: '#f0f0f5',
 // // // //   },
@@ -182,14 +1298,126 @@
 // // // //     borderBottomWidth: 0,
 // // // //   },
 // // // //   orderSummaryLabel: {
-// // // //     fontSize: 15,
+// // // //     fontSize: 14,
 // // // //     color: '#282c3f',
 // // // //     marginLeft: 12,
 // // // //   },
 // // // //   orderSummaryValue: {
-// // // //     fontSize: 16,
+// // // //     fontSize: 15,
 // // // //     color: '#282c3f',
 // // // //     fontWeight: '600',
+// // // //   },
+// // // //   // Order Items Styles
+// // // //   orderItemsContainer: {
+// // // //     backgroundColor: '#ffffff',
+// // // //     marginHorizontal: 16,
+// // // //     marginTop: 16,
+// // // //     borderRadius: 12,
+// // // //     paddingHorizontal: 16,
+// // // //     paddingVertical: 12,
+// // // //     shadowColor: '#000',
+// // // //     shadowOffset: {
+// // // //       width: 0,
+// // // //       height: 2,
+// // // //     },
+// // // //     shadowOpacity: 0.05,
+// // // //     shadowRadius: 4,
+// // // //     elevation: 2,
+// // // //     marginBottom: 20,
+// // // //   },
+// // // //   orderItemsHeader: {
+// // // //     flexDirection: 'row',
+// // // //     justifyContent: 'space-between',
+// // // //     alignItems: 'center',
+// // // //     marginBottom: 12,
+// // // //     paddingBottom: 8,
+// // // //     borderBottomWidth: 1,
+// // // //     borderBottomColor: '#f0f0f5',
+// // // //   },
+// // // //   orderItemsTitle: {
+// // // //     fontSize: 16,
+// // // //     fontWeight: '600',
+// // // //     color: '#282c3f',
+// // // //   },
+// // // //   orderItemsCount: {
+// // // //     fontSize: 13,
+// // // //     color: '#7e808c',
+// // // //   },
+// // // //   orderItemCard: {
+// // // //     flexDirection: 'row',
+// // // //     alignItems: 'center',
+// // // //     paddingVertical: 10,
+// // // //     borderBottomWidth: 1,
+// // // //     borderBottomColor: '#f5f5f5',
+// // // //   },
+// // // //   orderItemImageContainer: {
+// // // //     width: 60,
+// // // //     height: 60,
+// // // //     borderRadius: 8,
+// // // //     marginRight: 12,
+// // // //     backgroundColor: '#f8f9fa',
+// // // //     overflow: 'hidden',
+// // // //   },
+// // // //   orderItemImage: {
+// // // //     width: '100%',
+// // // //     height: '100%',
+// // // //     resizeMode: 'cover',
+// // // //   },
+// // // //   orderItemImagePlaceholder: {
+// // // //     width: '100%',
+// // // //     height: '100%',
+// // // //     justifyContent: 'center',
+// // // //     alignItems: 'center',
+// // // //     backgroundColor: '#fff5ed',
+// // // //   },
+// // // //   orderItemInfo: {
+// // // //     flex: 1,
+// // // //   },
+// // // //   orderItemName: {
+// // // //     fontSize: 14,
+// // // //     fontWeight: '500',
+// // // //     color: '#282c3f',
+// // // //   },
+// // // //   orderItemDetails: {
+// // // //     flexDirection: 'row',
+// // // //     marginTop: 4,
+// // // //     alignItems: 'center',
+// // // //   },
+// // // //   orderItemQuantity: {
+// // // //     fontSize: 12,
+// // // //     color: '#7e808c',
+// // // //   },
+// // // //   orderItemPrice: {
+// // // //     fontSize: 12,
+// // // //     color: '#7e808c',
+// // // //     marginLeft: 10,
+// // // //   },
+// // // //   orderItemTotal: {
+// // // //     alignItems: 'flex-end',
+// // // //   },
+// // // //   orderItemTotalPrice: {
+// // // //     fontSize: 15,
+// // // //     fontWeight: '700',
+// // // //     color: '#fc8019',
+// // // //   },
+// // // //   orderTotalContainer: {
+// // // //     flexDirection: 'row',
+// // // //     justifyContent: 'space-between',
+// // // //     alignItems: 'center',
+// // // //     marginTop: 12,
+// // // //     paddingTop: 12,
+// // // //     borderTopWidth: 2,
+// // // //     borderTopColor: '#f0f0f5',
+// // // //   },
+// // // //   orderTotalLabel: {
+// // // //     fontSize: 16,
+// // // //     fontWeight: '600',
+// // // //     color: '#282c3f',
+// // // //   },
+// // // //   orderTotalAmount: {
+// // // //     fontSize: 18,
+// // // //     fontWeight: '700',
+// // // //     color: '#fc8019',
 // // // //   },
 // // // //   emptyContainer: {
 // // // //     alignItems: 'center',
@@ -244,16 +1472,26 @@
 // // //   }, 0) || 0;
 // // //   const itemsInCart = cartItems?.length || 0;
 
-// // //   // Get the latest order items (or all order items)
-// // //   const getOrderItems = () => {
-// // //     if (!orders || orders.length === 0) return [];
+// // //   // Get only the latest placed order (payment completed)
+// // //   const getLatestPlacedOrder = () => {
+// // //     if (!orders || orders.length === 0) return null;
     
-// // //     // Get the most recent order
-// // //     const latestOrder = orders[orders.length - 1];
-// // //     return latestOrder?.items || [];
+// // //     // Filter orders that are placed (not pending, not cancelled)
+// // //     const placedOrders = orders.filter(order => 
+// // //       order.status === 'Placed' || 
+// // //       order.status === 'Confirmed' || 
+// // //       order.status === 'Processing' ||
+// // //       order.status === 'Delivered'
+// // //     );
+    
+// // //     if (placedOrders.length === 0) return null;
+    
+// // //     // Return the most recent placed order
+// // //     return placedOrders[placedOrders.length - 1];
 // // //   };
 
-// // //   const orderItems = getOrderItems();
+// // //   const latestOrder = getLatestPlacedOrder();
+// // //   const orderItems = latestOrder?.items || [];
 
 // // //   const renderOrderItem = (item, index) => {
 // // //     return (
@@ -269,8 +1507,10 @@
 // // //         </View>
 // // //         <View style={styles.orderItemInfo}>
 // // //           <Text style={styles.orderItemName}>{item.name || 'Food Item'}</Text>
-// // //           <Text style={styles.orderItemQuantity}>Qty: {item.quantity || 1}</Text>
-// // //           <Text style={styles.orderItemPrice}>₹{item.price || 0}</Text>
+// // //           <View style={styles.orderItemDetails}>
+// // //             <Text style={styles.orderItemQuantity}>Qty: {item.quantity || 1}</Text>
+// // //             <Text style={styles.orderItemPrice}>₹{item.price || 0}</Text>
+// // //           </View>
 // // //         </View>
 // // //         <View style={styles.orderItemTotal}>
 // // //           <Text style={styles.orderItemTotalPrice}>
@@ -280,6 +1520,11 @@
 // // //       </View>
 // // //     );
 // // //   };
+
+// // //   // Calculate total of the latest order
+// // //   const totalOrderAmount = orderItems.reduce((sum, item) => 
+// // //     sum + ((item.price || 0) * (item.quantity || 1)), 0
+// // //   );
 
 // // //   return (
 // // //     <SafeAreaView style={styles.container}>
@@ -355,11 +1600,11 @@
 // // //           </View>
 // // //         </View>
 
-// // //         {/* Order Items Section */}
-// // //         {orderItems.length > 0 && (
+// // //         {/* Latest Placed Order Items Section */}
+// // //         {latestOrder && orderItems.length > 0 ? (
 // // //           <View style={styles.orderItemsContainer}>
 // // //             <View style={styles.orderItemsHeader}>
-// // //               <Text style={styles.orderItemsTitle}>Ordered Items</Text>
+// // //               <Text style={styles.orderItemsTitle}>Placed Order</Text>
 // // //               <Text style={styles.orderItemsCount}>{orderItems.length} items</Text>
 // // //             </View>
             
@@ -369,19 +1614,17 @@
 // // //             <View style={styles.orderTotalContainer}>
 // // //               <Text style={styles.orderTotalLabel}>Order Total</Text>
 // // //               <Text style={styles.orderTotalAmount}>
-// // //                 ₹{orderItems.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 1)), 0)}
+// // //                 ₹{totalOrderAmount}
 // // //               </Text>
 // // //             </View>
 // // //           </View>
-// // //         )}
-
-// // //         {/* No Orders Message */}
-// // //         {totalOrders === 0 && (
+// // //         ) : (
+// // //           // No Placed Orders Message
 // // //           <View style={styles.emptyContainer}>
 // // //             <Icon name="cart-outline" size={60} color="#e0e0e0" />
-// // //             <Text style={styles.emptyTitle}>No Orders Yet</Text>
+// // //             <Text style={styles.emptyTitle}>No Placed Orders</Text>
 // // //             <Text style={styles.emptySubtitle}>
-// // //               You haven't placed any orders yet. Start ordering now!
+// // //               You haven't placed any orders yet. Complete payment to see your orders here!
 // // //             </Text>
 // // //           </View>
 // // //         )}
@@ -488,6 +1731,7 @@
 // // //     shadowOpacity: 0.05,
 // // //     shadowRadius: 4,
 // // //     elevation: 2,
+// // //     marginBottom: 20,
 // // //   },
 // // //   orderItemsHeader: {
 // // //     flexDirection: 'row',
@@ -542,15 +1786,19 @@
 // // //     fontWeight: '500',
 // // //     color: '#282c3f',
 // // //   },
+// // //   orderItemDetails: {
+// // //     flexDirection: 'row',
+// // //     marginTop: 4,
+// // //     alignItems: 'center',
+// // //   },
 // // //   orderItemQuantity: {
 // // //     fontSize: 12,
 // // //     color: '#7e808c',
-// // //     marginTop: 2,
 // // //   },
 // // //   orderItemPrice: {
 // // //     fontSize: 12,
 // // //     color: '#7e808c',
-// // //     marginTop: 2,
+// // //     marginLeft: 10,
 // // //   },
 // // //   orderItemTotal: {
 // // //     alignItems: 'flex-end',
@@ -601,7 +1849,6 @@
 // // // });
 
 // // // export default OrdersSummary;
-
 // // import React, { useContext } from 'react';
 // // import {
 // //   View,
@@ -616,47 +1863,45 @@
 // // import Icon from 'react-native-vector-icons/Ionicons';
 // // import { OrderContext } from '../../context/OrderContext';
 // // import { CartContext } from '../../context/CartContext';
-
-// // const OrdersSummary = ({ navigation }) => {
+ 
+// //   const OrdersSummary = ({ navigation }: { navigation: any }) => {
 // //   const { orders } = useContext(OrderContext);
 // //   const { cartItems } = useContext(CartContext);
-
+ 
 // //   // Calculate order statistics
 // //   const totalOrders = orders?.length || 0;
 // //   const deliveredOrders = orders?.filter((o) => o.status === 'Delivered').length || 0;
 // //   const cancelledOrders = orders?.filter((o) => o.status === 'Cancelled').length || 0;
-// //   const totalSpent = orders?.reduce((sum, order) => {
+// //   const totalSpent = orders?.reduce((sum, number, order: any) => {
 // //     if (order.status !== 'Cancelled') {
 // //       return sum + (order.total || 0);
 // //     }
 // //     return sum;
 // //   }, 0) || 0;
 // //   const itemsInCart = cartItems?.length || 0;
-
-// //   // Get all order items from all orders
-// //   const getAllOrderItems = () => {
-// //     if (!orders || orders.length === 0) return [];
-    
-// //     // Get items from all orders and flatten them
-// //     const allItems = [];
-// //     orders.forEach(order => {
-// //       if (order.items && order.items.length > 0) {
-// //         order.items.forEach(item => {
-// //           allItems.push({
-// //             ...item,
-// //             orderId: order.id,
-// //             orderDate: order.date,
-// //             orderStatus: order.status,
-// //           });
-// //         });
-// //       }
-// //     });
-// //     return allItems;
+ 
+// //   // Get only the latest placed order (payment completed)
+// //   const getLatestPlacedOrder = () => {
+// //     if (!orders || orders.length === 0) return null;
+   
+// //     // Filter orders that are placed (not pending, not cancelled)
+// //     const placedOrders = orders.filter((order: any) =>
+// //       order.status === 'Placed' ||
+// //       order.status === 'Confirmed' ||
+// //       order.status === 'Processing' ||
+// //       order.status === 'Delivered'
+// //     );
+   
+// //     if (placedOrders.length === 0) return null;
+   
+// //     // Return the most recent placed order
+// //     return placedOrders[placedOrders.length - 1];
 // //   };
-
-// //   const orderItems = getAllOrderItems();
-
-// //   const renderOrderItem = (item, index) => {
+ 
+// //   const latestOrder = getLatestPlacedOrder();
+// //   const orderItems = latestOrder?.items || [];
+ 
+// //  const renderOrderItem = (item: any, index: number) => {
 // //     return (
 // //       <View key={index} style={styles.orderItemCard}>
 // //         <View style={styles.orderItemImageContainer}>
@@ -683,19 +1928,19 @@
 // //       </View>
 // //     );
 // //   };
-
-// //   // Calculate total of all items
-// //   const totalOrderAmount = orderItems.reduce((sum, item) => 
-// //     sum + ((item.price || 0) * (item.quantity || 1)), 0
-// //   );
-
+ 
+// //   // Calculate total of the latest order
+// //  const totalOrderAmount = orderItems.reduce((sum: number, item: any) =>
+// //   sum + ((item.price || 0) * (item.quantity || 1)), 0
+// // );
+ 
 // //   return (
 // //     <SafeAreaView style={styles.container}>
 // //       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      
+     
 // //       {/* Header with Back Button */}
 // //       <View style={styles.header}>
-// //         <TouchableOpacity 
+// //         <TouchableOpacity
 // //           style={styles.backButton}
 // //           onPress={() => navigation.goBack()}
 // //           activeOpacity={0.7}
@@ -705,12 +1950,12 @@
 // //         <Text style={styles.headerTitle}>Order Summary</Text>
 // //         <View style={styles.headerPlaceholder} />
 // //       </View>
-
+ 
 // //       <ScrollView showsVerticalScrollIndicator={false}>
 // //         {/* Order Summary Card */}
 // //         <View style={styles.orderSummaryContainer}>
 // //           <Text style={styles.orderSummaryTitle}>Order Summary</Text>
-          
+         
 // //           {/* Total Orders */}
 // //           <View style={styles.orderSummaryRow}>
 // //             <View style={styles.rowLeft}>
@@ -719,7 +1964,7 @@
 // //             </View>
 // //             <Text style={styles.orderSummaryValue}>{totalOrders}</Text>
 // //           </View>
-
+ 
 // //           {/* Delivered */}
 // //           <View style={styles.orderSummaryRow}>
 // //             <View style={styles.rowLeft}>
@@ -730,7 +1975,7 @@
 // //               {deliveredOrders}
 // //             </Text>
 // //           </View>
-
+ 
 // //           {/* Cancelled */}
 // //           <View style={styles.orderSummaryRow}>
 // //             <View style={styles.rowLeft}>
@@ -741,7 +1986,7 @@
 // //               {cancelledOrders}
 // //             </Text>
 // //           </View>
-
+ 
 // //           {/* Total Spent */}
 // //           <View style={styles.orderSummaryRow}>
 // //             <View style={styles.rowLeft}>
@@ -752,7 +1997,7 @@
 // //               ₹{totalSpent}
 // //             </Text>
 // //           </View>
-
+ 
 // //           {/* Items in Cart */}
 // //           <View style={[styles.orderSummaryRow, styles.lastRow]}>
 // //             <View style={styles.rowLeft}>
@@ -762,17 +2007,17 @@
 // //             <Text style={styles.orderSummaryValue}>{itemsInCart}</Text>
 // //           </View>
 // //         </View>
-
-// //         {/* Order Items Section */}
-// //         {orderItems.length > 0 && (
+ 
+// //         {/* Latest Placed Order Items Section */}
+// //         {latestOrder && orderItems.length > 0 ? (
 // //           <View style={styles.orderItemsContainer}>
 // //             <View style={styles.orderItemsHeader}>
-// //               <Text style={styles.orderItemsTitle}>Ordered Items</Text>
+// //               <Text style={styles.orderItemsTitle}>Placed Order</Text>
 // //               <Text style={styles.orderItemsCount}>{orderItems.length} items</Text>
 // //             </View>
-            
+           
 // //             {orderItems.map((item, index) => renderOrderItem(item, index))}
-            
+           
 // //             {/* Order Total */}
 // //             <View style={styles.orderTotalContainer}>
 // //               <Text style={styles.orderTotalLabel}>Order Total</Text>
@@ -781,15 +2026,13 @@
 // //               </Text>
 // //             </View>
 // //           </View>
-// //         )}
-
-// //         {/* No Orders Message */}
-// //         {totalOrders === 0 && (
+// //         ) : (
+// //           // No Placed Orders Message
 // //           <View style={styles.emptyContainer}>
 // //             <Icon name="cart-outline" size={60} color="#e0e0e0" />
-// //             <Text style={styles.emptyTitle}>No Orders Yet</Text>
+// //             <Text style={styles.emptyTitle}>No Placed Orders</Text>
 // //             <Text style={styles.emptySubtitle}>
-// //               You haven't placed any orders yet. Start ordering now!
+// //               You haven't placed any orders yet. Complete payment to see your orders here!
 // //             </Text>
 // //           </View>
 // //         )}
@@ -797,7 +2040,7 @@
 // //     </SafeAreaView>
 // //   );
 // // };
-
+ 
 // // const styles = StyleSheet.create({
 // //   container: {
 // //     flex: 1,
@@ -1012,9 +2255,9 @@
 // //     paddingHorizontal: 20,
 // //   },
 // // });
-
+ 
 // // export default OrdersSummary;
-// import React, { useContext } from 'react';
+//  import React, { useContext } from 'react';
 // import {
 //   View,
 //   Text,
@@ -1029,15 +2272,15 @@
 // import { OrderContext } from '../../context/OrderContext';
 // import { CartContext } from '../../context/CartContext';
 
-// const OrdersSummary = ({ navigation }) => {
+// const OrdersSummary = ({ navigation }: { navigation: any }) => {
 //   const { orders } = useContext(OrderContext);
 //   const { cartItems } = useContext(CartContext);
 
 //   // Calculate order statistics
 //   const totalOrders = orders?.length || 0;
-//   const deliveredOrders = orders?.filter((o) => o.status === 'Delivered').length || 0;
-//   const cancelledOrders = orders?.filter((o) => o.status === 'Cancelled').length || 0;
-//   const totalSpent = orders?.reduce((sum, order) => {
+//   const deliveredOrders = orders?.filter((o: any) => o.status === 'Delivered').length || 0;
+//   const cancelledOrders = orders?.filter((o: any) => o.status === 'Cancelled').length || 0;
+//   const totalSpent = orders?.reduce((sum: number, order: any) => {
 //     if (order.status !== 'Cancelled') {
 //       return sum + (order.total || 0);
 //     }
@@ -1045,47 +2288,107 @@
 //   }, 0) || 0;
 //   const itemsInCart = cartItems?.length || 0;
 
-//   // Get only placed orders (payment completed)
-//   const getPlacedOrders = () => {
+//   // ✅ Get all delivered orders (past orders)
+//   const getDeliveredOrders = () => {
 //     if (!orders || orders.length === 0) return [];
     
-//     // Filter orders that are placed (not pending, not cancelled)
-//     const placedOrders = orders.filter(order => 
-//       order.status === 'Placed' || 
-//       order.status === 'Confirmed' || 
-//       order.status === 'Processing' ||
+//     // Filter orders that are delivered
+//     const delivered = orders.filter((order: any) => 
 //       order.status === 'Delivered'
 //     );
     
-//     return placedOrders;
-//   };
-
-//   const placedOrders = getPlacedOrders();
-
-//   // Get all items from placed orders
-//   const getAllOrderItems = () => {
-//     if (!placedOrders || placedOrders.length === 0) return [];
-    
-//     const allItems = [];
-//     placedOrders.forEach(order => {
-//       if (order.items && order.items.length > 0) {
-//         order.items.forEach(item => {
-//           allItems.push({
-//             ...item,
-//             orderId: order.id,
-//             orderDate: order.date,
-//             orderStatus: order.status,
-//             orderTotal: order.total,
-//           });
-//         });
-//       }
+//     // Sort by date (newest first)
+//     return delivered.sort((a: any, b: any) => {
+//       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
 //     });
-//     return allItems;
 //   };
 
-//   const orderItems = getAllOrderItems();
+//   // ✅ Get latest placed order (for current orders)
+//   const getLatestPlacedOrder = () => {
+//     if (!orders || orders.length === 0) return null;
+    
+//     // Filter orders that are placed (not pending, not cancelled, not delivered)
+//     const placedOrders = orders.filter((order: any) =>
+//       order.status === 'Placed' ||
+//       order.status === 'Confirmed' ||
+//       order.status === 'Processing' ||
+//       order.status === 'Preparing' ||
+//       order.status === 'On the way' ||
+//       order.status === 'Ready'
+//     );
+    
+//     if (placedOrders.length === 0) return null;
+    
+//     // Return the most recent placed order
+//     return placedOrders[placedOrders.length - 1];
+//   };
 
-//   const renderOrderItem = (item, index) => {
+//   const deliveredOrdersList = getDeliveredOrders();
+//   const latestOrder = getLatestPlacedOrder();
+//   const orderItems = latestOrder?.items || [];
+
+//   // ✅ Render order items for delivered orders
+//   const renderDeliveredOrder = (order: any, index: number) => {
+//     const items = order.items || [];
+//     const totalAmount = items.reduce((sum: number, item: any) => 
+//       sum + ((item.price || 0) * (item.quantity || 1)), 0
+//     );
+
+//     return (
+//       <View key={index} style={styles.deliveredOrderCard}>
+//         <View style={styles.deliveredOrderHeader}>
+//           <Text style={styles.deliveredOrderRestaurant}>{order.restaurantName || 'Restaurant'}</Text>
+//           <View style={styles.deliveredStatusBadge}>
+//             <Icon name="checkmark-circle" size={14} color="#28a745" />
+//             <Text style={styles.deliveredStatusText}>Delivered</Text>
+//           </View>
+//         </View>
+        
+//         {items.slice(0, 3).map((item: any, idx: number) => (
+//           <View key={idx} style={styles.orderItemCard}>
+//             <View style={styles.orderItemImageContainer}>
+//               {item.image ? (
+//                 <Image source={{ uri: item.image }} style={styles.orderItemImage} />
+//               ) : (
+//                 <View style={styles.orderItemImagePlaceholder}>
+//                   <Icon name="fast-food-outline" size={30} color="#fc8019" />
+//                 </View>
+//               )}
+//             </View>
+//             <View style={styles.orderItemInfo}>
+//               <Text style={styles.orderItemName}>{item.name || 'Food Item'}</Text>
+//               <View style={styles.orderItemDetails}>
+//                 <Text style={styles.orderItemQuantity}>Qty: {item.quantity || 1}</Text>
+//                 <Text style={styles.orderItemPrice}>₹{item.price || 0}</Text>
+//               </View>
+//             </View>
+//             <View style={styles.orderItemTotal}>
+//               <Text style={styles.orderItemTotalPrice}>
+//                 ₹{(item.price || 0) * (item.quantity || 1)}
+//               </Text>
+//             </View>
+//           </View>
+//         ))}
+        
+//         {items.length > 3 && (
+//           <Text style={styles.moreItemsText}>+{items.length - 3} more items</Text>
+//         )}
+        
+//         <View style={styles.deliveredOrderFooter}>
+//           <Text style={styles.deliveredOrderDate}>
+//             {new Date(order.createdAt).toLocaleDateString('en-IN', { 
+//               day: '2-digit', 
+//               month: 'short', 
+//               year: 'numeric' 
+//             })}
+//           </Text>
+//           <Text style={styles.deliveredOrderTotal}>₹{totalAmount}</Text>
+//         </View>
+//       </View>
+//     );
+//   };
+
+//   const renderOrderItem = (item: any, index: number) => {
 //     return (
 //       <View key={index} style={styles.orderItemCard}>
 //         <View style={styles.orderItemImageContainer}>
@@ -1113,8 +2416,8 @@
 //     );
 //   };
 
-//   // Calculate total of all items from placed orders
-//   const totalOrderAmount = orderItems.reduce((sum, item) => 
+//   // Calculate total of the latest order
+//   const totalOrderAmount = orderItems.reduce((sum: number, item: any) =>
 //     sum + ((item.price || 0) * (item.quantity || 1)), 0
 //   );
 
@@ -1124,7 +2427,7 @@
       
 //       {/* Header with Back Button */}
 //       <View style={styles.header}>
-//         <TouchableOpacity 
+//         <TouchableOpacity
 //           style={styles.backButton}
 //           onPress={() => navigation.goBack()}
 //           activeOpacity={0.7}
@@ -1192,11 +2495,22 @@
 //           </View>
 //         </View>
 
-//         {/* Placed Orders Items Section */}
-//         {orderItems.length > 0 ? (
+//         {/* ✅ Delivered Orders Section */}
+//         {deliveredOrdersList.length > 0 && (
+//           <View style={styles.deliveredOrdersContainer}>
+//             <View style={styles.orderItemsHeader}>
+//               <Text style={styles.orderItemsTitle}>Delivered Orders</Text>
+//               <Text style={styles.orderItemsCount}>{deliveredOrdersList.length} orders</Text>
+//             </View>
+//             {deliveredOrdersList.map((order, index) => renderDeliveredOrder(order, index))}
+//           </View>
+//         )}
+
+//         {/* Latest Placed Order Items Section */}
+//         {latestOrder && orderItems.length > 0 ? (
 //           <View style={styles.orderItemsContainer}>
 //             <View style={styles.orderItemsHeader}>
-//               <Text style={styles.orderItemsTitle}>Placed Orders</Text>
+//               <Text style={styles.orderItemsTitle}>Current Order</Text>
 //               <Text style={styles.orderItemsCount}>{orderItems.length} items</Text>
 //             </View>
             
@@ -1214,9 +2528,9 @@
 //           // No Placed Orders Message
 //           <View style={styles.emptyContainer}>
 //             <Icon name="cart-outline" size={60} color="#e0e0e0" />
-//             <Text style={styles.emptyTitle}>No Placed Orders</Text>
+//             <Text style={styles.emptyTitle}>No Current Orders</Text>
 //             <Text style={styles.emptySubtitle}>
-//               You haven't placed any orders yet. Complete payment to see your orders here!
+//               You don't have any active orders. Start shopping to place a new order!
 //             </Text>
 //           </View>
 //         )}
@@ -1306,6 +2620,80 @@
 //     fontSize: 15,
 //     color: '#282c3f',
 //     fontWeight: '600',
+//   },
+//   // Delivered Orders Styles
+//   deliveredOrdersContainer: {
+//     backgroundColor: '#ffffff',
+//     marginHorizontal: 16,
+//     marginTop: 16,
+//     borderRadius: 12,
+//     paddingHorizontal: 16,
+//     paddingVertical: 12,
+//     shadowColor: '#000',
+//     shadowOffset: {
+//       width: 0,
+//       height: 2,
+//     },
+//     shadowOpacity: 0.05,
+//     shadowRadius: 4,
+//     elevation: 2,
+//   },
+//   deliveredOrderCard: {
+//     backgroundColor: '#f8f9fa',
+//     borderRadius: 8,
+//     padding: 12,
+//     marginBottom: 10,
+//     borderWidth: 1,
+//     borderColor: '#e8e8e8',
+//   },
+//   deliveredOrderHeader: {
+//     flexDirection: 'row',
+//     justifyContent: 'space-between',
+//     alignItems: 'center',
+//     marginBottom: 8,
+//   },
+//   deliveredOrderRestaurant: {
+//     fontSize: 14,
+//     fontWeight: '600',
+//     color: '#282c3f',
+//   },
+//   deliveredStatusBadge: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     backgroundColor: '#e8f5e9',
+//     paddingHorizontal: 8,
+//     paddingVertical: 3,
+//     borderRadius: 12,
+//   },
+//   deliveredStatusText: {
+//     fontSize: 11,
+//     color: '#28a745',
+//     fontWeight: '500',
+//     marginLeft: 4,
+//   },
+//   deliveredOrderFooter: {
+//     flexDirection: 'row',
+//     justifyContent: 'space-between',
+//     alignItems: 'center',
+//     marginTop: 8,
+//     paddingTop: 8,
+//     borderTopWidth: 1,
+//     borderTopColor: '#e8e8e8',
+//   },
+//   deliveredOrderDate: {
+//     fontSize: 11,
+//     color: '#7e808c',
+//   },
+//   deliveredOrderTotal: {
+//     fontSize: 14,
+//     fontWeight: '700',
+//     color: '#fc8019',
+//   },
+//   moreItemsText: {
+//     fontSize: 12,
+//     color: '#fc8019',
+//     marginTop: 4,
+//     fontWeight: '500',
 //   },
 //   // Order Items Styles
 //   orderItemsContainer: {
@@ -1441,6 +2829,7 @@
 // });
 
 // export default OrdersSummary;
+
 import React, { useContext } from 'react';
 import {
   View,
@@ -1456,15 +2845,15 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import { OrderContext } from '../../context/OrderContext';
 import { CartContext } from '../../context/CartContext';
 
-const OrdersSummary = ({ navigation }) => {
+const OrdersSummary = ({ navigation }: { navigation: any }) => {
   const { orders } = useContext(OrderContext);
   const { cartItems } = useContext(CartContext);
 
   // Calculate order statistics
   const totalOrders = orders?.length || 0;
-  const deliveredOrders = orders?.filter((o) => o.status === 'Delivered').length || 0;
-  const cancelledOrders = orders?.filter((o) => o.status === 'Cancelled').length || 0;
-  const totalSpent = orders?.reduce((sum, order) => {
+  const deliveredOrders = orders?.filter((o: any) => o.status === 'Delivered').length || 0;
+  const cancelledOrders = orders?.filter((o: any) => o.status === 'Cancelled').length || 0;
+  const totalSpent = orders?.reduce((sum: number, order: any) => {
     if (order.status !== 'Cancelled') {
       return sum + (order.total || 0);
     }
@@ -1472,59 +2861,83 @@ const OrdersSummary = ({ navigation }) => {
   }, 0) || 0;
   const itemsInCart = cartItems?.length || 0;
 
-  // Get only the latest placed order (payment completed)
-  const getLatestPlacedOrder = () => {
-    if (!orders || orders.length === 0) return null;
+  // ✅ Get all delivered orders (past orders)
+  const getDeliveredOrders = () => {
+    if (!orders || orders.length === 0) return [];
     
-    // Filter orders that are placed (not pending, not cancelled)
-    const placedOrders = orders.filter(order => 
-      order.status === 'Placed' || 
-      order.status === 'Confirmed' || 
-      order.status === 'Processing' ||
+    // Filter orders that are delivered
+    const delivered = orders.filter((order: any) => 
       order.status === 'Delivered'
     );
     
-    if (placedOrders.length === 0) return null;
-    
-    // Return the most recent placed order
-    return placedOrders[placedOrders.length - 1];
+    // Sort by date (newest first)
+    return delivered.sort((a: any, b: any) => {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
   };
 
-  const latestOrder = getLatestPlacedOrder();
-  const orderItems = latestOrder?.items || [];
+  const deliveredOrdersList = getDeliveredOrders();
 
-  const renderOrderItem = (item, index) => {
+  // ✅ Render order items for delivered orders
+  const renderDeliveredOrder = (order: any, index: number) => {
+    const items = order.items || [];
+    const totalAmount = items.reduce((sum: number, item: any) => 
+      sum + ((item.price || 0) * (item.quantity || 1)), 0
+    );
+
     return (
-      <View key={index} style={styles.orderItemCard}>
-        <View style={styles.orderItemImageContainer}>
-          {item.image ? (
-            <Image source={{ uri: item.image }} style={styles.orderItemImage} />
-          ) : (
-            <View style={styles.orderItemImagePlaceholder}>
-              <Icon name="fast-food-outline" size={30} color="#fc8019" />
-            </View>
-          )}
-        </View>
-        <View style={styles.orderItemInfo}>
-          <Text style={styles.orderItemName}>{item.name || 'Food Item'}</Text>
-          <View style={styles.orderItemDetails}>
-            <Text style={styles.orderItemQuantity}>Qty: {item.quantity || 1}</Text>
-            <Text style={styles.orderItemPrice}>₹{item.price || 0}</Text>
+      <View key={index} style={styles.deliveredOrderCard}>
+        <View style={styles.deliveredOrderHeader}>
+          <Text style={styles.deliveredOrderRestaurant}>{order.restaurantName || 'Restaurant'}</Text>
+          <View style={styles.deliveredStatusBadge}>
+            <Icon name="checkmark-circle" size={14} color="#28a745" />
+            <Text style={styles.deliveredStatusText}>Delivered</Text>
           </View>
         </View>
-        <View style={styles.orderItemTotal}>
-          <Text style={styles.orderItemTotalPrice}>
-            ₹{(item.price || 0) * (item.quantity || 1)}
+        
+        {items.slice(0, 3).map((item: any, idx: number) => (
+          <View key={idx} style={styles.orderItemCard}>
+            <View style={styles.orderItemImageContainer}>
+              {item.image ? (
+                <Image source={{ uri: item.image }} style={styles.orderItemImage} />
+              ) : (
+                <View style={styles.orderItemImagePlaceholder}>
+                  <Icon name="fast-food-outline" size={30} color="#fc8019" />
+                </View>
+              )}
+            </View>
+            <View style={styles.orderItemInfo}>
+              <Text style={styles.orderItemName}>{item.name || 'Food Item'}</Text>
+              <View style={styles.orderItemDetails}>
+                <Text style={styles.orderItemQuantity}>Qty: {item.quantity || 1}</Text>
+                <Text style={styles.orderItemPrice}>₹{item.price || 0}</Text>
+              </View>
+            </View>
+            <View style={styles.orderItemTotal}>
+              <Text style={styles.orderItemTotalPrice}>
+                ₹{(item.price || 0) * (item.quantity || 1)}
+              </Text>
+            </View>
+          </View>
+        ))}
+        
+        {items.length > 3 && (
+          <Text style={styles.moreItemsText}>+{items.length - 3} more items</Text>
+        )}
+        
+        <View style={styles.deliveredOrderFooter}>
+          <Text style={styles.deliveredOrderDate}>
+            {new Date(order.createdAt).toLocaleDateString('en-IN', { 
+              day: '2-digit', 
+              month: 'short', 
+              year: 'numeric' 
+            })}
           </Text>
+          <Text style={styles.deliveredOrderTotal}>₹{totalAmount}</Text>
         </View>
       </View>
     );
   };
-
-  // Calculate total of the latest order
-  const totalOrderAmount = orderItems.reduce((sum, item) => 
-    sum + ((item.price || 0) * (item.quantity || 1)), 0
-  );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -1532,7 +2945,7 @@ const OrdersSummary = ({ navigation }) => {
       
       {/* Header with Back Button */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
           activeOpacity={0.7}
@@ -1600,31 +3013,22 @@ const OrdersSummary = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Latest Placed Order Items Section */}
-        {latestOrder && orderItems.length > 0 ? (
-          <View style={styles.orderItemsContainer}>
+        {/* ✅ Delivered Orders Section */}
+        {deliveredOrdersList.length > 0 ? (
+          <View style={styles.deliveredOrdersContainer}>
             <View style={styles.orderItemsHeader}>
-              <Text style={styles.orderItemsTitle}>Placed Order</Text>
-              <Text style={styles.orderItemsCount}>{orderItems.length} items</Text>
+              <Text style={styles.orderItemsTitle}>Delivered Orders</Text>
+              <Text style={styles.orderItemsCount}>{deliveredOrdersList.length} orders</Text>
             </View>
-            
-            {orderItems.map((item, index) => renderOrderItem(item, index))}
-            
-            {/* Order Total */}
-            <View style={styles.orderTotalContainer}>
-              <Text style={styles.orderTotalLabel}>Order Total</Text>
-              <Text style={styles.orderTotalAmount}>
-                ₹{totalOrderAmount}
-              </Text>
-            </View>
+            {deliveredOrdersList.map((order, index) => renderDeliveredOrder(order, index))}
           </View>
         ) : (
-          // No Placed Orders Message
+          // No Delivered Orders Message
           <View style={styles.emptyContainer}>
-            <Icon name="cart-outline" size={60} color="#e0e0e0" />
-            <Text style={styles.emptyTitle}>No Placed Orders</Text>
+            <Icon name="checkmark-circle-outline" size={60} color="#e0e0e0" />
+            <Text style={styles.emptyTitle}>No Delivered Orders</Text>
             <Text style={styles.emptySubtitle}>
-              You haven't placed any orders yet. Complete payment to see your orders here!
+              You haven't received any orders yet. Your delivered orders will appear here!
             </Text>
           </View>
         )}
@@ -1715,8 +3119,8 @@ const styles = StyleSheet.create({
     color: '#282c3f',
     fontWeight: '600',
   },
-  // Order Items Styles
-  orderItemsContainer: {
+  // Delivered Orders Styles
+  deliveredOrdersContainer: {
     backgroundColor: '#ffffff',
     marginHorizontal: 16,
     marginTop: 16,
@@ -1733,6 +3137,64 @@ const styles = StyleSheet.create({
     elevation: 2,
     marginBottom: 20,
   },
+  deliveredOrderCard: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
+  },
+  deliveredOrderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  deliveredOrderRestaurant: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#282c3f',
+  },
+  deliveredStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e8f5e9',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  deliveredStatusText: {
+    fontSize: 11,
+    color: '#28a745',
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  deliveredOrderFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#e8e8e8',
+  },
+  deliveredOrderDate: {
+    fontSize: 11,
+    color: '#7e808c',
+  },
+  deliveredOrderTotal: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fc8019',
+  },
+  moreItemsText: {
+    fontSize: 12,
+    color: '#fc8019',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  // Order Items Styles
   orderItemsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1805,25 +3267,6 @@ const styles = StyleSheet.create({
   },
   orderItemTotalPrice: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#fc8019',
-  },
-  orderTotalContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 2,
-    borderTopColor: '#f0f0f5',
-  },
-  orderTotalLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#282c3f',
-  },
-  orderTotalAmount: {
-    fontSize: 18,
     fontWeight: '700',
     color: '#fc8019',
   },
