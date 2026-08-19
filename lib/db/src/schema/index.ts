@@ -19,4 +19,4 @@ export * from "./sales_order_items";
 export * from "./returns";
 export * from "./notifications";
 export * from "./promotions";
-
+export * from "./service_highlights";
