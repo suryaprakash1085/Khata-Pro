@@ -59,6 +59,7 @@ const NAV_ITEMS: NavEntry[] = [
       { key: 'deliveries', label: 'Deliveries', icon: 'map-pin', path: '/delivery-list' },
       { key: 'drivers', label: 'Drivers', icon: 'users', path: '/driver-list' },
       { key: 'order-track', label: 'Order Track', icon: 'navigation', path: '/order-track-management' },
+      { key: 'delivery-settings', label: 'Delivery Settings', icon: 'settings', path: '/delivery-settings' },
     ],
   },
   { key: 'reports', label: 'Reports', icon: 'bar-chart-2', path: '/reports', requires: 'view_reports' },

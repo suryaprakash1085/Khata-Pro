@@ -42,6 +42,10 @@ tags:
     description: Subscription management
   - name: notifications
     description: Driver and business notifications
+  - name: service-highlights
+    description: "Why Choose Us"
+  - name: delivery-fees 
+    description: Distance-based delivery fee configuration and calculation
 
 paths:
   /healthz:
@@ -310,6 +314,191 @@ paths:
               schema:
                 $ref: "#/components/schemas/StaffMember"
 
+  # ─── SERVICE HIGHLIGHTS ─────────────────────────────────────────────────────
+
+  /service-highlights:
+    get:
+      operationId: listServiceHighlights
+      tags: [service-highlights]
+      summary: List "Why Choose Us" highlights for the authenticated business
+      responses:
+        "200":
+          description: List of service highlights
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ServiceHighlight"
+    post:
+      operationId: createServiceHighlight
+      tags: [service-highlights]
+      summary: Create a service highlight for the authenticated business
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceHighlightInput"
+      responses:
+        "201":
+          description: Highlight created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceHighlight"
+        "400":
+          description: Validation error
+
+  /service-highlights/{id}:
+    put:
+      operationId: updateServiceHighlight
+      tags: [service-highlights]
+      summary: Update a service highlight (must belong to the authenticated business)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceHighlightUpdate"
+      responses:
+        "200":
+          description: Updated highlight
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceHighlight"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteServiceHighlight
+      tags: [service-highlights]
+      summary: Delete a service highlight (must belong to the authenticated business)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          description: Not found
+
+  /service-highlights/{id}/status:
+    patch:
+      operationId: updateServiceHighlightStatus
+      tags: [service-highlights]
+      summary: Enable or disable a service highlight
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceHighlightStatusUpdate"
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceHighlight"
+
+  /public/businesses/{businessId}/service-highlights:
+    get:
+      operationId: getPublicServiceHighlights
+      tags: [service-highlights]
+      summary: Get active service highlights for a business (customer delivery app, no auth)
+      parameters:
+        - name: businessId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Active service highlights
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PublicServiceHighlight"
+  # ─── DELIVERY FEES ──────────────────────────────────────────────────────────
+
+  /delivery-fees/settings:
+    get:
+      operationId: getDeliveryFeeSettings
+      tags: [delivery-fees]
+      summary: Get the authenticated business's delivery-fee settings (creates defaults if none exist)
+      responses:
+        "200":
+          description: Delivery fee settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryFeeSettings"
+        "403":
+          description: No business associated with this account
+    put:
+      operationId: updateDeliveryFeeSettings
+      tags: [delivery-fees]
+      summary: Update the authenticated business's delivery-fee settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeliveryFeeSettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryFeeSettings"
+        "422":
+          description: Invalid delivery settings
+        "403":
+          description: No business associated with this account
+
+  /delivery-fees/calculate:
+    post:
+      operationId: calculateDeliveryFee
+      tags: [delivery-fees]
+      summary: Calculate the delivery fee for a business + customer location (no auth — used by customer app for checkout preview)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeliveryFeeCalculationInput"
+      responses:
+        "200":
+          description: Calculated delivery fee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryFeeCalculation"
+        "422":
+          description: Shop location not configured, or invalid/missing customer location
   # ─── CUSTOMERS ──────────────────────────────────────────────────────────────
 
   /customers:
@@ -2272,6 +2461,10 @@ components:
           type: ["string", "null"]
         country:
           type: ["string", "null"]
+        latitude:
+          type: ["number", "null"]
+        longitude:
+          type: ["number", "null"]
         logo_url:
           type: ["string", "null"]
         currency:
@@ -2318,6 +2511,10 @@ components:
         country:
           type: string
           default: India
+        latitude:
+          type: number
+        longitude:
+          type: number
         logo_url:
           type: string
         currency:
@@ -2355,6 +2552,10 @@ components:
         country:
           type: string
           default: India
+        latitude:
+          type: number
+        longitude:
+          type: number
         logo_url:
           type: string
         currency:
@@ -2479,6 +2680,152 @@ components:
       required: [is_active]
       properties:
         is_active:
+          type: boolean
+  # ── Service Highlights ("Why Choose Us") ────────────────────────────────────
+
+    ServiceHighlight:
+      type: object
+      required: [id, business_id, title, description, icon, is_active, display_order, created_at]
+      properties:
+        id:
+          type: integer
+        business_id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        is_active:
+          type: boolean
+        display_order:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ServiceHighlightInput:
+      type: object
+      required: [title, description, icon]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          minLength: 1
+          maxLength: 300
+        icon:
+          type: string
+          minLength: 1
+          maxLength: 50
+        is_active:
+          type: boolean
+          default: true
+        display_order:
+          type: integer
+          default: 0
+
+    ServiceHighlightUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          minLength: 1
+          maxLength: 300
+        icon:
+          type: string
+          minLength: 1
+          maxLength: 50
+        is_active:
+          type: boolean
+        display_order:
+          type: integer
+
+    ServiceHighlightStatusUpdate:
+      type: object
+      required: [is_active]
+      properties:
+        is_active:
+          type: boolean
+
+    PublicServiceHighlight:
+      type: object
+      required: [id, title, description, icon]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        # ── Delivery Fees ─────────────────────────────────────────────────────────
+
+    DeliveryFeeSettings:
+      type: object
+      required: [free_delivery_radius, per_km_charge, is_active]
+      properties:
+        free_delivery_radius:
+          type: number
+        per_km_charge:
+          type: number
+        is_active:
+          type: boolean
+
+    DeliveryFeeSettingsUpdate:
+      type: object
+      required: [free_delivery_radius, per_km_charge, is_active]
+      properties:
+        free_delivery_radius:
+          type: number
+          exclusiveMinimum: 0
+        per_km_charge:
+          type: number
+          minimum: 0
+        is_active:
+          type: boolean
+
+    DeliveryFeeCalculationInput:
+      type: object
+      required: [business_id, customer_latitude, customer_longitude]
+      properties:
+        business_id:
+          type: integer
+        customer_latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        customer_longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+
+    DeliveryFeeCalculation:
+      type: object
+      required: [distance_km, free_delivery_radius, per_km_charge, chargeable_distance_km, delivery_fee, is_free_delivery]
+      properties:
+        distance_km:
+          type: number
+        free_delivery_radius:
+          type: number
+        per_km_charge:
+          type: number
+        chargeable_distance_km:
+          type: number
+        delivery_fee:
+          type: number
+        is_free_delivery:
           type: boolean
 
     # ── Customer ──────────────────────────────────────────────────────────────
@@ -3043,6 +3390,18 @@ components:
           type: ["string", "null"]
         shipping_address:
           type: ["string", "null"]
+        delivery_distance_km:
+          type: ["number", "null"]
+        delivery_fee:
+          type: ["number", "null"]
+        delivery_fee_radius:
+          type: ["number", "null"]
+        delivery_fee_per_km:
+          type: ["number", "null"]
+        customer_latitude:
+          type: ["number", "null"]
+        customer_longitude:
+          type: ["number", "null"]
         entry_date:
           type: string
           format: date
@@ -3079,6 +3438,10 @@ components:
           type: string
         shipping_address:
           type: string
+        customer_latitude:
+          type: number
+        customer_longitude:
+          type: number
         entry_date:
           type: string
           format: date

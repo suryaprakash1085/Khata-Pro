@@ -158,6 +158,8 @@ export const ListBusinessesResponse = zod.object({
   "state": zod.string().nullish(),
   "postal_code": zod.string().nullish(),
   "country": zod.string().nullish(),
+  "latitude": zod.number().nullish(),
+  "longitude": zod.number().nullish(),
   "logo_url": zod.string().nullish(),
   "currency": zod.string().default(listBusinessesResponseDataItemCurrencyDefault),
   "financial_year_start": zod.coerce.date().nullish(),
@@ -190,6 +192,8 @@ export const CreateBusinessBody = zod.object({
   "state": zod.string().optional(),
   "postal_code": zod.string().optional(),
   "country": zod.string().default(createBusinessBodyCountryDefault),
+  "latitude": zod.number().optional(),
+  "longitude": zod.number().optional(),
   "logo_url": zod.string().optional(),
   "currency": zod.string().default(createBusinessBodyCurrencyDefault),
   "financial_year_start": zod.coerce.date().optional()
@@ -212,6 +216,8 @@ export const CreateBusinessResponse = zod.object({
   "state": zod.string().nullish(),
   "postal_code": zod.string().nullish(),
   "country": zod.string().nullish(),
+  "latitude": zod.number().nullish(),
+  "longitude": zod.number().nullish(),
   "logo_url": zod.string().nullish(),
   "currency": zod.string().default(createBusinessResponseCurrencyDefault),
   "financial_year_start": zod.coerce.date().nullish(),
@@ -245,6 +251,8 @@ export const GetBusinessResponse = zod.object({
   "state": zod.string().nullish(),
   "postal_code": zod.string().nullish(),
   "country": zod.string().nullish(),
+  "latitude": zod.number().nullish(),
+  "longitude": zod.number().nullish(),
   "logo_url": zod.string().nullish(),
   "currency": zod.string().default(getBusinessResponseCurrencyDefault),
   "financial_year_start": zod.coerce.date().nullish(),
@@ -277,6 +285,8 @@ export const UpdateBusinessBody = zod.object({
   "state": zod.string().optional(),
   "postal_code": zod.string().optional(),
   "country": zod.string().default(updateBusinessBodyCountryDefault),
+  "latitude": zod.number().optional(),
+  "longitude": zod.number().optional(),
   "logo_url": zod.string().optional(),
   "currency": zod.string().default(updateBusinessBodyCurrencyDefault),
   "financial_year_start": zod.coerce.date().optional()
@@ -299,6 +309,8 @@ export const UpdateBusinessResponse = zod.object({
   "state": zod.string().nullish(),
   "postal_code": zod.string().nullish(),
   "country": zod.string().nullish(),
+  "latitude": zod.number().nullish(),
+  "longitude": zod.number().nullish(),
   "logo_url": zod.string().nullish(),
   "currency": zod.string().default(updateBusinessResponseCurrencyDefault),
   "financial_year_start": zod.coerce.date().nullish(),
@@ -363,6 +375,203 @@ export const AddStaffResponse = zod.object({
   "view_reports": zod.boolean().optional(),
   "manage_customers": zod.boolean().optional()
 })
+})
+
+
+/**
+ * @summary List "Why Choose Us" highlights for the authenticated business
+ */
+export const ListServiceHighlightsResponseItem = zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "icon": zod.string(),
+  "is_active": zod.boolean(),
+  "display_order": zod.number(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date().optional()
+})
+export const ListServiceHighlightsResponse = zod.array(ListServiceHighlightsResponseItem)
+
+
+/**
+ * @summary Create a service highlight for the authenticated business
+ */
+export const createServiceHighlightBodyTitleMax = 100;
+
+export const createServiceHighlightBodyDescriptionMax = 300;
+
+export const createServiceHighlightBodyIconMax = 50;
+
+export const createServiceHighlightBodyIsActiveDefault = true;
+export const createServiceHighlightBodyDisplayOrderDefault = 0;
+
+export const CreateServiceHighlightBody = zod.object({
+  "title": zod.string().min(1).max(createServiceHighlightBodyTitleMax),
+  "description": zod.string().min(1).max(createServiceHighlightBodyDescriptionMax),
+  "icon": zod.string().min(1).max(createServiceHighlightBodyIconMax),
+  "is_active": zod.boolean().default(createServiceHighlightBodyIsActiveDefault),
+  "display_order": zod.number().default(createServiceHighlightBodyDisplayOrderDefault)
+})
+
+export const CreateServiceHighlightResponse = zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "icon": zod.string(),
+  "is_active": zod.boolean(),
+  "display_order": zod.number(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Update a service highlight (must belong to the authenticated business)
+ */
+export const UpdateServiceHighlightParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const updateServiceHighlightBodyTitleMax = 100;
+
+export const updateServiceHighlightBodyDescriptionMax = 300;
+
+export const updateServiceHighlightBodyIconMax = 50;
+
+
+
+export const UpdateServiceHighlightBody = zod.object({
+  "title": zod.string().min(1).max(updateServiceHighlightBodyTitleMax).optional(),
+  "description": zod.string().min(1).max(updateServiceHighlightBodyDescriptionMax).optional(),
+  "icon": zod.string().min(1).max(updateServiceHighlightBodyIconMax).optional(),
+  "is_active": zod.boolean().optional(),
+  "display_order": zod.number().optional()
+})
+
+export const UpdateServiceHighlightResponse = zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "icon": zod.string(),
+  "is_active": zod.boolean(),
+  "display_order": zod.number(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Delete a service highlight (must belong to the authenticated business)
+ */
+export const DeleteServiceHighlightParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteServiceHighlightResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Enable or disable a service highlight
+ */
+export const UpdateServiceHighlightStatusParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateServiceHighlightStatusBody = zod.object({
+  "is_active": zod.boolean()
+})
+
+export const UpdateServiceHighlightStatusResponse = zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "icon": zod.string(),
+  "is_active": zod.boolean(),
+  "display_order": zod.number(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date().optional()
+})
+
+
+/**
+ * @summary Get active service highlights for a business (customer delivery app, no auth)
+ */
+export const GetPublicServiceHighlightsParams = zod.object({
+  "businessId": zod.coerce.number()
+})
+
+export const GetPublicServiceHighlightsResponseItem = zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "icon": zod.string()
+})
+export const GetPublicServiceHighlightsResponse = zod.array(GetPublicServiceHighlightsResponseItem)
+
+
+/**
+ * @summary Get the authenticated business's delivery-fee settings (creates defaults if none exist)
+ */
+export const GetDeliveryFeeSettingsResponse = zod.object({
+  "free_delivery_radius": zod.number(),
+  "per_km_charge": zod.number(),
+  "is_active": zod.boolean()
+})
+
+
+/**
+ * @summary Update the authenticated business's delivery-fee settings
+ */
+export const updateDeliveryFeeSettingsBodyFreeDeliveryRadiusExclusiveMin = 0;
+
+export const updateDeliveryFeeSettingsBodyPerKmChargeMin = 0;
+
+
+
+export const UpdateDeliveryFeeSettingsBody = zod.object({
+  "free_delivery_radius": zod.number().gt(updateDeliveryFeeSettingsBodyFreeDeliveryRadiusExclusiveMin),
+  "per_km_charge": zod.number().min(updateDeliveryFeeSettingsBodyPerKmChargeMin),
+  "is_active": zod.boolean()
+})
+
+export const UpdateDeliveryFeeSettingsResponse = zod.object({
+  "free_delivery_radius": zod.number(),
+  "per_km_charge": zod.number(),
+  "is_active": zod.boolean()
+})
+
+
+/**
+ * @summary Calculate the delivery fee for a business + customer location (no auth — used by customer app for checkout preview)
+ */
+export const calculateDeliveryFeeBodyCustomerLatitudeMin = -90;
+export const calculateDeliveryFeeBodyCustomerLatitudeMax = 90;
+
+export const calculateDeliveryFeeBodyCustomerLongitudeMin = -180;
+export const calculateDeliveryFeeBodyCustomerLongitudeMax = 180;
+
+
+
+export const CalculateDeliveryFeeBody = zod.object({
+  "business_id": zod.number(),
+  "customer_latitude": zod.number().min(calculateDeliveryFeeBodyCustomerLatitudeMin).max(calculateDeliveryFeeBodyCustomerLatitudeMax),
+  "customer_longitude": zod.number().min(calculateDeliveryFeeBodyCustomerLongitudeMin).max(calculateDeliveryFeeBodyCustomerLongitudeMax)
+})
+
+export const CalculateDeliveryFeeResponse = zod.object({
+  "distance_km": zod.number(),
+  "free_delivery_radius": zod.number(),
+  "per_km_charge": zod.number(),
+  "chargeable_distance_km": zod.number(),
+  "delivery_fee": zod.number(),
+  "is_free_delivery": zod.boolean()
 })
 
 
@@ -1209,6 +1418,12 @@ export const ListSalesOrdersResponse = zod.object({
   "tax": zod.number(),
   "description": zod.string().nullish(),
   "shipping_address": zod.string().nullish(),
+  "delivery_distance_km": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
+  "delivery_fee_radius": zod.number().nullish(),
+  "delivery_fee_per_km": zod.number().nullish(),
+  "customer_latitude": zod.number().nullish(),
+  "customer_longitude": zod.number().nullish(),
   "entry_date": zod.coerce.date(),
   "transaction_id": zod.number().nullish(),
   "item_count": zod.number().optional(),
@@ -1241,6 +1456,8 @@ export const CreateSalesOrderBody = zod.object({
   "tax": zod.number().default(createSalesOrderBodyTaxDefault),
   "description": zod.string().optional(),
   "shipping_address": zod.string().optional(),
+  "customer_latitude": zod.number().optional(),
+  "customer_longitude": zod.number().optional(),
   "entry_date": zod.coerce.date().optional(),
   "items": zod.array(zod.object({
   "product_id": zod.number(),
@@ -1260,6 +1477,12 @@ export const CreateSalesOrderResponse = zod.object({
   "tax": zod.number(),
   "description": zod.string().nullish(),
   "shipping_address": zod.string().nullish(),
+  "delivery_distance_km": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
+  "delivery_fee_radius": zod.number().nullish(),
+  "delivery_fee_per_km": zod.number().nullish(),
+  "customer_latitude": zod.number().nullish(),
+  "customer_longitude": zod.number().nullish(),
   "entry_date": zod.coerce.date(),
   "transaction_id": zod.number().nullish(),
   "item_count": zod.number().optional(),
@@ -1288,6 +1511,8 @@ export const CreatePublicSalesOrderBody = zod.object({
   "tax": zod.number().default(createPublicSalesOrderBodyTaxDefault),
   "description": zod.string().optional(),
   "shipping_address": zod.string().optional(),
+  "customer_latitude": zod.number().optional(),
+  "customer_longitude": zod.number().optional(),
   "entry_date": zod.coerce.date().optional(),
   "items": zod.array(zod.object({
   "product_id": zod.number(),
@@ -1307,6 +1532,12 @@ export const CreatePublicSalesOrderResponse = zod.object({
   "tax": zod.number(),
   "description": zod.string().nullish(),
   "shipping_address": zod.string().nullish(),
+  "delivery_distance_km": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
+  "delivery_fee_radius": zod.number().nullish(),
+  "delivery_fee_per_km": zod.number().nullish(),
+  "customer_latitude": zod.number().nullish(),
+  "customer_longitude": zod.number().nullish(),
   "entry_date": zod.coerce.date(),
   "transaction_id": zod.number().nullish(),
   "item_count": zod.number().optional(),
@@ -1340,6 +1571,12 @@ export const GetSalesOrderResponse = zod.object({
   "tax": zod.number(),
   "description": zod.string().nullish(),
   "shipping_address": zod.string().nullish(),
+  "delivery_distance_km": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
+  "delivery_fee_radius": zod.number().nullish(),
+  "delivery_fee_per_km": zod.number().nullish(),
+  "customer_latitude": zod.number().nullish(),
+  "customer_longitude": zod.number().nullish(),
   "entry_date": zod.coerce.date(),
   "transaction_id": zod.number().nullish(),
   "item_count": zod.number().optional(),
@@ -1379,6 +1616,12 @@ export const UpdateSalesOrderResponse = zod.object({
   "tax": zod.number(),
   "description": zod.string().nullish(),
   "shipping_address": zod.string().nullish(),
+  "delivery_distance_km": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
+  "delivery_fee_radius": zod.number().nullish(),
+  "delivery_fee_per_km": zod.number().nullish(),
+  "customer_latitude": zod.number().nullish(),
+  "customer_longitude": zod.number().nullish(),
   "entry_date": zod.coerce.date(),
   "transaction_id": zod.number().nullish(),
   "item_count": zod.number().optional(),
@@ -1428,6 +1671,12 @@ export const UpdateSalesOrderStatusResponse = zod.object({
   "tax": zod.number(),
   "description": zod.string().nullish(),
   "shipping_address": zod.string().nullish(),
+  "delivery_distance_km": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
+  "delivery_fee_radius": zod.number().nullish(),
+  "delivery_fee_per_km": zod.number().nullish(),
+  "customer_latitude": zod.number().nullish(),
+  "customer_longitude": zod.number().nullish(),
   "entry_date": zod.coerce.date(),
   "transaction_id": zod.number().nullish(),
   "item_count": zod.number().optional(),
@@ -2309,6 +2558,8 @@ export const GetAdminAnalyticsResponse = zod.object({
   "state": zod.string().nullish(),
   "postal_code": zod.string().nullish(),
   "country": zod.string().nullish(),
+  "latitude": zod.number().nullish(),
+  "longitude": zod.number().nullish(),
   "logo_url": zod.string().nullish(),
   "currency": zod.string().default(getAdminAnalyticsResponseRecentSignupsItemCurrencyDefault),
   "financial_year_start": zod.coerce.date().nullish(),

@@ -22,6 +22,18 @@ export interface SalesOrder {
   description?: string | null;
   /** @nullable */
   shipping_address?: string | null;
+  /** @nullable */
+  delivery_distance_km?: number | null;
+  /** @nullable */
+  delivery_fee?: number | null;
+  /** @nullable */
+  delivery_fee_radius?: number | null;
+  /** @nullable */
+  delivery_fee_per_km?: number | null;
+  /** @nullable */
+  customer_latitude?: number | null;
+  /** @nullable */
+  customer_longitude?: number | null;
   entry_date: Date;
   /** @nullable */
   transaction_id?: number | null;

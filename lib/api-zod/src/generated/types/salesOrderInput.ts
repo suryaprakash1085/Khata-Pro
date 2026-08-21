@@ -15,6 +15,8 @@ export interface SalesOrderInput {
   tax?: number;
   description?: string;
   shipping_address?: string;
+  customer_latitude?: number;
+  customer_longitude?: number;
   entry_date?: Date;
   items: SalesOrderItemInput[];
 }

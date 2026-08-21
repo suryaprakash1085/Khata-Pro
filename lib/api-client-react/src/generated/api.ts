@@ -38,6 +38,10 @@ import type {
   CustomerUpdate,
   DaybookEntry,
   Delivery,
+  DeliveryFeeCalculation,
+  DeliveryFeeCalculationInput,
+  DeliveryFeeSettings,
+  DeliveryFeeSettingsUpdate,
   DeliveryInput,
   DeliveryListResponse,
   DeliveryStatusUpdate,
@@ -90,6 +94,7 @@ import type {
   PromotionListResponse,
   PromotionStatusUpdate,
   PromotionUpdate,
+  PublicServiceHighlight,
   Purchase,
   PurchaseInput,
   PurchaseListResponse,
@@ -103,6 +108,10 @@ import type {
   SalesOrderListResponse,
   SalesOrderStatusUpdate,
   SalesOrderUpdate,
+  ServiceHighlight,
+  ServiceHighlightInput,
+  ServiceHighlightStatusUpdate,
+  ServiceHighlightUpdate,
   StaffInput,
   StaffMember,
   StatusUpdate,
@@ -1109,6 +1118,665 @@ export const useAddStaff = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getAddStaffMutationOptions(options));
+    }
+
+export const getListServiceHighlightsUrl = () => {
+
+
+
+
+  return `/api/service-highlights`
+}
+
+/**
+ * @summary List "Why Choose Us" highlights for the authenticated business
+ */
+export const listServiceHighlights = async ( options?: RequestInit): Promise<ServiceHighlight[]> => {
+
+  return customFetch<ServiceHighlight[]>(getListServiceHighlightsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListServiceHighlightsQueryKey = () => {
+    return [
+    `/api/service-highlights`
+    ] as const;
+    }
+
+
+export const getListServiceHighlightsQueryOptions = <TData = Awaited<ReturnType<typeof listServiceHighlights>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listServiceHighlights>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListServiceHighlightsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listServiceHighlights>>> = ({ signal }) => listServiceHighlights({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listServiceHighlights>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListServiceHighlightsQueryResult = NonNullable<Awaited<ReturnType<typeof listServiceHighlights>>>
+export type ListServiceHighlightsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List "Why Choose Us" highlights for the authenticated business
+ */
+
+export function useListServiceHighlights<TData = Awaited<ReturnType<typeof listServiceHighlights>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listServiceHighlights>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListServiceHighlightsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateServiceHighlightUrl = () => {
+
+
+
+
+  return `/api/service-highlights`
+}
+
+/**
+ * @summary Create a service highlight for the authenticated business
+ */
+export const createServiceHighlight = async (serviceHighlightInput: ServiceHighlightInput, options?: RequestInit): Promise<ServiceHighlight> => {
+
+  return customFetch<ServiceHighlight>(getCreateServiceHighlightUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(serviceHighlightInput)
+  }
+);}
+
+
+
+
+
+export const getCreateServiceHighlightMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createServiceHighlight>>, TError,{data: BodyType<ServiceHighlightInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createServiceHighlight>>, TError,{data: BodyType<ServiceHighlightInput>}, TContext> => {
+
+const mutationKey = ['createServiceHighlight'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createServiceHighlight>>, {data: BodyType<ServiceHighlightInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createServiceHighlight(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateServiceHighlightMutationResult = NonNullable<Awaited<ReturnType<typeof createServiceHighlight>>>
+    export type CreateServiceHighlightMutationBody = BodyType<ServiceHighlightInput>
+    export type CreateServiceHighlightMutationError = ErrorType<void>
+
+    /**
+ * @summary Create a service highlight for the authenticated business
+ */
+export const useCreateServiceHighlight = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createServiceHighlight>>, TError,{data: BodyType<ServiceHighlightInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createServiceHighlight>>,
+        TError,
+        {data: BodyType<ServiceHighlightInput>},
+        TContext
+      > => {
+      return useMutation(getCreateServiceHighlightMutationOptions(options));
+    }
+
+export const getUpdateServiceHighlightUrl = (id: number,) => {
+
+
+
+
+  return `/api/service-highlights/${id}`
+}
+
+/**
+ * @summary Update a service highlight (must belong to the authenticated business)
+ */
+export const updateServiceHighlight = async (id: number,
+    serviceHighlightUpdate: ServiceHighlightUpdate, options?: RequestInit): Promise<ServiceHighlight> => {
+
+  return customFetch<ServiceHighlight>(getUpdateServiceHighlightUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(serviceHighlightUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateServiceHighlightMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateServiceHighlight>>, TError,{id: number;data: BodyType<ServiceHighlightUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateServiceHighlight>>, TError,{id: number;data: BodyType<ServiceHighlightUpdate>}, TContext> => {
+
+const mutationKey = ['updateServiceHighlight'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateServiceHighlight>>, {id: number;data: BodyType<ServiceHighlightUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateServiceHighlight(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateServiceHighlightMutationResult = NonNullable<Awaited<ReturnType<typeof updateServiceHighlight>>>
+    export type UpdateServiceHighlightMutationBody = BodyType<ServiceHighlightUpdate>
+    export type UpdateServiceHighlightMutationError = ErrorType<void>
+
+    /**
+ * @summary Update a service highlight (must belong to the authenticated business)
+ */
+export const useUpdateServiceHighlight = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateServiceHighlight>>, TError,{id: number;data: BodyType<ServiceHighlightUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateServiceHighlight>>,
+        TError,
+        {id: number;data: BodyType<ServiceHighlightUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateServiceHighlightMutationOptions(options));
+    }
+
+export const getDeleteServiceHighlightUrl = (id: number,) => {
+
+
+
+
+  return `/api/service-highlights/${id}`
+}
+
+/**
+ * @summary Delete a service highlight (must belong to the authenticated business)
+ */
+export const deleteServiceHighlight = async (id: number, options?: RequestInit): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getDeleteServiceHighlightUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteServiceHighlightMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteServiceHighlight>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteServiceHighlight>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteServiceHighlight'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteServiceHighlight>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteServiceHighlight(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteServiceHighlightMutationResult = NonNullable<Awaited<ReturnType<typeof deleteServiceHighlight>>>
+
+    export type DeleteServiceHighlightMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete a service highlight (must belong to the authenticated business)
+ */
+export const useDeleteServiceHighlight = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteServiceHighlight>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteServiceHighlight>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteServiceHighlightMutationOptions(options));
+    }
+
+export const getUpdateServiceHighlightStatusUrl = (id: number,) => {
+
+
+
+
+  return `/api/service-highlights/${id}/status`
+}
+
+/**
+ * @summary Enable or disable a service highlight
+ */
+export const updateServiceHighlightStatus = async (id: number,
+    serviceHighlightStatusUpdate: ServiceHighlightStatusUpdate, options?: RequestInit): Promise<ServiceHighlight> => {
+
+  return customFetch<ServiceHighlight>(getUpdateServiceHighlightStatusUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(serviceHighlightStatusUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateServiceHighlightStatusMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateServiceHighlightStatus>>, TError,{id: number;data: BodyType<ServiceHighlightStatusUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateServiceHighlightStatus>>, TError,{id: number;data: BodyType<ServiceHighlightStatusUpdate>}, TContext> => {
+
+const mutationKey = ['updateServiceHighlightStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateServiceHighlightStatus>>, {id: number;data: BodyType<ServiceHighlightStatusUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateServiceHighlightStatus(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateServiceHighlightStatusMutationResult = NonNullable<Awaited<ReturnType<typeof updateServiceHighlightStatus>>>
+    export type UpdateServiceHighlightStatusMutationBody = BodyType<ServiceHighlightStatusUpdate>
+    export type UpdateServiceHighlightStatusMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Enable or disable a service highlight
+ */
+export const useUpdateServiceHighlightStatus = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateServiceHighlightStatus>>, TError,{id: number;data: BodyType<ServiceHighlightStatusUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateServiceHighlightStatus>>,
+        TError,
+        {id: number;data: BodyType<ServiceHighlightStatusUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateServiceHighlightStatusMutationOptions(options));
+    }
+
+export const getGetPublicServiceHighlightsUrl = (businessId: number,) => {
+
+
+
+
+  return `/api/public/businesses/${businessId}/service-highlights`
+}
+
+/**
+ * @summary Get active service highlights for a business (customer delivery app, no auth)
+ */
+export const getPublicServiceHighlights = async (businessId: number, options?: RequestInit): Promise<PublicServiceHighlight[]> => {
+
+  return customFetch<PublicServiceHighlight[]>(getGetPublicServiceHighlightsUrl(businessId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPublicServiceHighlightsQueryKey = (businessId: number,) => {
+    return [
+    `/api/public/businesses/${businessId}/service-highlights`
+    ] as const;
+    }
+
+
+export const getGetPublicServiceHighlightsQueryOptions = <TData = Awaited<ReturnType<typeof getPublicServiceHighlights>>, TError = ErrorType<unknown>>(businessId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicServiceHighlights>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPublicServiceHighlightsQueryKey(businessId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicServiceHighlights>>> = ({ signal }) => getPublicServiceHighlights(businessId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: businessId !== null && businessId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPublicServiceHighlights>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPublicServiceHighlightsQueryResult = NonNullable<Awaited<ReturnType<typeof getPublicServiceHighlights>>>
+export type GetPublicServiceHighlightsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get active service highlights for a business (customer delivery app, no auth)
+ */
+
+export function useGetPublicServiceHighlights<TData = Awaited<ReturnType<typeof getPublicServiceHighlights>>, TError = ErrorType<unknown>>(
+ businessId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPublicServiceHighlights>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPublicServiceHighlightsQueryOptions(businessId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetDeliveryFeeSettingsUrl = () => {
+
+
+
+
+  return `/api/delivery-fees/settings`
+}
+
+/**
+ * @summary Get the authenticated business's delivery-fee settings (creates defaults if none exist)
+ */
+export const getDeliveryFeeSettings = async ( options?: RequestInit): Promise<DeliveryFeeSettings> => {
+
+  return customFetch<DeliveryFeeSettings>(getGetDeliveryFeeSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDeliveryFeeSettingsQueryKey = () => {
+    return [
+    `/api/delivery-fees/settings`
+    ] as const;
+    }
+
+
+export const getGetDeliveryFeeSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getDeliveryFeeSettings>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDeliveryFeeSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDeliveryFeeSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDeliveryFeeSettings>>> = ({ signal }) => getDeliveryFeeSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDeliveryFeeSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDeliveryFeeSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getDeliveryFeeSettings>>>
+export type GetDeliveryFeeSettingsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get the authenticated business's delivery-fee settings (creates defaults if none exist)
+ */
+
+export function useGetDeliveryFeeSettings<TData = Awaited<ReturnType<typeof getDeliveryFeeSettings>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDeliveryFeeSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDeliveryFeeSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateDeliveryFeeSettingsUrl = () => {
+
+
+
+
+  return `/api/delivery-fees/settings`
+}
+
+/**
+ * @summary Update the authenticated business's delivery-fee settings
+ */
+export const updateDeliveryFeeSettings = async (deliveryFeeSettingsUpdate: DeliveryFeeSettingsUpdate, options?: RequestInit): Promise<DeliveryFeeSettings> => {
+
+  return customFetch<DeliveryFeeSettings>(getUpdateDeliveryFeeSettingsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(deliveryFeeSettingsUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateDeliveryFeeSettingsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateDeliveryFeeSettings>>, TError,{data: BodyType<DeliveryFeeSettingsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateDeliveryFeeSettings>>, TError,{data: BodyType<DeliveryFeeSettingsUpdate>}, TContext> => {
+
+const mutationKey = ['updateDeliveryFeeSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateDeliveryFeeSettings>>, {data: BodyType<DeliveryFeeSettingsUpdate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateDeliveryFeeSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateDeliveryFeeSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateDeliveryFeeSettings>>>
+    export type UpdateDeliveryFeeSettingsMutationBody = BodyType<DeliveryFeeSettingsUpdate>
+    export type UpdateDeliveryFeeSettingsMutationError = ErrorType<void>
+
+    /**
+ * @summary Update the authenticated business's delivery-fee settings
+ */
+export const useUpdateDeliveryFeeSettings = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateDeliveryFeeSettings>>, TError,{data: BodyType<DeliveryFeeSettingsUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateDeliveryFeeSettings>>,
+        TError,
+        {data: BodyType<DeliveryFeeSettingsUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateDeliveryFeeSettingsMutationOptions(options));
+    }
+
+export const getCalculateDeliveryFeeUrl = () => {
+
+
+
+
+  return `/api/delivery-fees/calculate`
+}
+
+/**
+ * @summary Calculate the delivery fee for a business + customer location (no auth — used by customer app for checkout preview)
+ */
+export const calculateDeliveryFee = async (deliveryFeeCalculationInput: DeliveryFeeCalculationInput, options?: RequestInit): Promise<DeliveryFeeCalculation> => {
+
+  return customFetch<DeliveryFeeCalculation>(getCalculateDeliveryFeeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(deliveryFeeCalculationInput)
+  }
+);}
+
+
+
+
+
+export const getCalculateDeliveryFeeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof calculateDeliveryFee>>, TError,{data: BodyType<DeliveryFeeCalculationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof calculateDeliveryFee>>, TError,{data: BodyType<DeliveryFeeCalculationInput>}, TContext> => {
+
+const mutationKey = ['calculateDeliveryFee'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof calculateDeliveryFee>>, {data: BodyType<DeliveryFeeCalculationInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  calculateDeliveryFee(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CalculateDeliveryFeeMutationResult = NonNullable<Awaited<ReturnType<typeof calculateDeliveryFee>>>
+    export type CalculateDeliveryFeeMutationBody = BodyType<DeliveryFeeCalculationInput>
+    export type CalculateDeliveryFeeMutationError = ErrorType<void>
+
+    /**
+ * @summary Calculate the delivery fee for a business + customer location (no auth — used by customer app for checkout preview)
+ */
+export const useCalculateDeliveryFee = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof calculateDeliveryFee>>, TError,{data: BodyType<DeliveryFeeCalculationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof calculateDeliveryFee>>,
+        TError,
+        {data: BodyType<DeliveryFeeCalculationInput>},
+        TContext
+      > => {
+      return useMutation(getCalculateDeliveryFeeMutationOptions(options));
     }
 
 export const getListCustomersUrl = (params: ListCustomersParams,) => {

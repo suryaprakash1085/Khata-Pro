@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "6": "pnpm exec expo start --tunnel",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build": "npx eas build -p android --profile preview",
-    "6":"pnpm exec expo start --tunnel"
+    "build": "npx eas build -p android --profile preview"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
@@ -31,6 +31,7 @@
     "expo-device": "^57.0.1",
     "expo-font": "~14.0.12",
     "expo-haptics": "^15.0.8",
+    "expo-linear-gradient": "~15.0.8",
     "expo-location": "~19.0.8",
     "expo-notifications": "^57.0.9",
     "expo-status-bar": "~3.0.9",

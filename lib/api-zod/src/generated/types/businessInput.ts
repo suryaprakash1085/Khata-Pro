@@ -19,6 +19,8 @@ export interface BusinessInput {
   state?: string;
   postal_code?: string;
   country?: string;
+  latitude?: number;
+  longitude?: number;
   logo_url?: string;
   currency?: string;
   financial_year_start?: Date;

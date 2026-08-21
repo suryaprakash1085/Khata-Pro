@@ -20,3 +20,5 @@ export * from "./returns";
 export * from "./notifications";
 export * from "./promotions";
 export * from "./service_highlights";
+export * from "./delivery_fee_settings";
+export * from "./customer_addresses";

@@ -105,6 +105,10 @@ export interface Business {
   /** @nullable */
   country?: string | null;
   /** @nullable */
+  latitude?: number | null;
+  /** @nullable */
+  longitude?: number | null;
+  /** @nullable */
   logo_url?: string | null;
   currency: string;
   /** @nullable */
@@ -127,6 +131,8 @@ export interface BusinessInput {
   state?: string;
   postal_code?: string;
   country?: string;
+  latitude?: number;
+  longitude?: number;
   logo_url?: string;
   currency?: string;
   financial_year_start?: string;
@@ -145,6 +151,8 @@ export interface BusinessUpdate {
   state?: string;
   postal_code?: string;
   country?: string;
+  latitude?: number;
+  longitude?: number;
   logo_url?: string;
   currency?: string;
   financial_year_start?: string;
@@ -217,6 +225,106 @@ export interface StaffMember {
 
 export interface StatusUpdate {
   is_active: boolean;
+}
+
+export interface ServiceHighlight {
+  id: number;
+  business_id: number;
+  title: string;
+  description: string;
+  icon: string;
+  is_active: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface ServiceHighlightInput {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  title: string;
+  /**
+     * @minLength 1
+     * @maxLength 300
+     */
+  description: string;
+  /**
+     * @minLength 1
+     * @maxLength 50
+     */
+  icon: string;
+  is_active?: boolean;
+  display_order?: number;
+}
+
+export interface ServiceHighlightUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  title?: string;
+  /**
+     * @minLength 1
+     * @maxLength 300
+     */
+  description?: string;
+  /**
+     * @minLength 1
+     * @maxLength 50
+     */
+  icon?: string;
+  is_active?: boolean;
+  display_order?: number;
+}
+
+export interface ServiceHighlightStatusUpdate {
+  is_active: boolean;
+}
+
+export interface PublicServiceHighlight {
+  id: number;
+  title: string;
+  description: string;
+  icon: string;
+}
+
+export interface DeliveryFeeSettings {
+  free_delivery_radius: number;
+  per_km_charge: number;
+  is_active: boolean;
+}
+
+export interface DeliveryFeeSettingsUpdate {
+  /** @exclusiveMinimum 0 */
+  free_delivery_radius: number;
+  /** @minimum 0 */
+  per_km_charge: number;
+  is_active: boolean;
+}
+
+export interface DeliveryFeeCalculationInput {
+  business_id: number;
+  /**
+     * @minimum -90
+     * @maximum 90
+     */
+  customer_latitude: number;
+  /**
+     * @minimum -180
+     * @maximum 180
+     */
+  customer_longitude: number;
+}
+
+export interface DeliveryFeeCalculation {
+  distance_km: number;
+  free_delivery_radius: number;
+  per_km_charge: number;
+  chargeable_distance_km: number;
+  delivery_fee: number;
+  is_free_delivery: boolean;
 }
 
 export type CustomerOpeningBalanceType = typeof CustomerOpeningBalanceType[keyof typeof CustomerOpeningBalanceType];
@@ -688,6 +796,18 @@ export interface SalesOrder {
   description?: string | null;
   /** @nullable */
   shipping_address?: string | null;
+  /** @nullable */
+  delivery_distance_km?: number | null;
+  /** @nullable */
+  delivery_fee?: number | null;
+  /** @nullable */
+  delivery_fee_radius?: number | null;
+  /** @nullable */
+  delivery_fee_per_km?: number | null;
+  /** @nullable */
+  customer_latitude?: number | null;
+  /** @nullable */
+  customer_longitude?: number | null;
   entry_date: string;
   /** @nullable */
   transaction_id?: number | null;
@@ -719,6 +839,8 @@ export interface SalesOrderInput {
   tax?: number;
   description?: string;
   shipping_address?: string;
+  customer_latitude?: number;
+  customer_longitude?: number;
   entry_date?: string;
   items: SalesOrderItemInput[];
 }

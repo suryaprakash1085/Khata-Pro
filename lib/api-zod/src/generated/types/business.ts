@@ -33,6 +33,10 @@ export interface Business {
   /** @nullable */
   country?: string | null;
   /** @nullable */
+  latitude?: number | null;
+  /** @nullable */
+  longitude?: number | null;
+  /** @nullable */
   logo_url?: string | null;
   currency: string;
   /** @nullable */
