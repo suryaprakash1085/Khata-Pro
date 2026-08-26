@@ -46,7 +46,8 @@ tags:
     description: "Why Choose Us"
   - name: delivery-fees 
     description: Distance-based delivery fee configuration and calculation
-
+  - name: driver-notifications
+    description: Driver-facing notifications (paginated, filterable, read-tracking)
 paths:
   /healthz:
     get:
@@ -1641,7 +1642,322 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Delivery"
+  # ── Driver delivery-flow endpoints (delivery-app) ──────────────────────────
 
+  /deliveries/my:
+    get:
+      operationId: listMyDeliveries
+      tags: [deliveries]
+      summary: List deliveries assigned to the authenticated driver
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, assigned, picked_up, in_transit, delivered, cancelled]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of the driver's deliveries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryListResponse"
+
+  /deliveries/{id}/my-details:
+    get:
+      operationId: getMyDeliveryDetails
+      tags: [deliveries]
+      summary: Full delivery detail for the driver — includes customer contact and order items
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Delivery detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryMyDetails"
+        "404":
+          description: Not found
+
+  /deliveries/{id}/accept:
+    post:
+      operationId: acceptDelivery
+      tags: [deliveries]
+      summary: Driver accepts an assigned delivery
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Delivery accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Delivery"
+        "404":
+          description: Not found
+        "409":
+          description: Delivery is no longer available
+
+  /deliveries/{id}/reject:
+    post:
+      operationId: rejectDelivery
+      tags: [deliveries]
+      summary: Driver rejects an assigned delivery (returns it to the pending/admin queue)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectDeliveryInput"
+      responses:
+        "200":
+          description: Delivery rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Delivery"
+        "404":
+          description: Not found
+        "409":
+          description: Delivery can no longer be rejected
+  
+  /deliveries/{id}/call:
+    post:
+      operationId: callDeliveryCustomer
+      tags: [deliveries]
+      summary: Driver initiates a masked/bridged call to the customer — Exotel rings the driver first, then bridges to the customer. Neither side sees the other's real number.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Call connecting
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CallCustomerResult"
+        "404":
+          description: Not found
+        "422":
+          description: Driver or customer has no phone number on file
+        "500":
+          description: Calling is not configured
+        "502":
+          description: Call provider rejected the request
+  /deliveries/{id}/pickup:
+    post:
+      operationId: pickupDelivery
+      tags: [deliveries]
+      summary: Driver marks the delivery as picked up from the store
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Marked as picked up
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Delivery"
+        "404":
+          description: Not found
+        "409":
+          description: Delivery must be accepted first
+
+  /deliveries/{id}/start-delivery:
+    post:
+      operationId: startDeliveryTrip
+      tags: [deliveries]
+      summary: Driver starts the trip to the customer (out for delivery)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Delivery marked in transit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Delivery"
+        "404":
+          description: Not found
+        "409":
+          description: Delivery must be picked up first
+
+  /deliveries/{id}/arrived:
+    post:
+      operationId: markDeliveryArrived
+      tags: [deliveries]
+      summary: Driver marks arrival at the customer location. Auto-generates and sends the delivery OTP.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Marked as arrived, OTP sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Delivery"
+        "404":
+          description: Not found
+        "409":
+          description: Delivery must be in transit and not already arrived
+        "422":
+          description: Customer has no phone number on file
+        "502":
+          description: Failed to send OTP
+
+  /deliveries/{id}/otp/resend:
+    post:
+      operationId: resendDeliveryOtp
+      tags: [deliveries]
+      summary: Resend the delivery OTP to the customer (rate-limited)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OTP resent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          description: Not found
+        "409":
+          description: Resend not available at this stage
+        "429":
+          description: Cooldown active or max resends reached
+        "502":
+          description: Failed to resend OTP
+
+  /deliveries/{id}/otp/verify:
+    post:
+      operationId: verifyDeliveryOtp
+      tags: [deliveries]
+      summary: Verify the customer-provided OTP for this delivery
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyDeliveryOtpInput"
+      responses:
+        "200":
+          description: OTP verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Delivery"
+        "401":
+          description: Incorrect or expired OTP
+        "404":
+          description: Not found
+        "409":
+          description: Not eligible for verification at this stage
+        "429":
+          description: Too many incorrect attempts
+
+  /deliveries/{id}/payment:
+    post:
+      operationId: confirmDeliveryPayment
+      tags: [deliveries]
+      summary: Confirm COD payment collection for this delivery
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmDeliveryPaymentInput"
+      responses:
+        "200":
+          description: Payment confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Delivery"
+        "404":
+          description: Not found
+        "409":
+          description: Not COD, or already collected
+        "422":
+          description: Amount exceeds order total
+
+  /deliveries/{id}/complete:
+    post:
+      operationId: completeDelivery
+      tags: [deliveries]
+      summary: Complete the delivery (requires arrival, OTP verified, and COD payment collected if applicable)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Delivery completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompleteDeliveryResult"
+        "404":
+          description: Not found
+        "409":
+          description: Preconditions not met (arrival / OTP / payment)
   # ─── TRANSACTIONS ────────────────────────────────────────────────────────────
 
   /transactions:
@@ -2063,6 +2379,90 @@ paths:
                 items:
                   $ref: "#/components/schemas/Notification"
 
+    # ─── DRIVER NOTIFICATIONS ────────────────────────────────────────────────────
+
+  /driver/notifications:
+    get:
+      operationId: listDriverNotifications
+      tags: [driver-notifications]
+      summary: List notifications for the authenticated driver (paginated, filterable)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [ALL, DELIVERIES, EARNINGS, SYSTEM]
+            default: ALL
+        - name: read
+          in: query
+          schema:
+            type: string
+            enum: [ALL, READ, UNREAD]
+            default: ALL
+      responses:
+        "200":
+          description: Paginated list of the driver's notifications
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriverNotificationListResponse"
+
+  /driver/notifications/unread-count:
+    get:
+      operationId: getDriverUnreadNotificationCount
+      tags: [driver-notifications]
+      summary: Get the authenticated driver's unread notification count
+      responses:
+        "200":
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriverUnreadCountResponse"
+
+  /driver/notifications/{id}/read:
+    patch:
+      operationId: markDriverNotificationRead
+      tags: [driver-notifications]
+      summary: Mark one of the authenticated driver's notifications as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriverNotificationActionResponse"
+        "404":
+          description: Not found (or belongs to another driver)
+
+  /driver/notifications/read-all:
+    patch:
+      operationId: markAllDriverNotificationsRead
+      tags: [driver-notifications]
+      summary: Mark all of the authenticated driver's unread notifications as read
+      responses:
+        "200":
+          description: All marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriverNotificationActionResponse"
   # ─── ADMIN ───────────────────────────────────────────────────────────────────
 
   /admin/analytics:
@@ -3442,6 +3842,10 @@ components:
           type: number
         customer_longitude:
           type: number
+        payment_method:
+          type: string
+          enum: [cod, online, card]
+          default: online
         entry_date:
           type: string
           format: date
@@ -3523,6 +3927,8 @@ components:
           type: string
         phone:
           type: string
+        email:
+          type: ["string", "null"]
         vehicle_number:
           type: ["string", "null"]
         vehicle_type:
@@ -3538,10 +3944,23 @@ components:
         rating:
           type: number
           default: 5.0
+        date_of_birth:
+          type: ["string", "null"]
+          format: date
+        gender:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        emergency_contact_name:
+          type: ["string", "null"]
+        emergency_contact_relation:
+          type: ["string", "null"]
+        emergency_contact_phone:
+          type: ["string", "null"]
         created_at:
           type: string
           format: date-time
-
+          
     DriverInput:
       type: object
       required: [business_id, name, phone]
@@ -3551,6 +3970,8 @@ components:
         name:
           type: string
         phone:
+          type: string
+        email:
           type: string
         vehicle_number:
           type: string
@@ -3570,6 +3991,8 @@ components:
           type: string
         phone:
           type: string
+        email:
+          type: string
         vehicle_number:
           type: string
         vehicle_type:
@@ -3584,6 +4007,19 @@ components:
           type: string
         rating:
           type: number
+        date_of_birth:
+          type: string
+          format: date
+        gender:
+          type: string
+        address:
+          type: string
+        emergency_contact_name:
+          type: string
+        emergency_contact_relation:
+          type: string
+        emergency_contact_phone:
+          type: string
 
     DriverListResponse:
       type: object
@@ -3602,13 +4038,17 @@ components:
 
     DriverStats:
       type: object
-      required: [total_deliveries, completed_deliveries, pending_deliveries, cash_to_collect, distance_travelled_km, rating, success_rate, avg_delivery_time_minutes]
+      required: [total_deliveries, completed_deliveries, pending_deliveries, cancelled_deliveries, failed_deliveries, cash_to_collect, distance_travelled_km, rating, success_rate, avg_delivery_time_minutes]
       properties:
         total_deliveries:
           type: integer
         completed_deliveries:
           type: integer
         pending_deliveries:
+          type: integer
+        cancelled_deliveries:
+          type: integer
+        failed_deliveries:
           type: integer
         cash_to_collect:
           type: number
@@ -3621,18 +4061,105 @@ components:
         avg_delivery_time_minutes:
           type: number
 
+    # ── Driver Earnings (REPLACES the old DriverEarnings schema block) ──────
+
     DriverEarnings:
       type: object
-      required: [today_earnings, cod_collected, incentives, weekly_earnings]
+      required: [summary, chart, history, history_total, page, limit, range]
       properties:
-        today_earnings:
-          type: number
-        cod_collected:
-          type: number
-        incentives:
-          type: number
-        weekly_earnings:
-          type: number
+        summary:
+          $ref: "#/components/schemas/DriverEarningsSummary"
+        chart:
+          type: array
+          items:
+            $ref: "#/components/schemas/DriverEarningsChartPoint"
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/DriverEarningsHistoryItem"
+        history_total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        range:
+          $ref: "#/components/schemas/DriverEarningsRange"
+
+    DriverEarningsSummary:
+      type: object
+      required: [today, week, month, pending]
+      properties:
+        today:
+          $ref: "#/components/schemas/DriverEarningsPeriod"
+        week:
+          $ref: "#/components/schemas/DriverEarningsPeriod"
+        month:
+          $ref: "#/components/schemas/DriverEarningsPeriod"
+        pending:
+          $ref: "#/components/schemas/DriverEarningsPending"
+
+    DriverEarningsPeriod:
+      type: object
+      required: [amount, deliveries]
+      properties:
+        amount:
+          type: string
+        deliveries:
+          type: integer
+
+    DriverEarningsPending:
+      type: object
+      required: [amount]
+      properties:
+        amount:
+          type: string
+
+    DriverEarningsChartPoint:
+      type: object
+      required: [date, amount, deliveries]
+      properties:
+        date:
+          type: string
+          format: date
+        amount:
+          type: string
+        deliveries:
+          type: integer
+
+    DriverEarningsHistoryItem:
+      type: object
+      required: [delivery_id, order_id, customer_name, amount, status]
+      properties:
+        delivery_id:
+          type: integer
+        order_id:
+          type: integer
+        customer_name:
+          type: string
+        date:
+          type: ["string", "null"]
+          format: date
+        time:
+          type: ["string", "null"]
+        distance_km:
+          type: ["number", "null"]
+        amount:
+          type: string
+        status:
+          type: string
+          enum: [earned]
+
+    DriverEarningsRange:
+      type: object
+      required: [from, to]
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
 
     # ── Delivery ──────────────────────────────────────────────────────────────
 
@@ -3646,7 +4173,7 @@ components:
           type: integer
         customer_id:
           type: integer
-        sales_order_id:                    # ← NEW
+        sales_order_id:
           type: ["integer", "null"]
         driver_id:
           type: ["integer", "null"]
@@ -3654,6 +4181,10 @@ components:
           type: string
         drop_address:
           type: string
+        delivery_landmark:
+          type: ["string", "null"]
+        delivery_instructions:
+          type: ["string", "null"]
         status:
           type: string
           enum: [pending, assigned, picked_up, in_transit, delivered, cancelled]
@@ -3666,10 +4197,25 @@ components:
           enum: [cod, online, card]
         distance_km:
           type: ["number", "null"]
+        subtotal:                     # 🆕
+          type: ["number", "null"]
+        tax:                          # 🆕 (rename if already exists elsewhere)
+          type: ["number", "null"]
+        delivery_fee:                 # 🆕
+          type: ["number", "null"]
         assigned_at:
           type: ["string", "null"]
           format: date-time
+        accepted_at:
+          type: ["string", "null"]
+          format: date-time
         picked_up_at:
+          type: ["string", "null"]
+          format: date-time
+        out_for_delivery_at:
+          type: ["string", "null"]
+          format: date-time
+        arrived_at:
           type: ["string", "null"]
           format: date-time
         delivered_at:
@@ -3678,6 +4224,32 @@ components:
         cancelled_at:
           type: ["string", "null"]
           format: date-time
+ 
+        rejection_reason:
+          type: ["string", "null"]
+        cancellation_reason:
+          type: ["string", "null"]
+ 
+        otp_verified:
+          type: boolean
+        otp_verified_at:
+          type: ["string", "null"]
+          format: date-time
+        otp_expires_at:
+          type: ["string", "null"]
+          format: date-time
+        otp_attempts_remaining:
+          type: ["integer", "null"]
+ 
+        payment_status:
+          type: string
+          enum: [not_applicable, pending, collected]
+        payment_collected_at:
+          type: ["string", "null"]
+          format: date-time
+        collected_amount:
+          type: ["number", "null"]
+ 
         created_at:
           type: string
           format: date-time
@@ -3743,7 +4315,97 @@ components:
           type: integer
         limit:
           type: integer
-
+    
+     # ── Driver-flow request bodies ───────────────────────────────────────────
+ 
+    RejectDeliveryInput:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+ 
+    VerifyDeliveryOtpInput:
+      type: object
+      required: [otp]
+      properties:
+        otp:
+          type: string
+          minLength: 4
+          maxLength: 6
+ 
+    ConfirmDeliveryPaymentInput:
+      type: object
+      required: [amount]
+      properties:
+        amount:
+          type: number
+          exclusiveMinimum: 0
+ 
+    # ── Driver-flow response bodies ──────────────────────────────────────────
+ 
+    DeliveryMyDetails:
+      type: object
+      required: [delivery, customer, items]
+      properties:
+        delivery:
+          $ref: "#/components/schemas/Delivery"
+        customer:
+          $ref: "#/components/schemas/DeliveryCustomerBrief"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeliveryOrderItem"
+ 
+    DeliveryCustomerBrief:
+      type: object
+      required: [id, name, phone]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+        address:
+          type: ["string", "null"]
+ 
+    DeliveryOrderItem:
+      type: object
+      required: [id, product_name, qty, unit_price, total_price]
+      properties:
+        id:
+          type: integer
+        product_name:
+          type: string
+        qty:
+          type: number
+        unit_price:
+          type: number
+        total_price:
+          type: number
+ 
+    CompleteDeliveryResult:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          $ref: "#/components/schemas/Delivery"
+   
+    CallCustomerResult:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        call_sid:
+          type: ["string", "null"]
     # ── Transaction ───────────────────────────────────────────────────────────
 
     Transaction:
@@ -4120,7 +4782,92 @@ components:
         created_at:
           type: string
           format: date-time
+        # ── Driver Notifications ──────────────────────────────────────────────────
 
+    DriverNotification:
+      type: object
+      required: [id, type, title, message, is_read, created_at]
+      properties:
+        id:
+          type: integer
+        driver_id:
+          type: ["integer", "null"]
+        delivery_id:
+          type: ["integer", "null"]
+        order_id:
+          type: ["integer", "null"]
+        type:
+          type: string
+          enum:
+            - assigned
+            - accepted
+            - picked_up
+            - out_for_delivery
+            - completed
+            - cancelled
+            - fee_earned
+            - address_updated
+            - payment_received
+            - order_confirmed
+            - system
+            - admin_message
+        title:
+          type: string
+        message:
+          type: string
+        is_read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        read_at:
+          type: ["string", "null"]
+          format: date-time
+          
+
+    DriverNotificationPagination:
+      type: object
+      required: [page, limit, total, totalPages]
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    DriverNotificationListResponse:
+      type: object
+      required: [success, data, pagination]
+      properties:
+        success:
+          type: boolean
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/DriverNotification"
+        pagination:
+          $ref: "#/components/schemas/DriverNotificationPagination"
+
+    DriverUnreadCountResponse:
+      type: object
+      required: [success, count]
+      properties:
+        success:
+          type: boolean
+        count:
+          type: integer
+
+    DriverNotificationActionResponse:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
     # ── Admin ─────────────────────────────────────────────────────────────────
 
     AdminAnalytics:

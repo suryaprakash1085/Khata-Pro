@@ -14,6 +14,8 @@ export interface Driver {
   name: string;
   phone: string;
   /** @nullable */
+  email?: string | null;
+  /** @nullable */
   vehicle_number?: string | null;
   vehicle_type: DriverVehicleType;
   status: DriverStatus;
@@ -22,5 +24,17 @@ export interface Driver {
   /** @nullable */
   last_lng?: string | null;
   rating?: number;
+  /** @nullable */
+  date_of_birth?: Date | null;
+  /** @nullable */
+  gender?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  emergency_contact_name?: string | null;
+  /** @nullable */
+  emergency_contact_relation?: string | null;
+  /** @nullable */
+  emergency_contact_phone?: string | null;
   created_at: Date;
 }

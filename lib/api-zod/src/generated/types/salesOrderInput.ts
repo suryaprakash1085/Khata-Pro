@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SalesOrderInputChannel } from './salesOrderInputChannel';
+import type { SalesOrderInputPaymentMethod } from './salesOrderInputPaymentMethod';
 import type { SalesOrderItemInput } from './salesOrderItemInput';
 
 export interface SalesOrderInput {
@@ -17,6 +18,7 @@ export interface SalesOrderInput {
   shipping_address?: string;
   customer_latitude?: number;
   customer_longitude?: number;
+  payment_method?: SalesOrderInputPaymentMethod;
   entry_date?: Date;
   items: SalesOrderItemInput[];
 }

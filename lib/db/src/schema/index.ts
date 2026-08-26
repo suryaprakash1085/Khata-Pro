@@ -10,6 +10,7 @@ export * from "./subscriptions";
 export * from "./audit_logs";
 export * from "./drivers";
 export * from "./deliveries";
+export * from "./delivery_status_history";
 export * from "./purchases";
 export * from "./purchase_items";
 export * from "./expenses";

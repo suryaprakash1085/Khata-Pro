@@ -5,10 +5,17 @@
  * KhataPro CRM API — digital ledger platform for small businesses
  * OpenAPI spec version: 0.1.0
  */
+import type { DriverEarningsChartPoint } from './driverEarningsChartPoint';
+import type { DriverEarningsHistoryItem } from './driverEarningsHistoryItem';
+import type { DriverEarningsRange } from './driverEarningsRange';
+import type { DriverEarningsSummary } from './driverEarningsSummary';
 
 export interface DriverEarnings {
-  today_earnings: number;
-  cod_collected: number;
-  incentives: number;
-  weekly_earnings: number;
+  summary: DriverEarningsSummary;
+  chart: DriverEarningsChartPoint[];
+  history: DriverEarningsHistoryItem[];
+  history_total: number;
+  page: number;
+  limit: number;
+  range: DriverEarningsRange;
 }

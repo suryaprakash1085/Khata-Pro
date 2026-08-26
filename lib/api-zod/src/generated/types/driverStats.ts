@@ -10,6 +10,8 @@ export interface DriverStats {
   total_deliveries: number;
   completed_deliveries: number;
   pending_deliveries: number;
+  cancelled_deliveries: number;
+  failed_deliveries: number;
   cash_to_collect: number;
   distance_travelled_km: number;
   rating: number;

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { DeliveryPaymentMethod } from './deliveryPaymentMethod';
+import type { DeliveryPaymentStatus } from './deliveryPaymentStatus';
 import type { DeliveryStatus } from './deliveryStatus';
 
 export interface Delivery {
@@ -18,6 +19,10 @@ export interface Delivery {
   driver_id?: number | null;
   pickup_address: string;
   drop_address: string;
+  /** @nullable */
+  delivery_landmark?: string | null;
+  /** @nullable */
+  delivery_instructions?: string | null;
   status: DeliveryStatus;
   /** @nullable */
   notes?: string | null;
@@ -28,12 +33,40 @@ export interface Delivery {
   /** @nullable */
   distance_km?: number | null;
   /** @nullable */
+  subtotal?: number | null;
+  /** @nullable */
+  tax?: number | null;
+  /** @nullable */
+  delivery_fee?: number | null;
+  /** @nullable */
   assigned_at?: Date | null;
   /** @nullable */
+  accepted_at?: Date | null;
+  /** @nullable */
   picked_up_at?: Date | null;
+  /** @nullable */
+  out_for_delivery_at?: Date | null;
+  /** @nullable */
+  arrived_at?: Date | null;
   /** @nullable */
   delivered_at?: Date | null;
   /** @nullable */
   cancelled_at?: Date | null;
+  /** @nullable */
+  rejection_reason?: string | null;
+  /** @nullable */
+  cancellation_reason?: string | null;
+  otp_verified?: boolean;
+  /** @nullable */
+  otp_verified_at?: Date | null;
+  /** @nullable */
+  otp_expires_at?: Date | null;
+  /** @nullable */
+  otp_attempts_remaining?: number | null;
+  payment_status?: DeliveryPaymentStatus;
+  /** @nullable */
+  payment_collected_at?: Date | null;
+  /** @nullable */
+  collected_amount?: number | null;
   created_at: Date;
 }

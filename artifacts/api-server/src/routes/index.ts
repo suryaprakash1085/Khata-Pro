@@ -21,8 +21,10 @@ import notificationsRouter from "./notifications"; // 🔶 FIX — was never imp
 import promotionsRouter from "./promotions";
 import serviceHighlightsRouter from "./service-highlights";
 import deliveryfeesRouter from "./delivery-fees.routes";
+import driverNotificationsRouter from "./driverNotifications";
+import { requireDriverAuth } from "../middlewares/driverAuth";
 
-import app from "../app";
+
 
 const router: IRouter = Router();
 
@@ -46,6 +48,7 @@ router.use(paymentsRouter);
 router.use(customerAuthRouter);
 router.use(promotionsRouter);
 router.use("/notifications", notificationsRouter);
+router.use("/driver/notifications", requireDriverAuth, driverNotificationsRouter);
 router.use(serviceHighlightsRouter);
 router.use(deliveryfeesRouter);
 

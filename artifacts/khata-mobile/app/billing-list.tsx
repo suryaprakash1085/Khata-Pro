@@ -49,6 +49,7 @@ interface ApiTransaction {
   description: string | null;
   bill_image_url: string | null;
   payment_mode: string;
+  invoice_no: string | null;
   entry_date: string;
   due_date: string | null;
   created_by: number;
@@ -174,10 +175,11 @@ function buildBillRows(transactions: ApiTransaction[]): BillRow[] {
   });
 
   const rows: BillRow[] = billTxns.map((t) => {
-    const match = t.description?.match(BILL_INVOICE_REGEX);
-    const invoiceNumber = match ? match[1].toUpperCase() : `TXN-${t.id}`;
+    // const match = t.description?.match(BILL_INVOICE_REGEX);
+     
+    const invoiceNumber = t.invoice_no ? t.invoice_no.toUpperCase() : `TXN-${t.id}`;
     const paidAmount = paidByInvoice.get(invoiceNumber) ?? 0;
-
+    
     let status: BillStatus = 'pending';
     if (paidAmount >= t.amount - 0.01) status = 'paid';
     else if (paidAmount > 0) status = 'partially_paid';

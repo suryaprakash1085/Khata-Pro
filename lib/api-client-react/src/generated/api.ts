@@ -31,7 +31,10 @@ import type {
   BusinessListResponse,
   BusinessStats,
   BusinessUpdate,
+  CallCustomerResult,
   CashbookReport,
+  CompleteDeliveryResult,
+  ConfirmDeliveryPaymentInput,
   Customer,
   CustomerInput,
   CustomerListResponse,
@@ -44,13 +47,17 @@ import type {
   DeliveryFeeSettingsUpdate,
   DeliveryInput,
   DeliveryListResponse,
+  DeliveryMyDetails,
   DeliveryStatusUpdate,
   DeliveryUpdate,
   Driver,
   DriverEarnings,
   DriverInput,
   DriverListResponse,
+  DriverNotificationActionResponse,
+  DriverNotificationListResponse,
   DriverStats,
+  DriverUnreadCountResponse,
   DriverUpdate,
   EmployeePerformance,
   GetCashbookParams,
@@ -68,7 +75,9 @@ import type {
   ListBusinessesParams,
   ListCustomersParams,
   ListDeliveriesParams,
+  ListDriverNotificationsParams,
   ListDriversParams,
+  ListMyDeliveriesParams,
   ListNotificationsParams,
   ListProductsParams,
   ListPromotionsParams,
@@ -100,6 +109,7 @@ import type {
   PurchaseListResponse,
   PurchaseUpdate,
   RegisterInput,
+  RejectDeliveryInput,
   Reminder,
   ReminderInput,
   ReportSummary,
@@ -128,7 +138,8 @@ import type {
   Vendor,
   VendorInput,
   VendorListResponse,
-  VendorUpdate
+  VendorUpdate,
+  VerifyDeliveryOtpInput
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -5382,6 +5393,880 @@ export const useUpdateDeliveryStatus = <TError = ErrorType<unknown>,
       return useMutation(getUpdateDeliveryStatusMutationOptions(options));
     }
 
+export const getListMyDeliveriesUrl = (params?: ListMyDeliveriesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/deliveries/my?${stringifiedParams}` : `/api/deliveries/my`
+}
+
+/**
+ * @summary List deliveries assigned to the authenticated driver
+ */
+export const listMyDeliveries = async (params?: ListMyDeliveriesParams, options?: RequestInit): Promise<DeliveryListResponse> => {
+
+  return customFetch<DeliveryListResponse>(getListMyDeliveriesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMyDeliveriesQueryKey = (params?: ListMyDeliveriesParams,) => {
+    return [
+    `/api/deliveries/my`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListMyDeliveriesQueryOptions = <TData = Awaited<ReturnType<typeof listMyDeliveries>>, TError = ErrorType<unknown>>(params?: ListMyDeliveriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMyDeliveries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMyDeliveriesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyDeliveries>>> = ({ signal }) => listMyDeliveries(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMyDeliveries>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMyDeliveriesQueryResult = NonNullable<Awaited<ReturnType<typeof listMyDeliveries>>>
+export type ListMyDeliveriesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List deliveries assigned to the authenticated driver
+ */
+
+export function useListMyDeliveries<TData = Awaited<ReturnType<typeof listMyDeliveries>>, TError = ErrorType<unknown>>(
+ params?: ListMyDeliveriesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMyDeliveries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMyDeliveriesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMyDeliveryDetailsUrl = (id: number,) => {
+
+
+
+
+  return `/api/deliveries/${id}/my-details`
+}
+
+/**
+ * @summary Full delivery detail for the driver — includes customer contact and order items
+ */
+export const getMyDeliveryDetails = async (id: number, options?: RequestInit): Promise<DeliveryMyDetails> => {
+
+  return customFetch<DeliveryMyDetails>(getGetMyDeliveryDetailsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMyDeliveryDetailsQueryKey = (id: number,) => {
+    return [
+    `/api/deliveries/${id}/my-details`
+    ] as const;
+    }
+
+
+export const getGetMyDeliveryDetailsQueryOptions = <TData = Awaited<ReturnType<typeof getMyDeliveryDetails>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyDeliveryDetails>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMyDeliveryDetailsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyDeliveryDetails>>> = ({ signal }) => getMyDeliveryDetails(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMyDeliveryDetails>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMyDeliveryDetailsQueryResult = NonNullable<Awaited<ReturnType<typeof getMyDeliveryDetails>>>
+export type GetMyDeliveryDetailsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Full delivery detail for the driver — includes customer contact and order items
+ */
+
+export function useGetMyDeliveryDetails<TData = Awaited<ReturnType<typeof getMyDeliveryDetails>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMyDeliveryDetails>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMyDeliveryDetailsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAcceptDeliveryUrl = (id: number,) => {
+
+
+
+
+  return `/api/deliveries/${id}/accept`
+}
+
+/**
+ * @summary Driver accepts an assigned delivery
+ */
+export const acceptDelivery = async (id: number, options?: RequestInit): Promise<Delivery> => {
+
+  return customFetch<Delivery>(getAcceptDeliveryUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getAcceptDeliveryMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptDelivery>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acceptDelivery>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['acceptDelivery'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acceptDelivery>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  acceptDelivery(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcceptDeliveryMutationResult = NonNullable<Awaited<ReturnType<typeof acceptDelivery>>>
+
+    export type AcceptDeliveryMutationError = ErrorType<void>
+
+    /**
+ * @summary Driver accepts an assigned delivery
+ */
+export const useAcceptDelivery = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acceptDelivery>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acceptDelivery>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getAcceptDeliveryMutationOptions(options));
+    }
+
+export const getRejectDeliveryUrl = (id: number,) => {
+
+
+
+
+  return `/api/deliveries/${id}/reject`
+}
+
+/**
+ * @summary Driver rejects an assigned delivery (returns it to the pending/admin queue)
+ */
+export const rejectDelivery = async (id: number,
+    rejectDeliveryInput: RejectDeliveryInput, options?: RequestInit): Promise<Delivery> => {
+
+  return customFetch<Delivery>(getRejectDeliveryUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(rejectDeliveryInput)
+  }
+);}
+
+
+
+
+
+export const getRejectDeliveryMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectDelivery>>, TError,{id: number;data: BodyType<RejectDeliveryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rejectDelivery>>, TError,{id: number;data: BodyType<RejectDeliveryInput>}, TContext> => {
+
+const mutationKey = ['rejectDelivery'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rejectDelivery>>, {id: number;data: BodyType<RejectDeliveryInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  rejectDelivery(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RejectDeliveryMutationResult = NonNullable<Awaited<ReturnType<typeof rejectDelivery>>>
+    export type RejectDeliveryMutationBody = BodyType<RejectDeliveryInput>
+    export type RejectDeliveryMutationError = ErrorType<void>
+
+    /**
+ * @summary Driver rejects an assigned delivery (returns it to the pending/admin queue)
+ */
+export const useRejectDelivery = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectDelivery>>, TError,{id: number;data: BodyType<RejectDeliveryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rejectDelivery>>,
+        TError,
+        {id: number;data: BodyType<RejectDeliveryInput>},
+        TContext
+      > => {
+      return useMutation(getRejectDeliveryMutationOptions(options));
+    }
+
+export const getCallDeliveryCustomerUrl = (id: number,) => {
+
+
+
+
+  return `/api/deliveries/${id}/call`
+}
+
+/**
+ * @summary Driver initiates a masked/bridged call to the customer — Exotel rings the driver first, then bridges to the customer. Neither side sees the other's real number.
+ */
+export const callDeliveryCustomer = async (id: number, options?: RequestInit): Promise<CallCustomerResult> => {
+
+  return customFetch<CallCustomerResult>(getCallDeliveryCustomerUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCallDeliveryCustomerMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof callDeliveryCustomer>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof callDeliveryCustomer>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['callDeliveryCustomer'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof callDeliveryCustomer>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  callDeliveryCustomer(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CallDeliveryCustomerMutationResult = NonNullable<Awaited<ReturnType<typeof callDeliveryCustomer>>>
+
+    export type CallDeliveryCustomerMutationError = ErrorType<void>
+
+    /**
+ * @summary Driver initiates a masked/bridged call to the customer — Exotel rings the driver first, then bridges to the customer. Neither side sees the other's real number.
+ */
+export const useCallDeliveryCustomer = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof callDeliveryCustomer>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof callDeliveryCustomer>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getCallDeliveryCustomerMutationOptions(options));
+    }
+
+export const getPickupDeliveryUrl = (id: number,) => {
+
+
+
+
+  return `/api/deliveries/${id}/pickup`
+}
+
+/**
+ * @summary Driver marks the delivery as picked up from the store
+ */
+export const pickupDelivery = async (id: number, options?: RequestInit): Promise<Delivery> => {
+
+  return customFetch<Delivery>(getPickupDeliveryUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getPickupDeliveryMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pickupDelivery>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof pickupDelivery>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['pickupDelivery'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof pickupDelivery>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  pickupDelivery(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PickupDeliveryMutationResult = NonNullable<Awaited<ReturnType<typeof pickupDelivery>>>
+
+    export type PickupDeliveryMutationError = ErrorType<void>
+
+    /**
+ * @summary Driver marks the delivery as picked up from the store
+ */
+export const usePickupDelivery = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pickupDelivery>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof pickupDelivery>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getPickupDeliveryMutationOptions(options));
+    }
+
+export const getStartDeliveryTripUrl = (id: number,) => {
+
+
+
+
+  return `/api/deliveries/${id}/start-delivery`
+}
+
+/**
+ * @summary Driver starts the trip to the customer (out for delivery)
+ */
+export const startDeliveryTrip = async (id: number, options?: RequestInit): Promise<Delivery> => {
+
+  return customFetch<Delivery>(getStartDeliveryTripUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getStartDeliveryTripMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startDeliveryTrip>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startDeliveryTrip>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['startDeliveryTrip'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startDeliveryTrip>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  startDeliveryTrip(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartDeliveryTripMutationResult = NonNullable<Awaited<ReturnType<typeof startDeliveryTrip>>>
+
+    export type StartDeliveryTripMutationError = ErrorType<void>
+
+    /**
+ * @summary Driver starts the trip to the customer (out for delivery)
+ */
+export const useStartDeliveryTrip = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startDeliveryTrip>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof startDeliveryTrip>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getStartDeliveryTripMutationOptions(options));
+    }
+
+export const getMarkDeliveryArrivedUrl = (id: number,) => {
+
+
+
+
+  return `/api/deliveries/${id}/arrived`
+}
+
+/**
+ * @summary Driver marks arrival at the customer location. Auto-generates and sends the delivery OTP.
+ */
+export const markDeliveryArrived = async (id: number, options?: RequestInit): Promise<Delivery> => {
+
+  return customFetch<Delivery>(getMarkDeliveryArrivedUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkDeliveryArrivedMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markDeliveryArrived>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markDeliveryArrived>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['markDeliveryArrived'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markDeliveryArrived>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  markDeliveryArrived(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkDeliveryArrivedMutationResult = NonNullable<Awaited<ReturnType<typeof markDeliveryArrived>>>
+
+    export type MarkDeliveryArrivedMutationError = ErrorType<void>
+
+    /**
+ * @summary Driver marks arrival at the customer location. Auto-generates and sends the delivery OTP.
+ */
+export const useMarkDeliveryArrived = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markDeliveryArrived>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markDeliveryArrived>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getMarkDeliveryArrivedMutationOptions(options));
+    }
+
+export const getResendDeliveryOtpUrl = (id: number,) => {
+
+
+
+
+  return `/api/deliveries/${id}/otp/resend`
+}
+
+/**
+ * @summary Resend the delivery OTP to the customer (rate-limited)
+ */
+export const resendDeliveryOtp = async (id: number, options?: RequestInit): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getResendDeliveryOtpUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getResendDeliveryOtpMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resendDeliveryOtp>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resendDeliveryOtp>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['resendDeliveryOtp'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resendDeliveryOtp>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  resendDeliveryOtp(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResendDeliveryOtpMutationResult = NonNullable<Awaited<ReturnType<typeof resendDeliveryOtp>>>
+
+    export type ResendDeliveryOtpMutationError = ErrorType<void>
+
+    /**
+ * @summary Resend the delivery OTP to the customer (rate-limited)
+ */
+export const useResendDeliveryOtp = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resendDeliveryOtp>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resendDeliveryOtp>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getResendDeliveryOtpMutationOptions(options));
+    }
+
+export const getVerifyDeliveryOtpUrl = (id: number,) => {
+
+
+
+
+  return `/api/deliveries/${id}/otp/verify`
+}
+
+/**
+ * @summary Verify the customer-provided OTP for this delivery
+ */
+export const verifyDeliveryOtp = async (id: number,
+    verifyDeliveryOtpInput: VerifyDeliveryOtpInput, options?: RequestInit): Promise<Delivery> => {
+
+  return customFetch<Delivery>(getVerifyDeliveryOtpUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(verifyDeliveryOtpInput)
+  }
+);}
+
+
+
+
+
+export const getVerifyDeliveryOtpMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyDeliveryOtp>>, TError,{id: number;data: BodyType<VerifyDeliveryOtpInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyDeliveryOtp>>, TError,{id: number;data: BodyType<VerifyDeliveryOtpInput>}, TContext> => {
+
+const mutationKey = ['verifyDeliveryOtp'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyDeliveryOtp>>, {id: number;data: BodyType<VerifyDeliveryOtpInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  verifyDeliveryOtp(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyDeliveryOtpMutationResult = NonNullable<Awaited<ReturnType<typeof verifyDeliveryOtp>>>
+    export type VerifyDeliveryOtpMutationBody = BodyType<VerifyDeliveryOtpInput>
+    export type VerifyDeliveryOtpMutationError = ErrorType<void>
+
+    /**
+ * @summary Verify the customer-provided OTP for this delivery
+ */
+export const useVerifyDeliveryOtp = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyDeliveryOtp>>, TError,{id: number;data: BodyType<VerifyDeliveryOtpInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof verifyDeliveryOtp>>,
+        TError,
+        {id: number;data: BodyType<VerifyDeliveryOtpInput>},
+        TContext
+      > => {
+      return useMutation(getVerifyDeliveryOtpMutationOptions(options));
+    }
+
+export const getConfirmDeliveryPaymentUrl = (id: number,) => {
+
+
+
+
+  return `/api/deliveries/${id}/payment`
+}
+
+/**
+ * @summary Confirm COD payment collection for this delivery
+ */
+export const confirmDeliveryPayment = async (id: number,
+    confirmDeliveryPaymentInput: ConfirmDeliveryPaymentInput, options?: RequestInit): Promise<Delivery> => {
+
+  return customFetch<Delivery>(getConfirmDeliveryPaymentUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(confirmDeliveryPaymentInput)
+  }
+);}
+
+
+
+
+
+export const getConfirmDeliveryPaymentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmDeliveryPayment>>, TError,{id: number;data: BodyType<ConfirmDeliveryPaymentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof confirmDeliveryPayment>>, TError,{id: number;data: BodyType<ConfirmDeliveryPaymentInput>}, TContext> => {
+
+const mutationKey = ['confirmDeliveryPayment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof confirmDeliveryPayment>>, {id: number;data: BodyType<ConfirmDeliveryPaymentInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  confirmDeliveryPayment(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConfirmDeliveryPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof confirmDeliveryPayment>>>
+    export type ConfirmDeliveryPaymentMutationBody = BodyType<ConfirmDeliveryPaymentInput>
+    export type ConfirmDeliveryPaymentMutationError = ErrorType<void>
+
+    /**
+ * @summary Confirm COD payment collection for this delivery
+ */
+export const useConfirmDeliveryPayment = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmDeliveryPayment>>, TError,{id: number;data: BodyType<ConfirmDeliveryPaymentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof confirmDeliveryPayment>>,
+        TError,
+        {id: number;data: BodyType<ConfirmDeliveryPaymentInput>},
+        TContext
+      > => {
+      return useMutation(getConfirmDeliveryPaymentMutationOptions(options));
+    }
+
+export const getCompleteDeliveryUrl = (id: number,) => {
+
+
+
+
+  return `/api/deliveries/${id}/complete`
+}
+
+/**
+ * @summary Complete the delivery (requires arrival, OTP verified, and COD payment collected if applicable)
+ */
+export const completeDelivery = async (id: number, options?: RequestInit): Promise<CompleteDeliveryResult> => {
+
+  return customFetch<CompleteDeliveryResult>(getCompleteDeliveryUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCompleteDeliveryMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeDelivery>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeDelivery>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['completeDelivery'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeDelivery>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  completeDelivery(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteDeliveryMutationResult = NonNullable<Awaited<ReturnType<typeof completeDelivery>>>
+
+    export type CompleteDeliveryMutationError = ErrorType<void>
+
+    /**
+ * @summary Complete the delivery (requires arrival, OTP verified, and COD payment collected if applicable)
+ */
+export const useCompleteDelivery = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeDelivery>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof completeDelivery>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getCompleteDeliveryMutationOptions(options));
+    }
+
 export const getListTransactionsUrl = (params: ListTransactionsParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -6654,6 +7539,309 @@ export function useListNotifications<TData = Awaited<ReturnType<typeof listNotif
 
 
 
+
+export const getListDriverNotificationsUrl = (params?: ListDriverNotificationsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/driver/notifications?${stringifiedParams}` : `/api/driver/notifications`
+}
+
+/**
+ * @summary List notifications for the authenticated driver (paginated, filterable)
+ */
+export const listDriverNotifications = async (params?: ListDriverNotificationsParams, options?: RequestInit): Promise<DriverNotificationListResponse> => {
+
+  return customFetch<DriverNotificationListResponse>(getListDriverNotificationsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDriverNotificationsQueryKey = (params?: ListDriverNotificationsParams,) => {
+    return [
+    `/api/driver/notifications`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListDriverNotificationsQueryOptions = <TData = Awaited<ReturnType<typeof listDriverNotifications>>, TError = ErrorType<unknown>>(params?: ListDriverNotificationsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDriverNotifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDriverNotificationsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDriverNotifications>>> = ({ signal }) => listDriverNotifications(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDriverNotifications>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDriverNotificationsQueryResult = NonNullable<Awaited<ReturnType<typeof listDriverNotifications>>>
+export type ListDriverNotificationsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List notifications for the authenticated driver (paginated, filterable)
+ */
+
+export function useListDriverNotifications<TData = Awaited<ReturnType<typeof listDriverNotifications>>, TError = ErrorType<unknown>>(
+ params?: ListDriverNotificationsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDriverNotifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDriverNotificationsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetDriverUnreadNotificationCountUrl = () => {
+
+
+
+
+  return `/api/driver/notifications/unread-count`
+}
+
+/**
+ * @summary Get the authenticated driver's unread notification count
+ */
+export const getDriverUnreadNotificationCount = async ( options?: RequestInit): Promise<DriverUnreadCountResponse> => {
+
+  return customFetch<DriverUnreadCountResponse>(getGetDriverUnreadNotificationCountUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDriverUnreadNotificationCountQueryKey = () => {
+    return [
+    `/api/driver/notifications/unread-count`
+    ] as const;
+    }
+
+
+export const getGetDriverUnreadNotificationCountQueryOptions = <TData = Awaited<ReturnType<typeof getDriverUnreadNotificationCount>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDriverUnreadNotificationCount>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDriverUnreadNotificationCountQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDriverUnreadNotificationCount>>> = ({ signal }) => getDriverUnreadNotificationCount({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDriverUnreadNotificationCount>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDriverUnreadNotificationCountQueryResult = NonNullable<Awaited<ReturnType<typeof getDriverUnreadNotificationCount>>>
+export type GetDriverUnreadNotificationCountQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the authenticated driver's unread notification count
+ */
+
+export function useGetDriverUnreadNotificationCount<TData = Awaited<ReturnType<typeof getDriverUnreadNotificationCount>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDriverUnreadNotificationCount>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDriverUnreadNotificationCountQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMarkDriverNotificationReadUrl = (id: number,) => {
+
+
+
+
+  return `/api/driver/notifications/${id}/read`
+}
+
+/**
+ * @summary Mark one of the authenticated driver's notifications as read
+ */
+export const markDriverNotificationRead = async (id: number, options?: RequestInit): Promise<DriverNotificationActionResponse> => {
+
+  return customFetch<DriverNotificationActionResponse>(getMarkDriverNotificationReadUrl(id),
+  {
+    ...options,
+    method: 'PATCH'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkDriverNotificationReadMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markDriverNotificationRead>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markDriverNotificationRead>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['markDriverNotificationRead'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markDriverNotificationRead>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  markDriverNotificationRead(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkDriverNotificationReadMutationResult = NonNullable<Awaited<ReturnType<typeof markDriverNotificationRead>>>
+
+    export type MarkDriverNotificationReadMutationError = ErrorType<void>
+
+    /**
+ * @summary Mark one of the authenticated driver's notifications as read
+ */
+export const useMarkDriverNotificationRead = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markDriverNotificationRead>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markDriverNotificationRead>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getMarkDriverNotificationReadMutationOptions(options));
+    }
+
+export const getMarkAllDriverNotificationsReadUrl = () => {
+
+
+
+
+  return `/api/driver/notifications/read-all`
+}
+
+/**
+ * @summary Mark all of the authenticated driver's unread notifications as read
+ */
+export const markAllDriverNotificationsRead = async ( options?: RequestInit): Promise<DriverNotificationActionResponse> => {
+
+  return customFetch<DriverNotificationActionResponse>(getMarkAllDriverNotificationsReadUrl(),
+  {
+    ...options,
+    method: 'PATCH'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkAllDriverNotificationsReadMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markAllDriverNotificationsRead>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markAllDriverNotificationsRead>>, TError,void, TContext> => {
+
+const mutationKey = ['markAllDriverNotificationsRead'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markAllDriverNotificationsRead>>, void> = () => {
+
+
+          return  markAllDriverNotificationsRead(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkAllDriverNotificationsReadMutationResult = NonNullable<Awaited<ReturnType<typeof markAllDriverNotificationsRead>>>
+
+    export type MarkAllDriverNotificationsReadMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Mark all of the authenticated driver's unread notifications as read
+ */
+export const useMarkAllDriverNotificationsRead = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markAllDriverNotificationsRead>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markAllDriverNotificationsRead>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getMarkAllDriverNotificationsReadMutationOptions(options));
+    }
 
 export const getGetAdminAnalyticsUrl = () => {
 

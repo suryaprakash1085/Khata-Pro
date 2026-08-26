@@ -826,6 +826,15 @@ export const SalesOrderInputChannel = {
   phone: 'phone',
 } as const;
 
+export type SalesOrderInputPaymentMethod = typeof SalesOrderInputPaymentMethod[keyof typeof SalesOrderInputPaymentMethod];
+
+
+export const SalesOrderInputPaymentMethod = {
+  cod: 'cod',
+  online: 'online',
+  card: 'card',
+} as const;
+
 export interface SalesOrderItemInput {
   product_id: number;
   qty: number;
@@ -841,6 +850,7 @@ export interface SalesOrderInput {
   shipping_address?: string;
   customer_latitude?: number;
   customer_longitude?: number;
+  payment_method?: SalesOrderInputPaymentMethod;
   entry_date?: string;
   items: SalesOrderItemInput[];
 }
@@ -899,6 +909,8 @@ export interface Driver {
   name: string;
   phone: string;
   /** @nullable */
+  email?: string | null;
+  /** @nullable */
   vehicle_number?: string | null;
   vehicle_type: DriverVehicleType;
   status: DriverStatus;
@@ -907,6 +919,18 @@ export interface Driver {
   /** @nullable */
   last_lng?: string | null;
   rating?: number;
+  /** @nullable */
+  date_of_birth?: string | null;
+  /** @nullable */
+  gender?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  emergency_contact_name?: string | null;
+  /** @nullable */
+  emergency_contact_relation?: string | null;
+  /** @nullable */
+  emergency_contact_phone?: string | null;
   created_at: string;
 }
 
@@ -933,6 +957,7 @@ export interface DriverInput {
   business_id: number;
   name: string;
   phone: string;
+  email?: string;
   vehicle_number?: string;
   vehicle_type?: DriverInputVehicleType;
   status?: DriverInputStatus;
@@ -960,12 +985,19 @@ export const DriverUpdateStatus = {
 export interface DriverUpdate {
   name?: string;
   phone?: string;
+  email?: string;
   vehicle_number?: string;
   vehicle_type?: DriverUpdateVehicleType;
   status?: DriverUpdateStatus;
   last_lat?: string;
   last_lng?: string;
   rating?: number;
+  date_of_birth?: string;
+  gender?: string;
+  address?: string;
+  emergency_contact_name?: string;
+  emergency_contact_relation?: string;
+  emergency_contact_phone?: string;
 }
 
 export interface DriverListResponse {
@@ -979,6 +1011,8 @@ export interface DriverStats {
   total_deliveries: number;
   completed_deliveries: number;
   pending_deliveries: number;
+  cancelled_deliveries: number;
+  failed_deliveries: number;
   cash_to_collect: number;
   distance_travelled_km: number;
   rating: number;
@@ -986,11 +1020,62 @@ export interface DriverStats {
   avg_delivery_time_minutes: number;
 }
 
+export interface DriverEarningsPeriod {
+  amount: string;
+  deliveries: number;
+}
+
+export interface DriverEarningsPending {
+  amount: string;
+}
+
+export interface DriverEarningsSummary {
+  today: DriverEarningsPeriod;
+  week: DriverEarningsPeriod;
+  month: DriverEarningsPeriod;
+  pending: DriverEarningsPending;
+}
+
+export interface DriverEarningsChartPoint {
+  date: string;
+  amount: string;
+  deliveries: number;
+}
+
+export type DriverEarningsHistoryItemStatus = typeof DriverEarningsHistoryItemStatus[keyof typeof DriverEarningsHistoryItemStatus];
+
+
+export const DriverEarningsHistoryItemStatus = {
+  earned: 'earned',
+} as const;
+
+export interface DriverEarningsHistoryItem {
+  delivery_id: number;
+  order_id: number;
+  customer_name: string;
+  /** @nullable */
+  date?: string | null;
+  /** @nullable */
+  time?: string | null;
+  /** @nullable */
+  distance_km?: number | null;
+  amount: string;
+  status: DriverEarningsHistoryItemStatus;
+}
+
+export interface DriverEarningsRange {
+  from: string;
+  to: string;
+}
+
 export interface DriverEarnings {
-  today_earnings: number;
-  cod_collected: number;
-  incentives: number;
-  weekly_earnings: number;
+  summary: DriverEarningsSummary;
+  chart: DriverEarningsChartPoint[];
+  history: DriverEarningsHistoryItem[];
+  history_total: number;
+  page: number;
+  limit: number;
+  range: DriverEarningsRange;
 }
 
 export type DeliveryStatus = typeof DeliveryStatus[keyof typeof DeliveryStatus];
@@ -1017,6 +1102,15 @@ export const DeliveryPaymentMethod = {
   card: 'card',
 } as const;
 
+export type DeliveryPaymentStatus = typeof DeliveryPaymentStatus[keyof typeof DeliveryPaymentStatus];
+
+
+export const DeliveryPaymentStatus = {
+  not_applicable: 'not_applicable',
+  pending: 'pending',
+  collected: 'collected',
+} as const;
+
 export interface Delivery {
   id: number;
   business_id: number;
@@ -1027,6 +1121,10 @@ export interface Delivery {
   driver_id?: number | null;
   pickup_address: string;
   drop_address: string;
+  /** @nullable */
+  delivery_landmark?: string | null;
+  /** @nullable */
+  delivery_instructions?: string | null;
   status: DeliveryStatus;
   /** @nullable */
   notes?: string | null;
@@ -1037,13 +1135,41 @@ export interface Delivery {
   /** @nullable */
   distance_km?: number | null;
   /** @nullable */
+  subtotal?: number | null;
+  /** @nullable */
+  tax?: number | null;
+  /** @nullable */
+  delivery_fee?: number | null;
+  /** @nullable */
   assigned_at?: string | null;
   /** @nullable */
+  accepted_at?: string | null;
+  /** @nullable */
   picked_up_at?: string | null;
+  /** @nullable */
+  out_for_delivery_at?: string | null;
+  /** @nullable */
+  arrived_at?: string | null;
   /** @nullable */
   delivered_at?: string | null;
   /** @nullable */
   cancelled_at?: string | null;
+  /** @nullable */
+  rejection_reason?: string | null;
+  /** @nullable */
+  cancellation_reason?: string | null;
+  otp_verified?: boolean;
+  /** @nullable */
+  otp_verified_at?: string | null;
+  /** @nullable */
+  otp_expires_at?: string | null;
+  /** @nullable */
+  otp_attempts_remaining?: number | null;
+  payment_status?: DeliveryPaymentStatus;
+  /** @nullable */
+  payment_collected_at?: string | null;
+  /** @nullable */
+  collected_amount?: number | null;
   created_at: string;
 }
 
@@ -1098,6 +1224,61 @@ export interface DeliveryListResponse {
   total: number;
   page: number;
   limit: number;
+}
+
+export interface RejectDeliveryInput {
+  /**
+     * @minLength 1
+     * @maxLength 500
+     */
+  reason: string;
+}
+
+export interface VerifyDeliveryOtpInput {
+  /**
+     * @minLength 4
+     * @maxLength 6
+     */
+  otp: string;
+}
+
+export interface ConfirmDeliveryPaymentInput {
+  /** @exclusiveMinimum 0 */
+  amount: number;
+}
+
+export interface DeliveryCustomerBrief {
+  id: number;
+  name: string;
+  phone: string;
+  /** @nullable */
+  address?: string | null;
+}
+
+export interface DeliveryOrderItem {
+  id: number;
+  product_name: string;
+  qty: number;
+  unit_price: number;
+  total_price: number;
+}
+
+export interface DeliveryMyDetails {
+  delivery: Delivery;
+  customer: DeliveryCustomerBrief;
+  items: DeliveryOrderItem[];
+}
+
+export interface CompleteDeliveryResult {
+  success: boolean;
+  message: string;
+  data: Delivery;
+}
+
+export interface CallCustomerResult {
+  message: string;
+  /** @nullable */
+  call_sid?: string | null;
 }
 
 export type TransactionType = typeof TransactionType[keyof typeof TransactionType];
@@ -1397,6 +1578,64 @@ export interface Notification {
   created_at: string;
 }
 
+export type DriverNotificationType = typeof DriverNotificationType[keyof typeof DriverNotificationType];
+
+
+export const DriverNotificationType = {
+  assigned: 'assigned',
+  accepted: 'accepted',
+  picked_up: 'picked_up',
+  out_for_delivery: 'out_for_delivery',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  fee_earned: 'fee_earned',
+  address_updated: 'address_updated',
+  payment_received: 'payment_received',
+  order_confirmed: 'order_confirmed',
+  system: 'system',
+  admin_message: 'admin_message',
+} as const;
+
+export interface DriverNotification {
+  id: number;
+  /** @nullable */
+  driver_id?: number | null;
+  /** @nullable */
+  delivery_id?: number | null;
+  /** @nullable */
+  order_id?: number | null;
+  type: DriverNotificationType;
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+  /** @nullable */
+  read_at?: string | null;
+}
+
+export interface DriverNotificationPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface DriverNotificationListResponse {
+  success: boolean;
+  data: DriverNotification[];
+  pagination: DriverNotificationPagination;
+}
+
+export interface DriverUnreadCountResponse {
+  success: boolean;
+  count: number;
+}
+
+export interface DriverNotificationActionResponse {
+  success: boolean;
+  message: string;
+}
+
 export interface MonthlyGrowthPoint {
   month: string;
   businesses: number;
@@ -1682,6 +1921,24 @@ export const ListDeliveriesStatus = {
   cancelled: 'cancelled',
 } as const;
 
+export type ListMyDeliveriesParams = {
+status?: ListMyDeliveriesStatus;
+page?: number;
+limit?: number;
+};
+
+export type ListMyDeliveriesStatus = typeof ListMyDeliveriesStatus[keyof typeof ListMyDeliveriesStatus];
+
+
+export const ListMyDeliveriesStatus = {
+  pending: 'pending',
+  assigned: 'assigned',
+  picked_up: 'picked_up',
+  in_transit: 'in_transit',
+  delivered: 'delivered',
+  cancelled: 'cancelled',
+} as const;
+
 export type ListTransactionsParams = {
 business_id: number;
 customer_id?: number;
@@ -1776,6 +2033,32 @@ driver_id?: number;
 business_id?: number;
 limit?: number;
 };
+
+export type ListDriverNotificationsParams = {
+page?: number;
+limit?: number;
+type?: ListDriverNotificationsType;
+read?: ListDriverNotificationsRead;
+};
+
+export type ListDriverNotificationsType = typeof ListDriverNotificationsType[keyof typeof ListDriverNotificationsType];
+
+
+export const ListDriverNotificationsType = {
+  ALL: 'ALL',
+  DELIVERIES: 'DELIVERIES',
+  EARNINGS: 'EARNINGS',
+  SYSTEM: 'SYSTEM',
+} as const;
+
+export type ListDriverNotificationsRead = typeof ListDriverNotificationsRead[keyof typeof ListDriverNotificationsRead];
+
+
+export const ListDriverNotificationsRead = {
+  ALL: 'ALL',
+  READ: 'READ',
+  UNREAD: 'UNREAD',
+} as const;
 
 export type ListAdminBusinessesParams = {
 search?: string;

@@ -11,10 +11,17 @@ import type { DriverUpdateVehicleType } from './driverUpdateVehicleType';
 export interface DriverUpdate {
   name?: string;
   phone?: string;
+  email?: string;
   vehicle_number?: string;
   vehicle_type?: DriverUpdateVehicleType;
   status?: DriverUpdateStatus;
   last_lat?: string;
   last_lng?: string;
   rating?: number;
+  date_of_birth?: Date;
+  gender?: string;
+  address?: string;
+  emergency_contact_name?: string;
+  emergency_contact_relation?: string;
+  emergency_contact_phone?: string;
 }

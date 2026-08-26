@@ -1448,6 +1448,7 @@ export const ListSalesOrdersResponse = zod.object({
  */
 export const createSalesOrderBodyChannelDefault = `online`;
 export const createSalesOrderBodyTaxDefault = 0;
+export const createSalesOrderBodyPaymentMethodDefault = `online`;
 
 export const CreateSalesOrderBody = zod.object({
   "business_id": zod.number(),
@@ -1458,6 +1459,7 @@ export const CreateSalesOrderBody = zod.object({
   "shipping_address": zod.string().optional(),
   "customer_latitude": zod.number().optional(),
   "customer_longitude": zod.number().optional(),
+  "payment_method": zod.enum(['cod', 'online', 'card']).default(createSalesOrderBodyPaymentMethodDefault),
   "entry_date": zod.coerce.date().optional(),
   "items": zod.array(zod.object({
   "product_id": zod.number(),
@@ -1503,6 +1505,7 @@ export const CreateSalesOrderResponse = zod.object({
  */
 export const createPublicSalesOrderBodyChannelDefault = `online`;
 export const createPublicSalesOrderBodyTaxDefault = 0;
+export const createPublicSalesOrderBodyPaymentMethodDefault = `online`;
 
 export const CreatePublicSalesOrderBody = zod.object({
   "business_id": zod.number(),
@@ -1513,6 +1516,7 @@ export const CreatePublicSalesOrderBody = zod.object({
   "shipping_address": zod.string().optional(),
   "customer_latitude": zod.number().optional(),
   "customer_longitude": zod.number().optional(),
+  "payment_method": zod.enum(['cod', 'online', 'card']).default(createPublicSalesOrderBodyPaymentMethodDefault),
   "entry_date": zod.coerce.date().optional(),
   "items": zod.array(zod.object({
   "product_id": zod.number(),
@@ -1714,12 +1718,19 @@ export const ListDriversResponse = zod.object({
   "business_id": zod.number(),
   "name": zod.string(),
   "phone": zod.string(),
+  "email": zod.string().nullish(),
   "vehicle_number": zod.string().nullish(),
   "vehicle_type": zod.enum(['bike', 'auto', 'van', 'truck']),
   "status": zod.enum(['available', 'busy', 'offline']),
   "last_lat": zod.string().nullish(),
   "last_lng": zod.string().nullish(),
   "rating": zod.number().default(listDriversResponseDataItemRatingDefault),
+  "date_of_birth": zod.coerce.date().nullish(),
+  "gender": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "emergency_contact_name": zod.string().nullish(),
+  "emergency_contact_relation": zod.string().nullish(),
+  "emergency_contact_phone": zod.string().nullish(),
   "created_at": zod.coerce.date()
 })),
   "total": zod.number(),
@@ -1738,6 +1749,7 @@ export const CreateDriverBody = zod.object({
   "business_id": zod.number(),
   "name": zod.string(),
   "phone": zod.string(),
+  "email": zod.string().optional(),
   "vehicle_number": zod.string().optional(),
   "vehicle_type": zod.enum(['bike', 'auto', 'van', 'truck']).default(createDriverBodyVehicleTypeDefault),
   "status": zod.enum(['available', 'busy', 'offline']).default(createDriverBodyStatusDefault)
@@ -1750,12 +1762,19 @@ export const CreateDriverResponse = zod.object({
   "business_id": zod.number(),
   "name": zod.string(),
   "phone": zod.string(),
+  "email": zod.string().nullish(),
   "vehicle_number": zod.string().nullish(),
   "vehicle_type": zod.enum(['bike', 'auto', 'van', 'truck']),
   "status": zod.enum(['available', 'busy', 'offline']),
   "last_lat": zod.string().nullish(),
   "last_lng": zod.string().nullish(),
   "rating": zod.number().default(createDriverResponseRatingDefault),
+  "date_of_birth": zod.coerce.date().nullish(),
+  "gender": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "emergency_contact_name": zod.string().nullish(),
+  "emergency_contact_relation": zod.string().nullish(),
+  "emergency_contact_phone": zod.string().nullish(),
   "created_at": zod.coerce.date()
 })
 
@@ -1774,12 +1793,19 @@ export const GetDriverResponse = zod.object({
   "business_id": zod.number(),
   "name": zod.string(),
   "phone": zod.string(),
+  "email": zod.string().nullish(),
   "vehicle_number": zod.string().nullish(),
   "vehicle_type": zod.enum(['bike', 'auto', 'van', 'truck']),
   "status": zod.enum(['available', 'busy', 'offline']),
   "last_lat": zod.string().nullish(),
   "last_lng": zod.string().nullish(),
   "rating": zod.number().default(getDriverResponseRatingDefault),
+  "date_of_birth": zod.coerce.date().nullish(),
+  "gender": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "emergency_contact_name": zod.string().nullish(),
+  "emergency_contact_relation": zod.string().nullish(),
+  "emergency_contact_phone": zod.string().nullish(),
   "created_at": zod.coerce.date()
 })
 
@@ -1794,12 +1820,19 @@ export const UpdateDriverParams = zod.object({
 export const UpdateDriverBody = zod.object({
   "name": zod.string().optional(),
   "phone": zod.string().optional(),
+  "email": zod.string().optional(),
   "vehicle_number": zod.string().optional(),
   "vehicle_type": zod.enum(['bike', 'auto', 'van', 'truck']).optional(),
   "status": zod.enum(['available', 'busy', 'offline']).optional(),
   "last_lat": zod.string().optional(),
   "last_lng": zod.string().optional(),
-  "rating": zod.number().optional()
+  "rating": zod.number().optional(),
+  "date_of_birth": zod.coerce.date().optional(),
+  "gender": zod.string().optional(),
+  "address": zod.string().optional(),
+  "emergency_contact_name": zod.string().optional(),
+  "emergency_contact_relation": zod.string().optional(),
+  "emergency_contact_phone": zod.string().optional()
 })
 
 export const updateDriverResponseRatingDefault = 5;
@@ -1809,12 +1842,19 @@ export const UpdateDriverResponse = zod.object({
   "business_id": zod.number(),
   "name": zod.string(),
   "phone": zod.string(),
+  "email": zod.string().nullish(),
   "vehicle_number": zod.string().nullish(),
   "vehicle_type": zod.enum(['bike', 'auto', 'van', 'truck']),
   "status": zod.enum(['available', 'busy', 'offline']),
   "last_lat": zod.string().nullish(),
   "last_lng": zod.string().nullish(),
   "rating": zod.number().default(updateDriverResponseRatingDefault),
+  "date_of_birth": zod.coerce.date().nullish(),
+  "gender": zod.string().nullish(),
+  "address": zod.string().nullish(),
+  "emergency_contact_name": zod.string().nullish(),
+  "emergency_contact_relation": zod.string().nullish(),
+  "emergency_contact_phone": zod.string().nullish(),
   "created_at": zod.coerce.date()
 })
 
@@ -1842,6 +1882,8 @@ export const GetDriverStatsResponse = zod.object({
   "total_deliveries": zod.number(),
   "completed_deliveries": zod.number(),
   "pending_deliveries": zod.number(),
+  "cancelled_deliveries": zod.number(),
+  "failed_deliveries": zod.number(),
   "cash_to_collect": zod.number(),
   "distance_travelled_km": zod.number(),
   "rating": zod.number(),
@@ -1858,10 +1900,45 @@ export const GetDriverEarningsParams = zod.object({
 })
 
 export const GetDriverEarningsResponse = zod.object({
-  "today_earnings": zod.number(),
-  "cod_collected": zod.number(),
-  "incentives": zod.number(),
-  "weekly_earnings": zod.number()
+  "summary": zod.object({
+  "today": zod.object({
+  "amount": zod.string(),
+  "deliveries": zod.number()
+}),
+  "week": zod.object({
+  "amount": zod.string(),
+  "deliveries": zod.number()
+}),
+  "month": zod.object({
+  "amount": zod.string(),
+  "deliveries": zod.number()
+}),
+  "pending": zod.object({
+  "amount": zod.string()
+})
+}),
+  "chart": zod.array(zod.object({
+  "date": zod.coerce.date(),
+  "amount": zod.string(),
+  "deliveries": zod.number()
+})),
+  "history": zod.array(zod.object({
+  "delivery_id": zod.number(),
+  "order_id": zod.number(),
+  "customer_name": zod.string(),
+  "date": zod.coerce.date().nullish(),
+  "time": zod.string().nullish(),
+  "distance_km": zod.number().nullish(),
+  "amount": zod.string(),
+  "status": zod.enum(['earned'])
+})),
+  "history_total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number(),
+  "range": zod.object({
+  "from": zod.coerce.date(),
+  "to": zod.coerce.date()
+})
 })
 
 
@@ -1889,15 +1966,32 @@ export const ListDeliveriesResponse = zod.object({
   "driver_id": zod.number().nullish(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),
+  "delivery_landmark": zod.string().nullish(),
+  "delivery_instructions": zod.string().nullish(),
   "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
   "notes": zod.string().nullish(),
   "amount": zod.number().nullish(),
   "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
   "distance_km": zod.number().nullish(),
+  "subtotal": zod.number().nullish(),
+  "tax": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
   "assigned_at": zod.coerce.date().nullish(),
+  "accepted_at": zod.coerce.date().nullish(),
   "picked_up_at": zod.coerce.date().nullish(),
+  "out_for_delivery_at": zod.coerce.date().nullish(),
+  "arrived_at": zod.coerce.date().nullish(),
   "delivered_at": zod.coerce.date().nullish(),
   "cancelled_at": zod.coerce.date().nullish(),
+  "rejection_reason": zod.string().nullish(),
+  "cancellation_reason": zod.string().nullish(),
+  "otp_verified": zod.boolean().optional(),
+  "otp_verified_at": zod.coerce.date().nullish(),
+  "otp_expires_at": zod.coerce.date().nullish(),
+  "otp_attempts_remaining": zod.number().nullish(),
+  "payment_status": zod.enum(['not_applicable', 'pending', 'collected']).optional(),
+  "payment_collected_at": zod.coerce.date().nullish(),
+  "collected_amount": zod.number().nullish(),
   "created_at": zod.coerce.date()
 })),
   "total": zod.number(),
@@ -1928,15 +2022,32 @@ export const CreateDeliveryResponse = zod.object({
   "driver_id": zod.number().nullish(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),
+  "delivery_landmark": zod.string().nullish(),
+  "delivery_instructions": zod.string().nullish(),
   "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
   "notes": zod.string().nullish(),
   "amount": zod.number().nullish(),
   "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
   "distance_km": zod.number().nullish(),
+  "subtotal": zod.number().nullish(),
+  "tax": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
   "assigned_at": zod.coerce.date().nullish(),
+  "accepted_at": zod.coerce.date().nullish(),
   "picked_up_at": zod.coerce.date().nullish(),
+  "out_for_delivery_at": zod.coerce.date().nullish(),
+  "arrived_at": zod.coerce.date().nullish(),
   "delivered_at": zod.coerce.date().nullish(),
   "cancelled_at": zod.coerce.date().nullish(),
+  "rejection_reason": zod.string().nullish(),
+  "cancellation_reason": zod.string().nullish(),
+  "otp_verified": zod.boolean().optional(),
+  "otp_verified_at": zod.coerce.date().nullish(),
+  "otp_expires_at": zod.coerce.date().nullish(),
+  "otp_attempts_remaining": zod.number().nullish(),
+  "payment_status": zod.enum(['not_applicable', 'pending', 'collected']).optional(),
+  "payment_collected_at": zod.coerce.date().nullish(),
+  "collected_amount": zod.number().nullish(),
   "created_at": zod.coerce.date()
 })
 
@@ -1956,15 +2067,32 @@ export const GetDeliveryResponse = zod.object({
   "driver_id": zod.number().nullish(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),
+  "delivery_landmark": zod.string().nullish(),
+  "delivery_instructions": zod.string().nullish(),
   "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
   "notes": zod.string().nullish(),
   "amount": zod.number().nullish(),
   "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
   "distance_km": zod.number().nullish(),
+  "subtotal": zod.number().nullish(),
+  "tax": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
   "assigned_at": zod.coerce.date().nullish(),
+  "accepted_at": zod.coerce.date().nullish(),
   "picked_up_at": zod.coerce.date().nullish(),
+  "out_for_delivery_at": zod.coerce.date().nullish(),
+  "arrived_at": zod.coerce.date().nullish(),
   "delivered_at": zod.coerce.date().nullish(),
   "cancelled_at": zod.coerce.date().nullish(),
+  "rejection_reason": zod.string().nullish(),
+  "cancellation_reason": zod.string().nullish(),
+  "otp_verified": zod.boolean().optional(),
+  "otp_verified_at": zod.coerce.date().nullish(),
+  "otp_expires_at": zod.coerce.date().nullish(),
+  "otp_attempts_remaining": zod.number().nullish(),
+  "payment_status": zod.enum(['not_applicable', 'pending', 'collected']).optional(),
+  "payment_collected_at": zod.coerce.date().nullish(),
+  "collected_amount": zod.number().nullish(),
   "created_at": zod.coerce.date()
 })
 
@@ -1990,15 +2118,32 @@ export const UpdateDeliveryResponse = zod.object({
   "driver_id": zod.number().nullish(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),
+  "delivery_landmark": zod.string().nullish(),
+  "delivery_instructions": zod.string().nullish(),
   "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
   "notes": zod.string().nullish(),
   "amount": zod.number().nullish(),
   "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
   "distance_km": zod.number().nullish(),
+  "subtotal": zod.number().nullish(),
+  "tax": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
   "assigned_at": zod.coerce.date().nullish(),
+  "accepted_at": zod.coerce.date().nullish(),
   "picked_up_at": zod.coerce.date().nullish(),
+  "out_for_delivery_at": zod.coerce.date().nullish(),
+  "arrived_at": zod.coerce.date().nullish(),
   "delivered_at": zod.coerce.date().nullish(),
   "cancelled_at": zod.coerce.date().nullish(),
+  "rejection_reason": zod.string().nullish(),
+  "cancellation_reason": zod.string().nullish(),
+  "otp_verified": zod.boolean().optional(),
+  "otp_verified_at": zod.coerce.date().nullish(),
+  "otp_expires_at": zod.coerce.date().nullish(),
+  "otp_attempts_remaining": zod.number().nullish(),
+  "payment_status": zod.enum(['not_applicable', 'pending', 'collected']).optional(),
+  "payment_collected_at": zod.coerce.date().nullish(),
+  "collected_amount": zod.number().nullish(),
   "created_at": zod.coerce.date()
 })
 
@@ -2022,15 +2167,32 @@ export const AssignDriverResponse = zod.object({
   "driver_id": zod.number().nullish(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),
+  "delivery_landmark": zod.string().nullish(),
+  "delivery_instructions": zod.string().nullish(),
   "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
   "notes": zod.string().nullish(),
   "amount": zod.number().nullish(),
   "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
   "distance_km": zod.number().nullish(),
+  "subtotal": zod.number().nullish(),
+  "tax": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
   "assigned_at": zod.coerce.date().nullish(),
+  "accepted_at": zod.coerce.date().nullish(),
   "picked_up_at": zod.coerce.date().nullish(),
+  "out_for_delivery_at": zod.coerce.date().nullish(),
+  "arrived_at": zod.coerce.date().nullish(),
   "delivered_at": zod.coerce.date().nullish(),
   "cancelled_at": zod.coerce.date().nullish(),
+  "rejection_reason": zod.string().nullish(),
+  "cancellation_reason": zod.string().nullish(),
+  "otp_verified": zod.boolean().optional(),
+  "otp_verified_at": zod.coerce.date().nullish(),
+  "otp_expires_at": zod.coerce.date().nullish(),
+  "otp_attempts_remaining": zod.number().nullish(),
+  "payment_status": zod.enum(['not_applicable', 'pending', 'collected']).optional(),
+  "payment_collected_at": zod.coerce.date().nullish(),
+  "collected_amount": zod.number().nullish(),
   "created_at": zod.coerce.date()
 })
 
@@ -2054,16 +2216,562 @@ export const UpdateDeliveryStatusResponse = zod.object({
   "driver_id": zod.number().nullish(),
   "pickup_address": zod.string(),
   "drop_address": zod.string(),
+  "delivery_landmark": zod.string().nullish(),
+  "delivery_instructions": zod.string().nullish(),
   "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
   "notes": zod.string().nullish(),
   "amount": zod.number().nullish(),
   "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
   "distance_km": zod.number().nullish(),
+  "subtotal": zod.number().nullish(),
+  "tax": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
   "assigned_at": zod.coerce.date().nullish(),
+  "accepted_at": zod.coerce.date().nullish(),
   "picked_up_at": zod.coerce.date().nullish(),
+  "out_for_delivery_at": zod.coerce.date().nullish(),
+  "arrived_at": zod.coerce.date().nullish(),
   "delivered_at": zod.coerce.date().nullish(),
   "cancelled_at": zod.coerce.date().nullish(),
+  "rejection_reason": zod.string().nullish(),
+  "cancellation_reason": zod.string().nullish(),
+  "otp_verified": zod.boolean().optional(),
+  "otp_verified_at": zod.coerce.date().nullish(),
+  "otp_expires_at": zod.coerce.date().nullish(),
+  "otp_attempts_remaining": zod.number().nullish(),
+  "payment_status": zod.enum(['not_applicable', 'pending', 'collected']).optional(),
+  "payment_collected_at": zod.coerce.date().nullish(),
+  "collected_amount": zod.number().nullish(),
   "created_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary List deliveries assigned to the authenticated driver
+ */
+export const listMyDeliveriesQueryPageDefault = 1;
+export const listMyDeliveriesQueryLimitDefault = 50;
+
+export const ListMyDeliveriesQueryParams = zod.object({
+  "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']).optional(),
+  "page": zod.coerce.number().default(listMyDeliveriesQueryPageDefault),
+  "limit": zod.coerce.number().default(listMyDeliveriesQueryLimitDefault)
+})
+
+export const ListMyDeliveriesResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
+  "driver_id": zod.number().nullish(),
+  "pickup_address": zod.string(),
+  "drop_address": zod.string(),
+  "delivery_landmark": zod.string().nullish(),
+  "delivery_instructions": zod.string().nullish(),
+  "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
+  "notes": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
+  "distance_km": zod.number().nullish(),
+  "subtotal": zod.number().nullish(),
+  "tax": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
+  "assigned_at": zod.coerce.date().nullish(),
+  "accepted_at": zod.coerce.date().nullish(),
+  "picked_up_at": zod.coerce.date().nullish(),
+  "out_for_delivery_at": zod.coerce.date().nullish(),
+  "arrived_at": zod.coerce.date().nullish(),
+  "delivered_at": zod.coerce.date().nullish(),
+  "cancelled_at": zod.coerce.date().nullish(),
+  "rejection_reason": zod.string().nullish(),
+  "cancellation_reason": zod.string().nullish(),
+  "otp_verified": zod.boolean().optional(),
+  "otp_verified_at": zod.coerce.date().nullish(),
+  "otp_expires_at": zod.coerce.date().nullish(),
+  "otp_attempts_remaining": zod.number().nullish(),
+  "payment_status": zod.enum(['not_applicable', 'pending', 'collected']).optional(),
+  "payment_collected_at": zod.coerce.date().nullish(),
+  "collected_amount": zod.number().nullish(),
+  "created_at": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Full delivery detail for the driver — includes customer contact and order items
+ */
+export const GetMyDeliveryDetailsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetMyDeliveryDetailsResponse = zod.object({
+  "delivery": zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
+  "driver_id": zod.number().nullish(),
+  "pickup_address": zod.string(),
+  "drop_address": zod.string(),
+  "delivery_landmark": zod.string().nullish(),
+  "delivery_instructions": zod.string().nullish(),
+  "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
+  "notes": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
+  "distance_km": zod.number().nullish(),
+  "subtotal": zod.number().nullish(),
+  "tax": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
+  "assigned_at": zod.coerce.date().nullish(),
+  "accepted_at": zod.coerce.date().nullish(),
+  "picked_up_at": zod.coerce.date().nullish(),
+  "out_for_delivery_at": zod.coerce.date().nullish(),
+  "arrived_at": zod.coerce.date().nullish(),
+  "delivered_at": zod.coerce.date().nullish(),
+  "cancelled_at": zod.coerce.date().nullish(),
+  "rejection_reason": zod.string().nullish(),
+  "cancellation_reason": zod.string().nullish(),
+  "otp_verified": zod.boolean().optional(),
+  "otp_verified_at": zod.coerce.date().nullish(),
+  "otp_expires_at": zod.coerce.date().nullish(),
+  "otp_attempts_remaining": zod.number().nullish(),
+  "payment_status": zod.enum(['not_applicable', 'pending', 'collected']).optional(),
+  "payment_collected_at": zod.coerce.date().nullish(),
+  "collected_amount": zod.number().nullish(),
+  "created_at": zod.coerce.date()
+}),
+  "customer": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "phone": zod.string(),
+  "address": zod.string().nullish()
+}),
+  "items": zod.array(zod.object({
+  "id": zod.number(),
+  "product_name": zod.string(),
+  "qty": zod.number(),
+  "unit_price": zod.number(),
+  "total_price": zod.number()
+}))
+})
+
+
+/**
+ * @summary Driver accepts an assigned delivery
+ */
+export const AcceptDeliveryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const AcceptDeliveryResponse = zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
+  "driver_id": zod.number().nullish(),
+  "pickup_address": zod.string(),
+  "drop_address": zod.string(),
+  "delivery_landmark": zod.string().nullish(),
+  "delivery_instructions": zod.string().nullish(),
+  "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
+  "notes": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
+  "distance_km": zod.number().nullish(),
+  "subtotal": zod.number().nullish(),
+  "tax": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
+  "assigned_at": zod.coerce.date().nullish(),
+  "accepted_at": zod.coerce.date().nullish(),
+  "picked_up_at": zod.coerce.date().nullish(),
+  "out_for_delivery_at": zod.coerce.date().nullish(),
+  "arrived_at": zod.coerce.date().nullish(),
+  "delivered_at": zod.coerce.date().nullish(),
+  "cancelled_at": zod.coerce.date().nullish(),
+  "rejection_reason": zod.string().nullish(),
+  "cancellation_reason": zod.string().nullish(),
+  "otp_verified": zod.boolean().optional(),
+  "otp_verified_at": zod.coerce.date().nullish(),
+  "otp_expires_at": zod.coerce.date().nullish(),
+  "otp_attempts_remaining": zod.number().nullish(),
+  "payment_status": zod.enum(['not_applicable', 'pending', 'collected']).optional(),
+  "payment_collected_at": zod.coerce.date().nullish(),
+  "collected_amount": zod.number().nullish(),
+  "created_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Driver rejects an assigned delivery (returns it to the pending/admin queue)
+ */
+export const RejectDeliveryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const rejectDeliveryBodyReasonMax = 500;
+
+
+
+export const RejectDeliveryBody = zod.object({
+  "reason": zod.string().min(1).max(rejectDeliveryBodyReasonMax)
+})
+
+export const RejectDeliveryResponse = zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
+  "driver_id": zod.number().nullish(),
+  "pickup_address": zod.string(),
+  "drop_address": zod.string(),
+  "delivery_landmark": zod.string().nullish(),
+  "delivery_instructions": zod.string().nullish(),
+  "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
+  "notes": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
+  "distance_km": zod.number().nullish(),
+  "subtotal": zod.number().nullish(),
+  "tax": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
+  "assigned_at": zod.coerce.date().nullish(),
+  "accepted_at": zod.coerce.date().nullish(),
+  "picked_up_at": zod.coerce.date().nullish(),
+  "out_for_delivery_at": zod.coerce.date().nullish(),
+  "arrived_at": zod.coerce.date().nullish(),
+  "delivered_at": zod.coerce.date().nullish(),
+  "cancelled_at": zod.coerce.date().nullish(),
+  "rejection_reason": zod.string().nullish(),
+  "cancellation_reason": zod.string().nullish(),
+  "otp_verified": zod.boolean().optional(),
+  "otp_verified_at": zod.coerce.date().nullish(),
+  "otp_expires_at": zod.coerce.date().nullish(),
+  "otp_attempts_remaining": zod.number().nullish(),
+  "payment_status": zod.enum(['not_applicable', 'pending', 'collected']).optional(),
+  "payment_collected_at": zod.coerce.date().nullish(),
+  "collected_amount": zod.number().nullish(),
+  "created_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Driver initiates a masked/bridged call to the customer — Exotel rings the driver first, then bridges to the customer. Neither side sees the other's real number.
+ */
+export const CallDeliveryCustomerParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CallDeliveryCustomerResponse = zod.object({
+  "message": zod.string(),
+  "call_sid": zod.string().nullish()
+})
+
+
+/**
+ * @summary Driver marks the delivery as picked up from the store
+ */
+export const PickupDeliveryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const PickupDeliveryResponse = zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
+  "driver_id": zod.number().nullish(),
+  "pickup_address": zod.string(),
+  "drop_address": zod.string(),
+  "delivery_landmark": zod.string().nullish(),
+  "delivery_instructions": zod.string().nullish(),
+  "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
+  "notes": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
+  "distance_km": zod.number().nullish(),
+  "subtotal": zod.number().nullish(),
+  "tax": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
+  "assigned_at": zod.coerce.date().nullish(),
+  "accepted_at": zod.coerce.date().nullish(),
+  "picked_up_at": zod.coerce.date().nullish(),
+  "out_for_delivery_at": zod.coerce.date().nullish(),
+  "arrived_at": zod.coerce.date().nullish(),
+  "delivered_at": zod.coerce.date().nullish(),
+  "cancelled_at": zod.coerce.date().nullish(),
+  "rejection_reason": zod.string().nullish(),
+  "cancellation_reason": zod.string().nullish(),
+  "otp_verified": zod.boolean().optional(),
+  "otp_verified_at": zod.coerce.date().nullish(),
+  "otp_expires_at": zod.coerce.date().nullish(),
+  "otp_attempts_remaining": zod.number().nullish(),
+  "payment_status": zod.enum(['not_applicable', 'pending', 'collected']).optional(),
+  "payment_collected_at": zod.coerce.date().nullish(),
+  "collected_amount": zod.number().nullish(),
+  "created_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Driver starts the trip to the customer (out for delivery)
+ */
+export const StartDeliveryTripParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const StartDeliveryTripResponse = zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
+  "driver_id": zod.number().nullish(),
+  "pickup_address": zod.string(),
+  "drop_address": zod.string(),
+  "delivery_landmark": zod.string().nullish(),
+  "delivery_instructions": zod.string().nullish(),
+  "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
+  "notes": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
+  "distance_km": zod.number().nullish(),
+  "subtotal": zod.number().nullish(),
+  "tax": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
+  "assigned_at": zod.coerce.date().nullish(),
+  "accepted_at": zod.coerce.date().nullish(),
+  "picked_up_at": zod.coerce.date().nullish(),
+  "out_for_delivery_at": zod.coerce.date().nullish(),
+  "arrived_at": zod.coerce.date().nullish(),
+  "delivered_at": zod.coerce.date().nullish(),
+  "cancelled_at": zod.coerce.date().nullish(),
+  "rejection_reason": zod.string().nullish(),
+  "cancellation_reason": zod.string().nullish(),
+  "otp_verified": zod.boolean().optional(),
+  "otp_verified_at": zod.coerce.date().nullish(),
+  "otp_expires_at": zod.coerce.date().nullish(),
+  "otp_attempts_remaining": zod.number().nullish(),
+  "payment_status": zod.enum(['not_applicable', 'pending', 'collected']).optional(),
+  "payment_collected_at": zod.coerce.date().nullish(),
+  "collected_amount": zod.number().nullish(),
+  "created_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Driver marks arrival at the customer location. Auto-generates and sends the delivery OTP.
+ */
+export const MarkDeliveryArrivedParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const MarkDeliveryArrivedResponse = zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
+  "driver_id": zod.number().nullish(),
+  "pickup_address": zod.string(),
+  "drop_address": zod.string(),
+  "delivery_landmark": zod.string().nullish(),
+  "delivery_instructions": zod.string().nullish(),
+  "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
+  "notes": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
+  "distance_km": zod.number().nullish(),
+  "subtotal": zod.number().nullish(),
+  "tax": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
+  "assigned_at": zod.coerce.date().nullish(),
+  "accepted_at": zod.coerce.date().nullish(),
+  "picked_up_at": zod.coerce.date().nullish(),
+  "out_for_delivery_at": zod.coerce.date().nullish(),
+  "arrived_at": zod.coerce.date().nullish(),
+  "delivered_at": zod.coerce.date().nullish(),
+  "cancelled_at": zod.coerce.date().nullish(),
+  "rejection_reason": zod.string().nullish(),
+  "cancellation_reason": zod.string().nullish(),
+  "otp_verified": zod.boolean().optional(),
+  "otp_verified_at": zod.coerce.date().nullish(),
+  "otp_expires_at": zod.coerce.date().nullish(),
+  "otp_attempts_remaining": zod.number().nullish(),
+  "payment_status": zod.enum(['not_applicable', 'pending', 'collected']).optional(),
+  "payment_collected_at": zod.coerce.date().nullish(),
+  "collected_amount": zod.number().nullish(),
+  "created_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Resend the delivery OTP to the customer (rate-limited)
+ */
+export const ResendDeliveryOtpParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ResendDeliveryOtpResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Verify the customer-provided OTP for this delivery
+ */
+export const VerifyDeliveryOtpParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const verifyDeliveryOtpBodyOtpMin = 4;
+export const verifyDeliveryOtpBodyOtpMax = 6;
+
+
+
+export const VerifyDeliveryOtpBody = zod.object({
+  "otp": zod.string().min(verifyDeliveryOtpBodyOtpMin).max(verifyDeliveryOtpBodyOtpMax)
+})
+
+export const VerifyDeliveryOtpResponse = zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
+  "driver_id": zod.number().nullish(),
+  "pickup_address": zod.string(),
+  "drop_address": zod.string(),
+  "delivery_landmark": zod.string().nullish(),
+  "delivery_instructions": zod.string().nullish(),
+  "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
+  "notes": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
+  "distance_km": zod.number().nullish(),
+  "subtotal": zod.number().nullish(),
+  "tax": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
+  "assigned_at": zod.coerce.date().nullish(),
+  "accepted_at": zod.coerce.date().nullish(),
+  "picked_up_at": zod.coerce.date().nullish(),
+  "out_for_delivery_at": zod.coerce.date().nullish(),
+  "arrived_at": zod.coerce.date().nullish(),
+  "delivered_at": zod.coerce.date().nullish(),
+  "cancelled_at": zod.coerce.date().nullish(),
+  "rejection_reason": zod.string().nullish(),
+  "cancellation_reason": zod.string().nullish(),
+  "otp_verified": zod.boolean().optional(),
+  "otp_verified_at": zod.coerce.date().nullish(),
+  "otp_expires_at": zod.coerce.date().nullish(),
+  "otp_attempts_remaining": zod.number().nullish(),
+  "payment_status": zod.enum(['not_applicable', 'pending', 'collected']).optional(),
+  "payment_collected_at": zod.coerce.date().nullish(),
+  "collected_amount": zod.number().nullish(),
+  "created_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Confirm COD payment collection for this delivery
+ */
+export const ConfirmDeliveryPaymentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const confirmDeliveryPaymentBodyAmountExclusiveMin = 0;
+
+
+
+export const ConfirmDeliveryPaymentBody = zod.object({
+  "amount": zod.number().gt(confirmDeliveryPaymentBodyAmountExclusiveMin)
+})
+
+export const ConfirmDeliveryPaymentResponse = zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
+  "driver_id": zod.number().nullish(),
+  "pickup_address": zod.string(),
+  "drop_address": zod.string(),
+  "delivery_landmark": zod.string().nullish(),
+  "delivery_instructions": zod.string().nullish(),
+  "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
+  "notes": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
+  "distance_km": zod.number().nullish(),
+  "subtotal": zod.number().nullish(),
+  "tax": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
+  "assigned_at": zod.coerce.date().nullish(),
+  "accepted_at": zod.coerce.date().nullish(),
+  "picked_up_at": zod.coerce.date().nullish(),
+  "out_for_delivery_at": zod.coerce.date().nullish(),
+  "arrived_at": zod.coerce.date().nullish(),
+  "delivered_at": zod.coerce.date().nullish(),
+  "cancelled_at": zod.coerce.date().nullish(),
+  "rejection_reason": zod.string().nullish(),
+  "cancellation_reason": zod.string().nullish(),
+  "otp_verified": zod.boolean().optional(),
+  "otp_verified_at": zod.coerce.date().nullish(),
+  "otp_expires_at": zod.coerce.date().nullish(),
+  "otp_attempts_remaining": zod.number().nullish(),
+  "payment_status": zod.enum(['not_applicable', 'pending', 'collected']).optional(),
+  "payment_collected_at": zod.coerce.date().nullish(),
+  "collected_amount": zod.number().nullish(),
+  "created_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Complete the delivery (requires arrival, OTP verified, and COD payment collected if applicable)
+ */
+export const CompleteDeliveryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CompleteDeliveryResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string(),
+  "data": zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "customer_id": zod.number(),
+  "sales_order_id": zod.number().nullish(),
+  "driver_id": zod.number().nullish(),
+  "pickup_address": zod.string(),
+  "drop_address": zod.string(),
+  "delivery_landmark": zod.string().nullish(),
+  "delivery_instructions": zod.string().nullish(),
+  "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled']),
+  "notes": zod.string().nullish(),
+  "amount": zod.number().nullish(),
+  "payment_method": zod.enum(['cod', 'online', 'card']).nullish(),
+  "distance_km": zod.number().nullish(),
+  "subtotal": zod.number().nullish(),
+  "tax": zod.number().nullish(),
+  "delivery_fee": zod.number().nullish(),
+  "assigned_at": zod.coerce.date().nullish(),
+  "accepted_at": zod.coerce.date().nullish(),
+  "picked_up_at": zod.coerce.date().nullish(),
+  "out_for_delivery_at": zod.coerce.date().nullish(),
+  "arrived_at": zod.coerce.date().nullish(),
+  "delivered_at": zod.coerce.date().nullish(),
+  "cancelled_at": zod.coerce.date().nullish(),
+  "rejection_reason": zod.string().nullish(),
+  "cancellation_reason": zod.string().nullish(),
+  "otp_verified": zod.boolean().optional(),
+  "otp_verified_at": zod.coerce.date().nullish(),
+  "otp_expires_at": zod.coerce.date().nullish(),
+  "otp_attempts_remaining": zod.number().nullish(),
+  "payment_status": zod.enum(['not_applicable', 'pending', 'collected']).optional(),
+  "payment_collected_at": zod.coerce.date().nullish(),
+  "collected_amount": zod.number().nullish(),
+  "created_at": zod.coerce.date()
+})
 })
 
 
@@ -2519,6 +3227,75 @@ export const ListNotificationsResponseItem = zod.object({
   "created_at": zod.coerce.date()
 })
 export const ListNotificationsResponse = zod.array(ListNotificationsResponseItem)
+
+
+/**
+ * @summary List notifications for the authenticated driver (paginated, filterable)
+ */
+export const listDriverNotificationsQueryPageDefault = 1;
+export const listDriverNotificationsQueryLimitDefault = 20;
+export const listDriverNotificationsQueryTypeDefault = `ALL`;
+export const listDriverNotificationsQueryReadDefault = `ALL`;
+
+export const ListDriverNotificationsQueryParams = zod.object({
+  "page": zod.coerce.number().default(listDriverNotificationsQueryPageDefault),
+  "limit": zod.coerce.number().default(listDriverNotificationsQueryLimitDefault),
+  "type": zod.enum(['ALL', 'DELIVERIES', 'EARNINGS', 'SYSTEM']).default(listDriverNotificationsQueryTypeDefault),
+  "read": zod.enum(['ALL', 'READ', 'UNREAD']).default(listDriverNotificationsQueryReadDefault)
+})
+
+export const ListDriverNotificationsResponse = zod.object({
+  "success": zod.boolean(),
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "driver_id": zod.number().nullish(),
+  "delivery_id": zod.number().nullish(),
+  "order_id": zod.number().nullish(),
+  "type": zod.enum(['assigned', 'accepted', 'picked_up', 'out_for_delivery', 'completed', 'cancelled', 'fee_earned', 'address_updated', 'payment_received', 'order_confirmed', 'system', 'admin_message']),
+  "title": zod.string(),
+  "message": zod.string(),
+  "is_read": zod.boolean(),
+  "created_at": zod.coerce.date(),
+  "read_at": zod.coerce.date().nullish()
+})),
+  "pagination": zod.object({
+  "page": zod.number(),
+  "limit": zod.number(),
+  "total": zod.number(),
+  "totalPages": zod.number()
+})
+})
+
+
+/**
+ * @summary Get the authenticated driver's unread notification count
+ */
+export const GetDriverUnreadNotificationCountResponse = zod.object({
+  "success": zod.boolean(),
+  "count": zod.number()
+})
+
+
+/**
+ * @summary Mark one of the authenticated driver's notifications as read
+ */
+export const MarkDriverNotificationReadParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const MarkDriverNotificationReadResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Mark all of the authenticated driver's unread notifications as read
+ */
+export const MarkAllDriverNotificationsReadResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string()
+})
 
 
 /**

@@ -16,12 +16,15 @@
     "ios": {
       "supportsTablet": false,
       "infoPlist": {
-        "NSCameraUsageDescription": "Allow KhataPro to access your camera to scan barcodes."
+        "NSCameraUsageDescription": "Allow KhataPro to access your camera to scan barcodes.",
+        "NSLocationWhenInUseUsageDescription": "Allow KhataPro to use your location to set your shop's exact address for delivery fee calculation."
       }
     },
     "android": {
       "permissions": [
-        "CAMERA"
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
       ]
     },
     "web": {
@@ -41,6 +44,12 @@
         "expo-camera",
         {
           "cameraPermission": "Allow KhataPro to access your camera to scan barcodes."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow KhataPro to use your location to set your shop's exact address for delivery fee calculation."
         }
       ],
       "@react-native-community/datetimepicker"

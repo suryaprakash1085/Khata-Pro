@@ -12,6 +12,7 @@ export interface DriverInput {
   business_id: number;
   name: string;
   phone: string;
+  email?: string;
   vehicle_number?: string;
   vehicle_type?: DriverInputVehicleType;
   status?: DriverInputStatus;
