@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { CartContext } from '../../context/CartContext';
-import { OrderContext } from '../../context/OrderContext';
 import { AuthContext } from '../../context/AuthContext';
 import { SelectedBusinessContext } from '../../context/SelectedBusinessContext';
 import { supabase } from '../../services/supabaseClient';
@@ -36,15 +35,6 @@ interface PaymentScreenProps {
   navigation: any;
   route: any;
 }
-
-// ============================================================
-// GENERATE LOCAL ORDER ID
-// ============================================================
-const generateUniqueOrderId = () => {
-  const timestamp = Date.now().toString(36).toUpperCase();
-  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-  return `ORD-${timestamp}-${random}`;
-};
 
 // ============================================================
 // SUCCESS MODAL
@@ -155,7 +145,6 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
   // CONTEXTS
   // ==========================================================
   const { clearCart } = useContext(CartContext);
-  const { addOrder } = useContext(OrderContext);
   const { user } = useContext(AuthContext);
   const { selectedBusiness } = useContext(SelectedBusinessContext);
 
@@ -173,17 +162,25 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
   const [orderDetails, setOrderDetails] = useState<any>(null);
 
   // ==========================================================
-  // CALCULATE TAX IF NOT PROVIDED
+  // CALCULATE TAX - DYNAMIC BASED ON ITEM GST RATES
   // ==========================================================
   const calculateTax = (subtotalAmount: number) => {
-    // GST 18%
-    return Math.round((subtotalAmount * 18) / 100);
+    if (!cartItems || cartItems.length === 0) return 0;
+    const total = cartItems.reduce((sum: number, item: any) => {
+      const itemTotal = (item.price || 0) * (item.quantity || 1);
+      const gstRate = item.gst_rate || 0;
+      return sum + itemTotal * (gstRate / 100);
+    }, 0);
+    return Math.round(total);
   };
 
   // Use provided values or calculate defaults
   const finalSubtotal = subtotal > 0 ? subtotal : totalAmount - deliveryFee - tax;
   const finalTax = tax > 0 ? tax : calculateTax(finalSubtotal);
   const finalDeliveryFee = deliveryFee > 0 ? deliveryFee : 40;
+
+  // ✅ Effective GST % based on the ACTUAL tax amount received
+  const effectiveGstRate = finalSubtotal > 0 ? Math.round((finalTax / finalSubtotal) * 100) : 0;
 
   // Recalculate total to ensure accuracy
   const calculatedTotal = finalSubtotal + finalDeliveryFee + finalTax;
@@ -222,12 +219,19 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
   // ==========================================================
   // RECORD TRANSACTION
   // ==========================================================
-  const recordTransaction = async (
-    orderId: string,
-    paymentMethod: 'Razorpay' | 'Cash on Delivery'
-  ) => {
-    const businessId = selectedBusiness?.id || user?.business_id;
-    
+  // const recordTransaction = async (
+  //   orderId: string,
+  //   paymentMethod: 'Razorpay' | 'Cash on Delivery'
+  // ) => {
+  //   const businessId = selectedBusiness?.id || user?.business_id;
+const recordTransaction = async (
+  orderId: string,
+  paymentMethod: 'Razorpay' | 'Cash on Delivery'
+) => {
+  const businessId =
+    (cartItems?.[0]?.restaurantId ? Number(cartItems[0].restaurantId) : undefined) ||
+    selectedBusiness?.id ||
+    user?.business_id;
     if (!businessId || !user?.id) {
       console.log('⚠️ Missing business_id or user id — skipped transaction record');
       return;
@@ -270,17 +274,36 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
   // ==========================================================
   // CREATE SALES ORDER - FIXED ✅
   // ==========================================================
-  const placeOrderOnBackend = async () => {
-    // ✅ Use selectedBusiness.id instead of user.business_id
-    const businessId = selectedBusiness?.id || user?.business_id;
-    
-    if (!businessId || !user?.id || !address) {
-      throw new Error('Missing business, customer, or address details.');
-    }
-    if (!cartItems || cartItems.length === 0) {
-      throw new Error('Cart is empty.');
-    }
+  // const placeOrderOnBackend = async () => {
+  //   // ✅ Use selectedBusiness.id instead of user.business_id
+  //   const businessId = selectedBusiness?.id || user?.business_id;
 
+  //   if (!businessId || !user?.id || !address) {
+  //     throw new Error('Missing business, customer, or address details.');
+  //   }
+  //   if (!cartItems || cartItems.length === 0) {
+  //     throw new Error('Cart is empty.');
+  //   }
+const placeOrderOnBackend = async () => {
+  // ✅ PRIORITY: cartItems restaurantId (actual store customer selected)
+  // over selectedBusiness/user.business_id (can be stale/wrong)
+  const businessId =
+    (cartItems?.[0]?.restaurantId ? Number(cartItems[0].restaurantId) : undefined) ||
+    selectedBusiness?.id ||
+    user?.business_id;
+
+  if (!businessId || !user?.id || !address) {
+    throw new Error('Missing business, customer, or address details.');
+  }
+  if (!cartItems || cartItems.length === 0) {
+    throw new Error('Cart is empty.');
+  }
+
+  // ✅ Sanity check — all cart items must belong to the same business
+  const restaurantIds = new Set(cartItems.map((item: any) => String(item.restaurantId)));
+  if (restaurantIds.size > 1) {
+    throw new Error('Cart has items from multiple stores. Please order from one store at a time.');
+  }
     const fullAddress = `${address.address}, ${address.city}, ${address.state || ''} - ${address.pincode}`;
 
     // Convert product_id to number
@@ -293,11 +316,22 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
     console.log('📦 Sales order items:', formattedItems);
     console.log('🏪 Using business_id:', businessId);
 
+<<<<<<< HEAD
         const payload = {
       business_id: Number(businessId), // ✅ FIXED: Use selected business
+=======
+    const payload = {
+      business_id: Number(businessId),
+>>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
       customer_id: Number(user.id),
       channel: 'online',
       shipping_address: fullAddress,
+      customer_latitude: address.latitude,
+      customer_longitude: address.longitude,
+       delivery_fee: finalDeliveryFee,
+  delivery_distance_km: route.params?.deliveryFeeBreakdown?.distance_km,
+  delivery_fee_radius: route.params?.deliveryFeeBreakdown?.free_delivery_radius,
+  delivery_fee_per_km: route.params?.deliveryFeeBreakdown?.per_km_charge,
       description:
         cartItems.map((item: any) => `${item.name} x${item.quantity}`).join(', ') ||
         'Order',
@@ -443,31 +477,16 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
   // RAZORPAY SUCCESS
   // ==========================================================
   const handlePaymentSuccess = async (data: any) => {
-    const localOrderId = generateUniqueOrderId();
-
     try {
       const salesOrder = await placeOrderOnBackend();
 
-      addOrder({
-        id: localOrderId,
-        restaurantName: restaurantName || 'QuickBite',
-        items:
-          cartItems?.map((item: any) => ({
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price,
-          })) || [],
-        total: displayTotal || 0,
-        status: 'Placed',
-        createdAt: new Date().toISOString(),
-      });
-
       clearCart();
-      await recordTransaction(localOrderId, 'Razorpay');
+      await recordTransaction(`ORD-MS${salesOrder.id}`, 'Razorpay');
 
       setIsProcessing(false);
       setOrderDetails({
         orderId: `ORD-MS${salesOrder.id}`,
+        backendOrderId: salesOrder.id,
         total: displayTotal,
         items: cartItems,
         paymentMethod: 'Razorpay',
@@ -489,32 +508,18 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
   // ==========================================================
   const handleCashOnDelivery = async () => {
     setIsProcessing(true);
-    const localOrderId = generateUniqueOrderId();
 
     try {
       console.log('💵 Cash on Delivery selected');
       const salesOrder = await placeOrderOnBackend();
       console.log('✅ COD sales order created:', salesOrder);
 
-      addOrder({
-        id: localOrderId,
-        restaurantName: restaurantName || 'QuickBite',
-        items:
-          cartItems?.map((item: any) => ({
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price,
-          })) || [],
-        total: displayTotal || 0,
-        status: 'Placed',
-        createdAt: new Date().toISOString(),
-      });
-
       clearCart();
-      await recordTransaction(localOrderId, 'Cash on Delivery');
+      await recordTransaction(`ORD-MS${salesOrder.id}`, 'Cash on Delivery');
 
       setOrderDetails({
         orderId: `ORD-MS${salesOrder.id}`,
+        backendOrderId: salesOrder.id,
         total: displayTotal,
         items: cartItems,
         paymentMethod: 'Cash on Delivery',
@@ -666,8 +671,9 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
             <Text style={styles.summaryValue}>₹{finalDeliveryFee}</Text>
           </View>
 
+          {/* ✅ Updated Tax row with dynamic GST percentage */}
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Tax (GST 18%)</Text>
+            <Text style={styles.summaryLabel}>Tax (GST {effectiveGstRate}%)</Text>
             <Text style={styles.summaryValue}>₹{finalTax}</Text>
           </View>
 

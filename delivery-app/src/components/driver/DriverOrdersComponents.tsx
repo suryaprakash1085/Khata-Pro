@@ -1,3 +1,5 @@
+
+
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +22,8 @@ export const orderStatusMeta: Record<OrderStatus, { label: string; color: string
   pending: { label: 'Pending', color: COLORS.amber, bg: COLORS.amberLight },
   assigned: { label: 'Assigned', color: COLORS.primary, bg: COLORS.primaryLight },
   picked_up: { label: 'Picked Up', color: '#7C3AED', bg: '#EDE9FE' },
-  in_progress: { label: 'In Progress', color: COLORS.secondary, bg: COLORS.secondaryLight },
+  // in_progress: { label: 'In Progress', color: COLORS.secondary, bg: COLORS.secondaryLight },
+  in_progress: { label: 'Out for Delivery', color: COLORS.secondary, bg: COLORS.secondaryLight },
   delivered: { label: 'Delivered', color: COLORS.secondary, bg: COLORS.secondaryLight },
   cancelled: { label: 'Cancelled', color: COLORS.danger, bg: COLORS.dangerLight },
   failed: { label: 'Failed', color: COLORS.danger, bg: COLORS.dangerLight },
@@ -142,13 +145,18 @@ export const OrderCard: React.FC<{
   onNavigate: () => void;
   onCall: () => void;
   onMarkPickedUp: () => void;
+  onStartDelivery: () => void;
   onMarkDelivered: () => void;
   onUnableToDeliver: () => void;
-}> = ({ order, updating, onNavigate, onCall, onMarkPickedUp, onMarkDelivered, onUnableToDeliver }) => {
+}> = ({ order, updating, onNavigate, onCall, onMarkPickedUp, onStartDelivery, onMarkDelivered, onUnableToDeliver }) => {
   const isMuted = order.status === 'cancelled' || order.status === 'failed';
   const isDelivered = order.status === 'delivered';
   const isPickupStage = order.status === 'pending' || order.status === 'assigned';
-  const isEnRoute = order.status === 'picked_up' || order.status === 'in_progress';
+  
+  // isPickedUp: waiting for driver to start delivery
+  // isOutForDelivery: driver already started delivery, waiting for delivered/unable
+  const isPickedUp = order.status === 'picked_up' && !order.outForDeliveryAt;
+  const isOutForDelivery = order.status === 'picked_up' && !!order.outForDeliveryAt;
 
   return (
     <View style={[styles.card, isMuted && styles.cardMuted]}>
@@ -204,11 +212,13 @@ export const OrderCard: React.FC<{
           <Text style={styles.metaValue}>
             {isDelivered
               ? formatTime(order.deliveredAt)
-              : isEnRoute
+              : isOutForDelivery
               ? formatTime(order.pickedUpAt)
               : formatTime(order.assignedAt)}
           </Text>
-          <Text style={styles.metaLabel}>{isDelivered ? 'Delivered' : isEnRoute ? 'Picked Up' : 'Assigned'}</Text>
+          <Text style={styles.metaLabel}>
+            {isDelivered ? 'Delivered' : isOutForDelivery ? 'Picked Up' : 'Assigned'}
+          </Text>
         </View>
       </View>
 
@@ -216,10 +226,22 @@ export const OrderCard: React.FC<{
         <View style={styles.actionsRow}>
           <OrderActionButton label="Navigate" icon="navigate-outline" variant="outline" onPress={onNavigate} />
           <OrderActionButton label="Call" icon="call-outline" variant="outline" onPress={onCall} />
+          
           {isPickupStage && (
             <OrderActionButton label="Mark Picked Up" variant="primary" loading={updating} onPress={onMarkPickedUp} />
           )}
-          {isEnRoute && (
+          
+          {isPickedUp && (
+            <OrderActionButton 
+              label="Out for Delivery" 
+              icon="bicycle-outline" 
+              variant="primary" 
+              loading={updating} 
+              onPress={onStartDelivery} 
+            />
+          )}
+          
+          {isOutForDelivery && (
             <>
               <OrderActionButton label="Delivered" variant="success" loading={updating} onPress={onMarkDelivered} />
               <OrderActionButton label="Unable to Deliver" variant="danger" loading={updating} onPress={onUnableToDeliver} />

@@ -219,7 +219,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const updateUser = async (userData: Partial<User>): Promise<boolean> => {
     try {
-      setLoading(true);
+      // setLoading(true);
 
       if (!user) {
         console.error('No user logged in');
@@ -258,7 +258,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('Update user error:', error);
       return false;
     } finally {
-      setLoading(false);
+      // setLoading(false);
     }
   };
 

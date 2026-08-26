@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { Router, type IRouter } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
@@ -13,6 +14,11 @@ import {
   transactionsTable,
   salesOrdersTable
 } from "@workspace/db";
+=======
+
+import { Router, type IRouter } from "express";
+import { db, deliveriesTable, driversTable, notificationsTable, customersTable } from "@workspace/db";
+>>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
 import { eq, and, count, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { requireDriverAuth } from "../middlewares/driverAuth";
@@ -80,6 +86,7 @@ function formatDelivery(d: any) {
     collected_amount: d.collectedAmount !== null && d.collectedAmount !== undefined ? parseFloat(d.collectedAmount) : null,
 
     created_at: d.createdAt,
+    out_for_delivery_at: d.outForDeliveryAt,
   };
 }
 
@@ -315,18 +322,40 @@ router.post("/deliveries/:id/assign", requireAuth, async (req, res): Promise<voi
 
     await db.insert(notificationsTable).values({
     businessId: delivery.businessId,
+    customerId: delivery.customerId,
     driverId: parsed.data.driver_id,
     deliveryId: Number(delivery.id),
     salesOrderId: delivery.salesOrderId ? Number(delivery.salesOrderId) : null,
     type: "assigned",
+<<<<<<< HEAD
     title: "New Delivery Assigned",
     message: `Order has been assigned to you — deliver to ${delivery.dropAddress}`,
+=======
+    message: delivery.salesOrderId
+      ? `Order #${delivery.salesOrderId} - driver assigned. Deliver to ${delivery.dropAddress}`
+      : `New delivery assigned — deliver to ${delivery.dropAddress}`,
+>>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
   });
-
   res.json(formatDelivery(delivery));
 });
 
-// PUT /deliveries/:id/status  (staff/admin dashboard use — unchanged)
+// Valid forward transitions only. Terminal states (delivered, cancelled)
+// cannot transition anywhere else.
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  pending: ["assigned", "cancelled"],
+  assigned: ["picked_up", "cancelled"],
+  picked_up: ["delivered","cancelled"],
+
+  delivered: [],
+  cancelled: [],
+};
+
+function isValidTransition(from: string, to: string): boolean {
+  if (from === to) return false; // no-op update, not an error but not a real transition
+  return VALID_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+// PUT /deliveries/:id/status  (staff/admin dashboard use — with transition validation)
 router.put("/deliveries/:id/status", requireAuth, async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
   if (id === null) {
@@ -338,7 +367,22 @@ router.put("/deliveries/:id/status", requireAuth, async (req, res): Promise<void
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+
+  const [existing] = await db.select().from(deliveriesTable).where(eq(deliveriesTable.id, id));
+  if (!existing) {
+    res.status(404).json({ error: "Delivery not found" });
+    return;
+  }
+
   const status = parsed.data.status;
+  if (!isValidTransition(existing.status as string, status)) {
+    res.status(409).json({
+      error: `Cannot change status from "${existing.status}" to "${status}"`,
+      current_status: existing.status,
+    });
+    return;
+  }
+
   const updates: any = { status };
   if (status === "picked_up") updates.pickedUpAt = new Date();
   if (status === "delivered") updates.deliveredAt = new Date();
@@ -346,6 +390,7 @@ router.put("/deliveries/:id/status", requireAuth, async (req, res): Promise<void
 
   const [existing] = await db.select().from(deliveriesTable).where(eq(deliveriesTable.id, id));
   const [delivery] = await db.update(deliveriesTable).set(updates).where(eq(deliveriesTable.id, id)).returning();
+<<<<<<< HEAD
   if (!delivery) {
     res.status(404).json({ error: "Delivery not found" });
     return;
@@ -355,6 +400,8 @@ router.put("/deliveries/:id/status", requireAuth, async (req, res): Promise<void
       statusHistoryPayload(id, existing.status, status, null, "admin")
     );
   }
+=======
+>>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
   res.json(formatDelivery(delivery));
 });
 
@@ -435,6 +482,7 @@ router.get("/deliveries/:id/my-details", requireDriverAuth, async (req, res): Pr
   });
 });
 
+<<<<<<< HEAD
 // ------------------------------------------------------------
 // Status-flow guard helper
 // ------------------------------------------------------------
@@ -965,6 +1013,9 @@ router.post("/deliveries/:id/complete", requireDriverAuth, async (req, res): Pro
 // dedicated endpoints above, which enforce the correct transition + side effects.
 // This raw setter is left in place only for any existing frontend calls that
 // haven't migrated yet; it does NOT run OTP/payment gating.)
+=======
+// PUT /deliveries/:id/my-status  (driver updates their own delivery's status — with transition validation)
+>>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
 router.put("/deliveries/:id/my-status", requireDriverAuth, async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
   if (id === null) {
@@ -985,6 +1036,14 @@ router.put("/deliveries/:id/my-status", requireDriverAuth, async (req, res): Pro
   }
 
   const status = parsed.data.status;
+  if (!isValidTransition(existing.status as string, status)) {
+    res.status(409).json({
+      error: `Cannot change status from "${existing.status}" to "${status}"`,
+      current_status: existing.status,
+    });
+    return;
+  }
+
   const updates: any = { status };
   if (status === "picked_up") updates.pickedUpAt = new Date();
   if (status === "delivered") updates.deliveredAt = new Date();
@@ -999,6 +1058,7 @@ router.put("/deliveries/:id/my-status", requireDriverAuth, async (req, res): Pro
   res.json(formatDelivery(delivery));
 });
 
+<<<<<<< HEAD
 // POST /deliveries/:id/call
 // Bridges the driver and customer through Exotel without ever exposing
 // either party's real number to the other side.
@@ -1012,10 +1072,23 @@ router.post("/deliveries/:id/call", requireDriverAuth, async (req, res): Promise
 
   const delivery = await loadOwnedDelivery(id, driverId, businessId);
   if (!delivery) {
+=======
+// PUT /deliveries/:id/my-out-for-delivery  (driver marks "out for delivery"
+// WITHOUT touching the `status` field — status stays whatever it is,
+// e.g. teammate's POS/payment flow relies on it separately)
+router.put("/deliveries/:id/my-out-for-delivery", requireDriverAuth, async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+  const { driverId } = (req as any).driver;
+
+  const [existing] = await db.select().from(deliveriesTable).where(eq(deliveriesTable.id, id));
+  if (!existing || Number(existing.driverId) !== driverId) {
+>>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
     res.status(404).json({ error: "Delivery not found" });
     return;
   }
 
+<<<<<<< HEAD
   const [driver] = await db.select().from(driversTable).where(eq(driversTable.id, driverId));
   const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, delivery.customerId));
 
@@ -1057,6 +1130,15 @@ router.post("/deliveries/:id/call", requireDriverAuth, async (req, res): Promise
     console.error("[deliveries] Unexpected error initiating masked call:", err);
     res.status(500).json({ error: "Something went wrong. Please try again." });
   }
+=======
+  const [delivery] = await db
+    .update(deliveriesTable)
+    .set({ outForDeliveryAt: new Date() }) // only this column changes
+    .where(eq(deliveriesTable.id, id))
+    .returning();
+
+  res.json(formatDelivery(delivery));
+>>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
 });
 
 export default router;

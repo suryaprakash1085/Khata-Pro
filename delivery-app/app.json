@@ -5,12 +5,13 @@
     "version": "1.0.0",
     "extra": {
       "eas": {
-        "projectId": "1f926f44-064c-4b7a-b9f7-6666ab727879"
+        "projectId": "bccd95c3-e9af-4578-9ab0-f57f9ee1ad4c"
       }
     },
-    "owner": "yogamurugan",
+    "owner": "",
     "android": {
-      "useNextNotificationsApi": true
+      "useNextNotificationsApi": true,
+      "package": "com.subasri0102.deliveryapp"
     },
     "plugins": [
       "expo-notifications"

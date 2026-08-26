@@ -32,6 +32,8 @@ function formatBusiness(b: any, plan: string) {
     state: b.state,
     postal_code: b.postalCode,
     country: b.country,
+    latitude: b.latitude !== null && b.latitude !== undefined ? parseFloat(b.latitude) : null,   // ✅ ADD
+    longitude: b.longitude !== null && b.longitude !== undefined ? parseFloat(b.longitude) : null, // ✅ ADD
     logo_url: b.logoUrl,
     currency: b.currency,
     financial_year_start: b.financialYearStart,
@@ -100,6 +102,8 @@ router.post("/businesses", requireAuth, async (req, res): Promise<void> => {
     state: parsed.data.state,
     postalCode: parsed.data.postal_code,
     country: parsed.data.country ?? "India",
+    latitude: parsed.data.latitude !== undefined ? parsed.data.latitude.toString() : undefined,   // ✅ ADD
+    longitude: parsed.data.longitude !== undefined ? parsed.data.longitude.toString() : undefined, // ✅ ADD
     logoUrl: parsed.data.logo_url,
     currency: parsed.data.currency ?? "INR",
     financialYearStart: parsed.data.financial_year_start instanceof Date ? parsed.data.financial_year_start.toISOString().split("T")[0] : parsed.data.financial_year_start,
@@ -154,6 +158,8 @@ router.put("/businesses/:id", requireAuth, async (req, res): Promise<void> => {
   if (parsed.data.state !== undefined) updates.state = parsed.data.state;
   if (parsed.data.postal_code !== undefined) updates.postalCode = parsed.data.postal_code;
   if (parsed.data.country !== undefined) updates.country = parsed.data.country;
+  if (parsed.data.latitude !== undefined) updates.latitude = parsed.data.latitude.toString();     // ✅ ADD
+  if (parsed.data.longitude !== undefined) updates.longitude = parsed.data.longitude.toString();   // ✅ ADD
   if (parsed.data.logo_url !== undefined) updates.logoUrl = parsed.data.logo_url;
   if (parsed.data.currency) updates.currency = parsed.data.currency;
   if (parsed.data.financial_year_start !== undefined) updates.financialYearStart = parsed.data.financial_year_start instanceof Date ? parsed.data.financial_year_start.toISOString().split("T")[0] : parsed.data.financial_year_start;

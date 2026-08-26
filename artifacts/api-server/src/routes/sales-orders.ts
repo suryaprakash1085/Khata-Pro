@@ -1,3 +1,8 @@
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
 import { Router, type IRouter } from "express";
 import { requireAuth, AuthPayload } from "../middlewares/auth";
 import {
@@ -17,7 +22,6 @@ import {
   calculateDeliveryFeeForBusiness,
   ShopLocationMissingError,
   CustomerLocationMissingError,
-  DeliveryFeeValidationError,
 } from "../services/deliveryFee.service";
 
 const router: IRouter = Router();
@@ -36,20 +40,28 @@ function formatSalesOrder(so: any, customerName?: string, itemCount?: number) {
     invoice_no: so.invoiceNo ?? null,
     description: so.description,
     shipping_address: so.shippingAddress,
-    // 👇 delivery-fee snapshot, frozen at order-creation time (see
-    // calculateAndSnapshotDeliveryFee below) — never recomputed on read.
-    delivery_distance_km: so.deliveryDistanceKm !== null && so.deliveryDistanceKm !== undefined
-      ? parseFloat(so.deliveryDistanceKm) : null,
-    delivery_fee: so.deliveryFee !== null && so.deliveryFee !== undefined
-      ? parseFloat(so.deliveryFee) : null,
-    delivery_fee_radius: so.deliveryFeeRadius !== null && so.deliveryFeeRadius !== undefined
-      ? parseFloat(so.deliveryFeeRadius) : null,
-    delivery_fee_per_km: so.deliveryFeePerKm !== null && so.deliveryFeePerKm !== undefined
-      ? parseFloat(so.deliveryFeePerKm) : null,
-    customer_latitude: so.customerLatitude !== null && so.customerLatitude !== undefined
-      ? parseFloat(so.customerLatitude) : null,
-    customer_longitude: so.customerLongitude !== null && so.customerLongitude !== undefined
-      ? parseFloat(so.customerLongitude) : null,
+    // 🔶 NEW — delivery fee snapshot fields
+    delivery_distance_km:
+      so.deliveryDistanceKm !== null && so.deliveryDistanceKm !== undefined
+        ? parseFloat(so.deliveryDistanceKm)
+        : null,
+    delivery_fee: so.deliveryFee !== null && so.deliveryFee !== undefined ? parseFloat(so.deliveryFee) : null,
+    delivery_fee_radius:
+      so.deliveryFeeRadius !== null && so.deliveryFeeRadius !== undefined
+        ? parseFloat(so.deliveryFeeRadius)
+        : null,
+    delivery_fee_per_km:
+      so.deliveryFeePerKm !== null && so.deliveryFeePerKm !== undefined
+        ? parseFloat(so.deliveryFeePerKm)
+        : null,
+    customer_latitude:
+      so.customerLatitude !== null && so.customerLatitude !== undefined
+        ? parseFloat(so.customerLatitude)
+        : null,
+    customer_longitude:
+      so.customerLongitude !== null && so.customerLongitude !== undefined
+        ? parseFloat(so.customerLongitude)
+        : null,
     entry_date: so.entryDate,
     transaction_id: so.transactionId ? Number(so.transactionId) : null,
     item_count: itemCount ?? 0,
@@ -69,60 +81,57 @@ async function resolvePickupAddress(businessId: number): Promise<string> {
   );
 }
 
-// ============================================================
-// Shared helper — calculates the delivery fee for an order and returns
-// the snapshot fields to insert into sales_orders. This is the
-// AUTHORITATIVE calculation (server-side, at order-creation time) — it
-// does not trust any fee/distance the client may have sent.
-//
-// Returns all-null fields (never throws) when:
-//   - no customer_latitude/customer_longitude was provided (in-store /
-//     phone order, or customer app didn't send location), or
-//   - the business has no shop location configured, or
-//   - any other calculation error occurs.
-// A missing delivery-fee snapshot must never block order placement —
-// it's a nice-to-have record, not a checkout gate.
-// ============================================================
-async function calculateAndSnapshotDeliveryFee(
-  businessId: number,
-  customerLatitude: number | undefined,
-  customerLongitude: number | undefined,
-) {
-  const empty = {
-    deliveryDistanceKm: null as string | null,
-    deliveryFee: null as string | null,
-    deliveryFeeRadius: null as string | null,
-    deliveryFeePerKm: null as string | null,
-    customerLatitude: null as string | null,
-    customerLongitude: null as string | null,
-  };
-
-  if (customerLatitude === undefined || customerLongitude === undefined) {
-    return empty;
+// 🔶 NEW — shared helper: given the parsed CreateSalesOrderBody, computes the
+// delivery-fee snapshot to persist on the order. NEVER trusts a client-sent
+// delivery fee — always recalculates server-side from current
+// delivery_fee_settings. Falls back to a zero/null snapshot (never throws)
+// if shipping_address or coordinates are missing, since not every order is
+// a home delivery.
+async function resolveDeliveryFee(d: {
+  business_id: number;
+  customer_latitude?: number;
+  customer_longitude?: number;
+  shipping_address?: string;
+}) {
+  if (!d.shipping_address || d.customer_latitude === undefined || d.customer_longitude === undefined) {
+    return {
+      fee: 0,
+      distanceKm: null as number | null,
+      radius: null as number | null,
+      perKm: null as number | null,
+      lat: null as number | null,
+      lng: null as number | null,
+    };
   }
 
   try {
-    const result = await calculateDeliveryFeeForBusiness(businessId, customerLatitude, customerLongitude);
+    const result = await calculateDeliveryFeeForBusiness(
+      d.business_id,
+      d.customer_latitude,
+      d.customer_longitude,
+    );
     return {
-      deliveryDistanceKm: result.distance_km.toString(),
-      deliveryFee: result.delivery_fee.toString(),
-      deliveryFeeRadius: result.free_delivery_radius.toString(),
-      deliveryFeePerKm: result.per_km_charge.toString(),
-      customerLatitude: customerLatitude.toString(),
-      customerLongitude: customerLongitude.toString(),
+      fee: result.delivery_fee,
+      distanceKm: result.distance_km,
+      radius: result.free_delivery_radius,
+      perKm: result.per_km_charge,
+      lat: d.customer_latitude,
+      lng: d.customer_longitude,
     };
   } catch (err) {
-    if (
-      err instanceof ShopLocationMissingError ||
-      err instanceof CustomerLocationMissingError ||
-      err instanceof DeliveryFeeValidationError
-    ) {
-      // Expected/config cases (shop hasn't set a location yet, etc.) —
-      // don't block the order, just skip the snapshot.
-      return empty;
+    if (err instanceof ShopLocationMissingError || err instanceof CustomerLocationMissingError) {
+      console.warn(`[sales-orders] Delivery fee not calculated for business ${d.business_id}: ${err.message}`);
+    } else {
+      console.error("[sales-orders] Unexpected delivery fee calc error:", err);
     }
-    console.error("[sales-orders] delivery fee calculation failed:", err);
-    return empty;
+    return {
+      fee: 0,
+      distanceKm: null,
+      radius: null,
+      perKm: null,
+      lat: d.customer_latitude ?? null,
+      lng: d.customer_longitude ?? null,
+    };
   }
 }
 
@@ -221,6 +230,7 @@ router.get("/sales-orders/:id", requireAuth, async (req, res): Promise<void> => 
 // Does NOT touch stock; order is only "placed" here, not fulfilled.
 // Auto-creates a matching `deliveries` row when a shipping_address
 // is provided (home-delivery order, not in-store pickup).
+// 🔶 UPDATED — now computes delivery fee server-side and adds it to `amount`.
 // ============================================================
 router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
   const parsed = CreateSalesOrderBody.safeParse(req.body);
@@ -239,7 +249,10 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
 
   const itemsTotal = d.items.reduce((sum, it) => sum + it.qty * it.unit_price, 0);
   const tax = d.tax ?? 0;
-  const amount = itemsTotal + tax;
+
+  // 🔶 NEW — delivery fee computed server-side, never trusted from client
+  const deliveryFeeResult = await resolveDeliveryFee(d);
+  const amount = itemsTotal + tax + deliveryFeeResult.fee;
 
   // 👇 NEW: actually compute + snapshot the delivery fee
   const deliverySnapshot = await calculateAndSnapshotDeliveryFee(
@@ -263,6 +276,13 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
       gstRate: (d.tax ?? 0).toString(),
       description: d.description,
       shippingAddress: d.shipping_address,
+      // 🔶 NEW — delivery fee snapshot
+      deliveryDistanceKm: deliveryFeeResult.distanceKm !== null ? deliveryFeeResult.distanceKm.toString() : null,
+      deliveryFee: deliveryFeeResult.fee.toString(),
+      deliveryFeeRadius: deliveryFeeResult.radius !== null ? deliveryFeeResult.radius.toString() : null,
+      deliveryFeePerKm: deliveryFeeResult.perKm !== null ? deliveryFeeResult.perKm.toString() : null,
+      customerLatitude: deliveryFeeResult.lat !== null ? deliveryFeeResult.lat.toString() : null,
+      customerLongitude: deliveryFeeResult.lng !== null ? deliveryFeeResult.lng.toString() : null,
       entryDate: toDateStr(d.entry_date) ?? new Date().toISOString().split("T")[0],
       createdBy: userId,
       ...deliverySnapshot, // 👈 deliveryDistanceKm, deliveryFee, deliveryFeeRadius, deliveryFeePerKm, customerLatitude, customerLongitude
@@ -304,6 +324,7 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
 // but is unauthenticated since the customer app doesn't hold a staff JWT.
 // `business_id` is taken directly from the request body (d.business_id) —
 // no server-side override, so whatever the client sends is what gets billed.
+// 🔶 UPDATED — same delivery-fee integration as the admin route above.
 // ============================================================
 router.post("/public/sales-orders", async (req, res): Promise<void> => {
   try {
@@ -322,13 +343,19 @@ router.post("/public/sales-orders", async (req, res): Promise<void> => {
 
     const itemsTotal = d.items.reduce((sum, it) => sum + it.qty * it.unit_price, 0);
     const tax = d.tax ?? 0;
-    const amount = itemsTotal + tax;
 
+<<<<<<< HEAD
     const deliverySnapshot = await calculateAndSnapshotDeliveryFee(
       d.business_id,
       d.customer_latitude,
       d.customer_longitude,
     );
+=======
+    // 🔶 NEW — authoritative recalculation, ignores anything the client
+    // may have precomputed and displayed in the checkout preview.
+    const deliveryFeeResult = await resolveDeliveryFee(d);
+    const amount = itemsTotal + tax + deliveryFeeResult.fee;
+>>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
 
     const [order] = await db
       .insert(salesOrdersTable)
@@ -342,6 +369,13 @@ router.post("/public/sales-orders", async (req, res): Promise<void> => {
         gstRate: (d.tax ?? 0).toString(),
         description: d.description,
         shippingAddress: d.shipping_address,
+        // 🔶 NEW — delivery fee snapshot
+        deliveryDistanceKm: deliveryFeeResult.distanceKm !== null ? deliveryFeeResult.distanceKm.toString() : null,
+        deliveryFee: deliveryFeeResult.fee.toString(),
+        deliveryFeeRadius: deliveryFeeResult.radius !== null ? deliveryFeeResult.radius.toString() : null,
+        deliveryFeePerKm: deliveryFeeResult.perKm !== null ? deliveryFeeResult.perKm.toString() : null,
+        customerLatitude: deliveryFeeResult.lat !== null ? deliveryFeeResult.lat.toString() : null,
+        customerLongitude: deliveryFeeResult.lng !== null ? deliveryFeeResult.lng.toString() : null,
         entryDate: new Date().toISOString().split("T")[0],
         createdBy: customer.id, // no staff user for public orders — attribute to the customer
         ...deliverySnapshot,
@@ -485,6 +519,7 @@ router.put("/sales-orders/:id/status", requireAuth, async (req, res): Promise<vo
 
   // Notify the customer when the order gets confirmed (invoiced)
   if (status === "invoiced" && existing.status !== "invoiced") {
+<<<<<<< HEAD
     // await db.insert(notificationsTable).values({
     //   businessId: order.businessId,
     //   customerId: order.customerId,
@@ -492,6 +527,8 @@ router.put("/sales-orders/:id/status", requireAuth, async (req, res): Promise<vo
     //   message: `Your order #${order.id} has been confirmed!`,
     // });
 
+=======
+>>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
     const [customerForPush] = await db.select().from(customersTable).where(eq(customersTable.id, order.customerId));
     if (customerForPush?.pushToken) {
       notifyCustomerOrderConfirmed(customerForPush.pushToken, Number(order.id)).catch((err) =>
@@ -514,5 +551,6 @@ router.delete("/sales-orders/:id", requireAuth, async (req, res): Promise<void> 
   }
   res.json({ message: "Sales order deleted" });
 });
+
 
 export default router;

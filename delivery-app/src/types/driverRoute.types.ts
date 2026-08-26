@@ -50,3 +50,21 @@ export interface RouteAlertItem {
   message: string;
   time: string;
 }
+export interface OrderCardData {
+  id: string;
+  orderId: string;
+  status: OrderStatus;
+  customerName: string;
+  phone: string;
+  pickupAddress: string;
+  dropAddress: string;
+  amount: number;
+  paymentMethod: string;
+  distanceKm: number | null;
+  notes?: string | null;
+  assignedAt?: string | null;
+  pickedUpAt?: string | null;
+  deliveredAt?: string | null;
+  cancelledAt?: string | null;
+  outForDeliveryAt?: string | null;   // ✅ ADDED
+}
