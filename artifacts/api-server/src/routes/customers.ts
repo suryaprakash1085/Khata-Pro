@@ -1,6 +1,7 @@
+
 import { Router, type IRouter } from "express";
-import { db, customersTable } from "@workspace/db";
-import { eq, and, or, ilike, count, desc } from "drizzle-orm";
+import { db, customersTable, salesOrdersTable, deliveriesTable, driversTable } from "@workspace/db";
+import { eq, and, or, ilike, count, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import {
   CreateCustomerBody,
@@ -152,4 +153,181 @@ router.put("/customers/me/push-token", requireCustomerAuth, async (req, res): Pr
   res.json({ success: true });
 });
 
+
+
+const CUSTOMER_TRACKING_STEPS = [
+  "ORDER_PLACED",
+  "ORDER_CONFIRMED",
+  "DRIVER_ASSIGNED",
+  "PICKED_UP",
+  "OUT_FOR_DELIVERY",
+  "DELIVERED",
+] as const;
+
+
+function mapToCustomerStatus(
+  salesOrderStatus: string,
+  deliveryStatus?: string | null,
+  outForDeliveryAt?: Date | string | null,   // ✅ NEW param
+): string {
+  if (deliveryStatus && deliveryStatus !== "pending") {
+    switch (deliveryStatus) {
+      case "assigned": return "DRIVER_ASSIGNED";
+      case "picked_up":
+        // ✅ Once the driver marks "out for delivery" (our own flag),
+        // show that stage even though `status` is still "picked_up" —
+        // teammate's `status` transitions are untouched.
+        return outForDeliveryAt ? "OUT_FOR_DELIVERY" : "PICKED_UP";
+      case "in_transit": return "OUT_FOR_DELIVERY"; // still respected if teammate's flow sets this too
+      case "delivered": return "DELIVERED";
+      case "cancelled": return "CANCELLED";
+    }
+  }
+  if (salesOrderStatus === "invoiced") return "ORDER_CONFIRMED";
+  if (salesOrderStatus === "cancelled") return "CANCELLED";
+  return "ORDER_PLACED";
+}
+function formatCustomerOrder(order: any, delivery: any | null, driver: any | null) {
+  const trackingStatus = mapToCustomerStatus(
+    order.status, delivery?.status ?? null,
+     delivery?.outForDeliveryAt ?? null,
+  );
+  return {
+    id: Number(order.id),
+    business_id: Number(order.businessId),
+    customer_id: Number(order.customerId),
+    amount: parseFloat(order.amount ?? "0"),
+    entry_date: order.entryDate,
+    // Internal statuses kept for debugging — UI should render tracking_status, not these.
+    sales_order_status: order.status,
+    delivery_status: delivery?.status ?? null,
+    tracking_status: trackingStatus,
+    tracking_steps: CUSTOMER_TRACKING_STEPS,
+    delivery: delivery
+      ? {
+          id: Number(delivery.id),
+          driver_id: delivery.driverId !== null ? Number(delivery.driverId) : null,
+          driver_name: driver?.name ?? null,
+          driver_phone: driver?.phone ?? null,
+          pickup_address: delivery.pickupAddress,
+          drop_address: delivery.dropAddress,
+          assigned_at: delivery.assignedAt,
+          picked_up_at: delivery.pickedUpAt,
+          delivered_at: delivery.deliveredAt,
+        }
+      : null,
+  };
+}
+
+// GET /customers/me/orders — customer's own order list (tracking summary)
+router.get("/customers/me/orders", requireCustomerAuth, async (req, res): Promise<void> => {
+  const { customerId } = (req as any).customer;
+
+  const orders = await db
+    .select()
+    .from(salesOrdersTable)
+    .where(and(eq(salesOrdersTable.customerId, customerId), eq(salesOrdersTable.isDeleted, false)))
+    // .orderBy(desc(salesOrdersTable.entryDate));
+       .orderBy(desc(salesOrdersTable.id));
+  const orderIds = orders.map((o: any) => Number(o.id));
+  const deliveries = orderIds.length
+    ? await db.select().from(deliveriesTable).where(inArray(deliveriesTable.salesOrderId, orderIds))
+    : [];
+  const deliveryByOrder = new Map(deliveries.map((d: any) => [Number(d.salesOrderId), d]));
+
+  const driverIds = [...new Set(deliveries.map((d: any) => d.driverId).filter((id: any) => id !== null))];
+  const drivers = driverIds.length
+    ? await db.select().from(driversTable).where(inArray(driversTable.id, driverIds as number[]))
+    : [];
+  const driverById = new Map(drivers.map((d: any) => [Number(d.id), d]));
+
+  res.json({
+    data: orders.map((o: any) => {
+      const delivery = deliveryByOrder.get(Number(o.id)) ?? null;
+      const driver = delivery?.driverId ? driverById.get(Number(delivery.driverId)) ?? null : null;
+      return formatCustomerOrder(o, delivery, driver);
+    }),
+  });
+});
+
+// GET /customers/me/orders/:id/tracking — single order tracking detail
+router.get("/customers/me/orders/:id/tracking", requireCustomerAuth, async (req, res): Promise<void> => {
+  const { customerId } = (req as any).customer;
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const orderId = parseInt(raw, 10);
+  if (isNaN(orderId)) {
+    res.status(400).json({ error: "Invalid order id" });
+    return;
+  }
+
+  // ✅ Scoped by BOTH order id AND customerId — one customer can never
+  // pull another customer's order, even within the same business.
+  const [order] = await db
+    .select()
+    .from(salesOrdersTable)
+    .where(
+      and(
+        eq(salesOrdersTable.id, orderId),
+        eq(salesOrdersTable.customerId, customerId),
+        eq(salesOrdersTable.isDeleted, false),
+      ),
+    );
+
+  if (!order) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+
+  const [delivery] = await db.select().from(deliveriesTable).where(eq(deliveriesTable.salesOrderId, orderId));
+  let driver = null;
+  if (delivery?.driverId) {
+    [driver] = await db.select().from(driversTable).where(eq(driversTable.id, delivery.driverId));
+  }
+
+  res.json(formatCustomerOrder(order, delivery ?? null, driver));
+});
+// PUT /customers/me/orders/:id/cancel — customer cancels their own order.
+// Only touches sales_orders.status -> "cancelled". Only allowed while
+// the order is still "pending" (not yet confirmed/invoiced).
+router.put("/customers/me/orders/:id/cancel", requireCustomerAuth, async (req, res): Promise<void> => {
+  const { customerId } = (req as any).customer;
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const orderId = parseInt(raw, 10);
+  if (isNaN(orderId)) {
+    res.status(400).json({ error: "Invalid order id" });
+    return;
+  }
+
+  // Scoped by BOTH order id AND customerId — same pattern as the tracking route above.
+  const [order] = await db
+    .select()
+    .from(salesOrdersTable)
+    .where(
+      and(
+        eq(salesOrdersTable.id, orderId),
+        eq(salesOrdersTable.customerId, customerId),
+        eq(salesOrdersTable.isDeleted, false),
+      ),
+    );
+
+  if (!order) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+
+  if (order.status !== "pending") {
+    res.status(409).json({
+      error: `Order can no longer be cancelled (current status: ${order.status})`,
+    });
+    return;
+  }
+
+  const [updatedOrder] = await db
+    .update(salesOrdersTable)
+    .set({ status: "cancelled" as any })
+    .where(eq(salesOrdersTable.id, orderId))
+    .returning();
+
+  res.json(formatCustomerOrder(updatedOrder, null, null));
+});
 export default router;

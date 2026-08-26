@@ -1,3 +1,4 @@
+
 import React, { useContext, useMemo, useState } from 'react';
 import {
   View,
@@ -30,6 +31,9 @@ import { OrderCardData, OrderFilterKey, OrderStatus, OrderSummaryItem } from '..
 // ── Orval-generated hooks ────────────────────────────────────────────────
 import { useListDeliveries, useUpdateDeliveryStatus } from '@workspace/api-client-react';
 
+
+import { getDriverToken } from '../../utils/storage';
+
 const FONT_FAMILY = Platform.select({
   web: '"Times New Roman", Times, serif',
   default: 'Times New Roman',
@@ -57,10 +61,11 @@ interface ApiDelivery {
   created_at: string;
   customer_name?: string;
   customer_phone?: string;
+  out_for_delivery_at?: string | null;
 }
 
 function mapStatus(status: string): OrderStatus {
-  if (status === 'in_transit') return 'in_progress';
+  // if (status === 'in_transit') return 'in_progress';
   return status as OrderStatus;
 }
 
@@ -76,6 +81,9 @@ const bottomTabs: { key: string; label: string; icon: string; screen?: string }[
 ];
 const ACTIVE_TAB = 'orders';
 
+// API base — mirrors the same default used elsewhere in the app.
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+
 const DriverOrdersScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { driver: authDriver } = useContext(DriverAuthContext) as any;
@@ -89,6 +97,7 @@ const DriverOrdersScreen: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<OrderFilterKey>('all');
   const [search, setSearch] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [markingOutForDeliveryId, setMarkingOutForDeliveryId] = useState<string | null>(null);
 
   const {
     data: deliveriesResponse,
@@ -128,6 +137,7 @@ const DriverOrdersScreen: React.FC = () => {
     pickedUpAt: d.picked_up_at,
     deliveredAt: d.delivered_at,
     cancelledAt: d.cancelled_at,
+    outForDeliveryAt: d.out_for_delivery_at ?? null,
   }));
 
   const counts = useMemo(() => {
@@ -191,15 +201,44 @@ const DriverOrdersScreen: React.FC = () => {
           setUpdatingId(null);
           refetchDeliveries();
         },
-        onError: () => {
+        onError: (err: any) => {
           setUpdatingId(null);
-          Alert.alert('Error', 'Could not update the order. Please try again.');
+          const msg = err?.response?.data?.error || err?.error || 'Could not update the order. Please try again.';
+          Alert.alert('Error', msg);
+          refetchDeliveries(); // resync UI in case another action already changed it
         },
       }
     );
   };
 
   const handleMarkPickedUp = (id: string) => runStatusUpdate(id, 'picked_up');
+
+  // ✅ FIXED — was using the customer-app apiClient (wrong token, caused
+  // 401 Unauthorized). Now uses the driver's own token via getDriverToken(),
+  // the same storage the Orval-generated hooks above already use successfully.
+  const handleStartDelivery = async (id: string) => {
+    setMarkingOutForDeliveryId(id);
+    try {
+      const token = await getDriverToken();
+      const res = await fetch(`${API_BASE}/deliveries/${id}/my-out-for-delivery`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || 'Failed to update');
+      }
+      refetchDeliveries();
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Could not mark as out for delivery. Please try again.');
+    } finally {
+      setMarkingOutForDeliveryId(null);
+    }
+  };
+
   const handleMarkDelivered = (id: string) => runStatusUpdate(id, 'delivered');
   const handleUnableToDeliver = (id: string) => runStatusUpdate(id, 'cancelled');
 
@@ -330,10 +369,11 @@ const DriverOrdersScreen: React.FC = () => {
           <View style={[styles.cardWrapper, isWideWeb && styles.cardWrapperWide]}>
             <OrderCard
               order={item}
-              updating={updatingId === item.id}
+              updating={updatingId === item.id || markingOutForDeliveryId === item.id}
               onNavigate={() => handleNavigate(item)}
               onCall={() => handleCall(item)}
               onMarkPickedUp={() => handleMarkPickedUp(item.id)}
+              onStartDelivery={() => handleStartDelivery(item.id)}
               onMarkDelivered={() => handleMarkDelivered(item.id)}
               onUnableToDeliver={() => handleUnableToDeliver(item.id)}
             />

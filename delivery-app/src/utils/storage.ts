@@ -1,16 +1,15 @@
-const TOKEN_KEY = 'auth_token';
-const USER_KEY = 'auth_user';
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const TOKEN_KEY = 'authToken';   // matches what AuthContext.tsx already writes
+const USER_KEY = 'userData';     // matches what AuthContext.tsx already writes
 const DRIVER_TOKEN_KEY = 'driverToken';
 const DRIVER_KEY = 'driverData';
-// Driver's dynamically-resolved business_id (from OTP verify response,
-// NOT a hardcoded constant) — every delivery-app API call after login
-// should read this instead of any fixed env var.
 const DRIVER_BUSINESS_ID_KEY = 'driverBusinessId';
 
-// Generic localStorage helpers (JSON-encoded values)
-const storeData = (key: string, value: any): boolean => {
+const storeData = async (key: string, value: any): Promise<boolean> => {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    await AsyncStorage.setItem(key, JSON.stringify(value));
     return true;
   } catch (error) {
     console.error(`Error storing ${key}:`, error);
@@ -18,9 +17,9 @@ const storeData = (key: string, value: any): boolean => {
   }
 };
 
-const getData = (key: string): any => {
+const getData = async (key: string): Promise<any> => {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = await AsyncStorage.getItem(key);
     return raw ? JSON.parse(raw) : null;
   } catch (error) {
     console.error(`Error getting ${key}:`, error);
@@ -28,9 +27,9 @@ const getData = (key: string): any => {
   }
 };
 
-const removeData = (key: string): boolean => {
+const removeData = async (key: string): Promise<boolean> => {
   try {
-    localStorage.removeItem(key);
+    await AsyncStorage.removeItem(key);
     return true;
   } catch (error) {
     console.error(`Error removing ${key}:`, error);
@@ -39,121 +38,93 @@ const removeData = (key: string): boolean => {
 };
 
 // Token functions (plain string, not JSON-encoded)
-export const setToken = (token: string): void => {
+export const setToken = async (token: string): Promise<void> => {
   try {
-    localStorage.setItem(TOKEN_KEY, token);
+    await AsyncStorage.setItem(TOKEN_KEY, token);
   } catch (error) {
     console.error('Error saving token:', error);
   }
 };
 
-export const getToken = (): string | null => {
+export const getToken = async (): Promise<string | null> => {
   try {
-    return localStorage.getItem(TOKEN_KEY);
+    return await AsyncStorage.getItem(TOKEN_KEY);
   } catch (error) {
     console.error('Error getting token:', error);
     return null;
   }
 };
 
-export const removeToken = (): void => {
+export const removeToken = async (): Promise<void> => {
   try {
-    localStorage.removeItem(TOKEN_KEY);
+    await AsyncStorage.removeItem(TOKEN_KEY);
   } catch (error) {
     console.error('Error removing token:', error);
   }
 };
 
-// Alias in case other files import the older async-flavored name
 export const storeToken = setToken;
 
 // User functions
-export const setUser = (user: any): void => {
-  storeData(USER_KEY, user);
-};
-
-export const getUser = (): any | null => {
-  return getData(USER_KEY);
-};
-
-export const removeUser = (): void => {
-  removeData(USER_KEY);
-};
-
-// Alias in case other files import the older async-flavored name
+export const setUser = async (user: any): Promise<boolean> => storeData(USER_KEY, user);
+export const getUser = async (): Promise<any | null> => getData(USER_KEY);
+export const removeUser = async (): Promise<boolean> => removeData(USER_KEY);
 export const storeUser = setUser;
 
 // Driver token functions
-export const storeDriverToken = (token: string): boolean => {
+export const storeDriverToken = async (token: string): Promise<boolean> => {
   try {
-    localStorage.setItem(DRIVER_TOKEN_KEY, token);
+    await AsyncStorage.setItem(DRIVER_TOKEN_KEY, token);
     return true;
   } catch (error) {
     console.error('Error saving driver token:', error);
     return false;
   }
 };
-
-export const getDriverToken = (): string | null => {
+export const getDriverToken = async (): Promise<string | null> => {
   try {
-    return localStorage.getItem(DRIVER_TOKEN_KEY);
+    return await AsyncStorage.getItem(DRIVER_TOKEN_KEY);
   } catch (error) {
     console.error('Error getting driver token:', error);
     return null;
   }
 };
-
-export const removeDriverToken = (): boolean => {
-  return removeData(DRIVER_TOKEN_KEY);
-};
+export const removeDriverToken = async (): Promise<boolean> => removeData(DRIVER_TOKEN_KEY);
 
 // Driver data functions
-export const storeDriver = (driver: any): boolean => {
-  return storeData(DRIVER_KEY, driver);
-};
+export const storeDriver = async (driver: any): Promise<boolean> => storeData(DRIVER_KEY, driver);
+export const getDriver = async (): Promise<any> => getData(DRIVER_KEY);
+export const removeDriver = async (): Promise<boolean> => removeData(DRIVER_KEY);
 
-export const getDriver = (): any => {
-  return getData(DRIVER_KEY);
-};
-
-export const removeDriver = (): boolean => {
-  return removeData(DRIVER_KEY);
-};
-
-// ---- Driver business_id (dynamic, resolved at login — NOT hardcoded) ----
-export const storeBusinessId = (businessId: number): boolean => {
+// Driver business_id
+export const storeBusinessId = async (businessId: number): Promise<boolean> => {
   try {
-    localStorage.setItem(DRIVER_BUSINESS_ID_KEY, String(businessId));
+    await AsyncStorage.setItem(DRIVER_BUSINESS_ID_KEY, String(businessId));
     return true;
   } catch (error) {
     console.error('Error saving business id:', error);
     return false;
   }
 };
-
-export const getBusinessId = (): number | null => {
+export const getBusinessId = async (): Promise<number | null> => {
   try {
-    const raw = localStorage.getItem(DRIVER_BUSINESS_ID_KEY);
+    const raw = await AsyncStorage.getItem(DRIVER_BUSINESS_ID_KEY);
     return raw ? Number(raw) : null;
   } catch (error) {
     console.error('Error getting business id:', error);
     return null;
   }
 };
-
-export const removeBusinessId = (): boolean => {
-  return removeData(DRIVER_BUSINESS_ID_KEY);
-};
+export const removeBusinessId = async (): Promise<boolean> => removeData(DRIVER_BUSINESS_ID_KEY);
 
 // Clear all auth data
-export const clearAuthData = (): void => {
-  removeToken();
-  removeUser();
+export const clearAuthData = async (): Promise<void> => {
+  await removeToken();
+  await removeUser();
 };
 
-// Clear all driver auth data (call this on driver logout)
-export const clearDriverAuthData = (): void => {
-  removeDriverToken();
-  removeDriver();
-  removeBusinessId();
+export const clearDriverAuthData = async (): Promise<void> => {
+  await removeDriverToken();
+  await removeDriver();
+  await removeBusinessId();
 };

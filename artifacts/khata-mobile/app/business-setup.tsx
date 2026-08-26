@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   Image,
@@ -45,7 +46,8 @@ export default function BusinessSetupScreen() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [gstin, setGstin] = useState('');
-
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
   const [addressLine1, setAddressLine1] = useState('');
   const [addressLine2, setAddressLine2] = useState('');
   const [city, setCity] = useState('');
@@ -73,9 +75,6 @@ export default function BusinessSetupScreen() {
 
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      // Stored as a data URI for now — simplest path with no extra file-storage
-      // infra. Swap for a real upload (S3 / local disk) later if logos need
-      // to be served at scale.
       const dataUri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
       setLogoUri(dataUri);
     }
@@ -113,6 +112,8 @@ export default function BusinessSetupScreen() {
           postal_code: postalCode.trim(),
           country,
           logo_url: logoUri || undefined,
+          latitude: latitude.trim() ? parseFloat(latitude.trim()) : undefined,
+          longitude: longitude.trim() ? parseFloat(longitude.trim()) : undefined
         },
       },
       {
@@ -277,13 +278,14 @@ export default function BusinessSetupScreen() {
         </View>
         
         <FormField
-  label="Business Description (Optional)"
-  placeholder="Tell customers a bit about your store"
-  value={description}
-  onChangeText={setDescription}
-  multiline
-  numberOfLines={3}
-/>
+          label="Business Description (Optional)"
+          placeholder="Tell customers a bit about your store"
+          value={description}
+          onChangeText={setDescription}
+          multiline
+          numberOfLines={3}
+        />
+        
         <FormField
           label="Address Line 1"
           required
@@ -292,6 +294,7 @@ export default function BusinessSetupScreen() {
           onChangeText={setAddressLine1}
           error={errors.addressLine1}
         />
+        
         <FormField
           label="Address Line 2 (Optional)"
           placeholder="Near City Mall"
@@ -343,6 +346,68 @@ export default function BusinessSetupScreen() {
           options={COUNTRIES}
           onChange={setCountry}
         />
+
+        {/* Store Location for Delivery Fee - NEW SECTION */}
+        <View style={[styles.sectionHeader, { marginTop: 24 }]}>
+          <Feather name="crosshair" size={16} color={colors.primary} />
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Store Location (for delivery fee)</Text>
+        </View>
+
+        <Pressable
+          onPress={async () => {
+            try {
+              const Location = await import('expo-location');
+              const perm = await Location.requestForegroundPermissionsAsync();
+              if (!perm.granted) {
+                setErrors((e) => ({ ...e, location: 'Location permission denied. Enter manually.' }));
+                return;
+              }
+              const pos = await Location.getCurrentPositionAsync({});
+              setLatitude(String(pos.coords.latitude));
+              setLongitude(String(pos.coords.longitude));
+              setErrors((e) => ({ ...e, location: '' }));
+            } catch {
+              setErrors((e) => ({ ...e, location: 'Could not detect location. Enter manually.' }));
+            }
+          }}
+          style={[
+            styles.uploadBox, 
+            { 
+              borderColor: colors.border, 
+              backgroundColor: colors.muted, 
+              borderRadius: colors.radius, 
+              minHeight: 56, 
+              marginBottom: 12 
+            }
+          ]}
+        >
+          <Feather name="map-pin" size={18} color={colors.primary} />
+          <Text style={[styles.uploadTitle, { color: colors.foreground }]}>Use Current Location</Text>
+        </Pressable>
+
+        <View style={[styles.grid, isWide && styles.gridRow]}>
+          <View style={isWide ? styles.gridCol : undefined}>
+            <FormField
+              label="Latitude"
+              placeholder="13.0827"
+              keyboardType="numbers-and-punctuation"
+              value={latitude}
+              onChangeText={setLatitude}
+            />
+          </View>
+          <View style={isWide ? styles.gridCol : undefined}>
+            <FormField
+              label="Longitude"
+              placeholder="80.2707"
+              keyboardType="numbers-and-punctuation"
+              value={longitude}
+              onChangeText={setLongitude}
+            />
+          </View>
+        </View>
+        {errors.location ? (
+          <Text style={[styles.errorText, { color: colors.destructive }]}>{errors.location}</Text>
+        ) : null}
 
         {/* Business Logo */}
         <View style={[styles.sectionHeader, { marginTop: 24 }]}>

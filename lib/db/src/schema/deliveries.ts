@@ -2,12 +2,6 @@ import { pgTable, bigserial, bigint, varchar, text, timestamp, pgEnum, numeric }
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-// pending      -> just placed, no driver yet
-// assigned     -> admin assigned a driver
-// picked_up    -> driver collected the order from the store
-// in_transit   -> driver is on the way to the customer
-// delivered    -> completed
-// cancelled    -> cancelled by admin/customer before delivery
 export const deliveryStatusEnum = pgEnum("delivery_status", [
   "pending",
   "assigned",
@@ -37,6 +31,7 @@ export const deliveriesTable = pgTable("deliveries", {
   cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  outForDeliveryAt: timestamp("out_for_delivery_at", { withTimezone: true }), 
 });
 
 export const insertDeliverySchema = createInsertSchema(deliveriesTable).omit({
