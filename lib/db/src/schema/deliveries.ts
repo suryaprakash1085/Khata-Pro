@@ -4,6 +4,15 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
  
 
+<<<<<<< HEAD
+=======
+// pending      -> just placed, no driver yet
+// assigned     -> admin assigned a driver (acceptedAt set once driver taps Accept)
+// picked_up    -> driver collected the order from the store
+// in_transit   -> driver is on the way to the customer (arrivedAt set once driver taps Arrived)
+// delivered    -> completed
+// cancelled    -> cancelled/rejected before delivery
+>>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
 export const deliveryStatusEnum = pgEnum("delivery_status", [
   "pending",
   "assigned",
@@ -85,9 +94,15 @@ export const deliveriesTable = pgTable("deliveries", {
   statusIdx: index("deliveries_status_idx").on(table.status),
   salesOrderIdIdx: index("deliveries_sales_order_id_idx").on(table.salesOrderId),
   createdAtIdx: index("deliveries_created_at_idx").on(table.createdAt),
+<<<<<<< HEAD
   outForDeliveryAt: timestamp("out_for_delivery_at", { withTimezone: true }),
 }));
  
+=======
+  outForDeliveryAt: timestamp("out_for_delivery_at", { withTimezone: true }), 
+}));
+  
+>>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
 export const insertDeliverySchema = createInsertSchema(deliveriesTable).omit({
   id: true,
   assignedAt: true,

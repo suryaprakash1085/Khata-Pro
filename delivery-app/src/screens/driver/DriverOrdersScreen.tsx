@@ -69,11 +69,20 @@ interface ApiDelivery {
   delivered_at?: string | null;
   cancelled_at?: string | null;
   created_at: string;
+<<<<<<< HEAD
   customer_name?: string;
   customer_phone?: string;
   out_for_delivery_at?: string | null;
   order_number?: string | number | null;
   customer_has_phone?: boolean;
+=======
+  customer_name?: string | null;
+  customer_has_phone?: boolean; 
+  order_number?: string | null;
+  sales_order_id?: number | null;
+  customer_phone?: string;
+  out_for_delivery_at?: string | null;
+>>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
 }
 
 
@@ -418,6 +427,7 @@ const DriverOrdersScreen: React.FC = () => {
   const isWideWeb = Platform.OS === 'web' && width >= 1000;
 
   const [activeFilter, setActiveFilter] = useState<OrderFilterKey>('all');
+<<<<<<< HEAD
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'cod' | 'upi'>('all');
   const [search, setSearch] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -426,6 +436,16 @@ const DriverOrdersScreen: React.FC = () => {
   const [rejectReason, setRejectReason] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+=======
+  const [search, setSearch] = useState('');
+  const [isOnline, setIsOnline] = useState<boolean>(authDriver?.status === 'available');
+  const [showFilters, setShowFilters] = useState(false);
+  const [paymentFilter, setPaymentFilter] = useState<'all' | 'cod' | 'upi'>('all');
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [markingOutForDeliveryId, setMarkingOutForDeliveryId] = useState<string | null>(null);
+>>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
 
   const {
     data: deliveriesResponse,
@@ -639,6 +659,10 @@ const DriverOrdersScreen: React.FC = () => {
           refetchDeliveries();
         },
         onError: (err: any) => {
+<<<<<<< HEAD
+=======
+          showAlert('Could not reject delivery', err?.response?.data?.error ?? 'Please try again.');
+>>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
           setUpdatingId(null);
           const msg = err?.response?.data?.error || err?.error || 'Could not update the order. Please try again.';
           Alert.alert('Error', msg);
@@ -648,6 +672,42 @@ const DriverOrdersScreen: React.FC = () => {
     );
   };
 
+<<<<<<< HEAD
+=======
+   const handleToggleOnline = (value: boolean) => {
+    setIsOnline(value);
+    if (!driverId) return;
+    updateDriver.mutate({ id: driverId, data: { status: value ? 'available' : 'offline' } });
+  };
+
+  // Shared status-update helper used by pickedUp/delivered/cancelled below —
+  // hits the driver's own "/my-status" route with the driver token, same
+  // pattern as handleStartDelivery's out-for-delivery call.
+  const runStatusUpdate = async (id: string, status: 'picked_up' | 'delivered' | 'cancelled') => {
+    setUpdatingId(id);
+    try {
+      const token = await getDriverToken();
+      const res = await fetch(`${API_BASE}/deliveries/${id}/my-status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || 'Failed to update');
+      }
+      refetchDeliveries();
+    } catch (err: any) {
+      showAlert('Error', err?.message || 'Could not update the order. Please try again.');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+>>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
   const handleMarkPickedUp = (id: string) => runStatusUpdate(id, 'picked_up');
 
   // ✅ FIXED — was using the customer-app apiClient (wrong token, caused
@@ -670,7 +730,7 @@ const DriverOrdersScreen: React.FC = () => {
       }
       refetchDeliveries();
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Could not mark as out for delivery. Please try again.');
+      showAlert('Error', err?.message || 'Could not mark as out for delivery. Please try again.');
     } finally {
       setMarkingOutForDeliveryId(null);
     }
@@ -679,10 +739,13 @@ const DriverOrdersScreen: React.FC = () => {
   const handleMarkDelivered = (id: string) => runStatusUpdate(id, 'delivered');
   const handleUnableToDeliver = (id: string) => runStatusUpdate(id, 'cancelled');
 
+<<<<<<< HEAD
   const handleNavigateLegacy = (order: OrderCardData) => {
     Alert.alert('Navigate', order.dropAddress);
   };
 
+=======
+>>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
   const handleTabPress = (tab: DriverShellTab) => {
     if (tab.key === 'orders') return;
     if (tab.screen) navigation.navigate(tab.screen);
@@ -839,6 +902,7 @@ const DriverOrdersScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
+<<<<<<< HEAD
 
       {isWideWeb && (
         <View style={styles.webTopBar}>
@@ -981,6 +1045,20 @@ const DriverOrdersScreen: React.FC = () => {
           })}
         </View>
       )}
+=======
+      {listBody}
+      <View style={styles.bottomNav}>
+        {bottomTabs.map((tab) => {
+          const active = tab.key === 'orders';
+          return (
+            <TouchableOpacity key={tab.key} style={[styles.bottomNavItem, webNoOutlineStyle]} activeOpacity={0.7} onPress={() => handleTabPress(tab)}>
+              <Ionicons name={tab.icon} size={22} color={active ? COLORS.primary : COLORS.slateLight} />
+              <Text style={[styles.bottomNavLabel, { color: active ? COLORS.primary : COLORS.slateLight }]}>{tab.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+>>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
     </SafeAreaView>
   );
 };
@@ -1039,12 +1117,10 @@ const styles = StyleSheet.create({
   listContent: { flexGrow: 1, paddingBottom: 24 },
   cardWrapper: { paddingHorizontal: 20, marginTop: 14 },
 
-  // ── Status pill (shared) ─────────────────────────────────────────
   statusPill: { alignSelf: 'flex-start', borderRadius: 8, paddingHorizontal: 9, paddingVertical: 5 },
   statusPillOutline: { borderWidth: 1.3, borderColor: COLORS.danger },
   statusPillText: { fontFamily: FONT_FAMILY, fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
 
-  // ── Wide-web horizontal row ───────────────────────────────────────
   rowCard: { backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, padding: 16 },
   rowMain: { flexDirection: 'row', alignItems: 'center', gap: 18 },
   rowColOrder: { width: 150 },
@@ -1085,7 +1161,6 @@ const styles = StyleSheet.create({
 
   iconOnlyBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
 
-  // ── Mobile card ───────────────────────────────────────────────────
   mobileCard: { backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, padding: 16 },
   mobileTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
   mobileOrderId: { fontFamily: FONT_FAMILY, fontSize: 15, fontWeight: '700', color: COLORS.ink },
