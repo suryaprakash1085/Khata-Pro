@@ -1459,14 +1459,11 @@ export const CreateSalesOrderBody = zod.object({
   "shipping_address": zod.string().optional(),
   "customer_latitude": zod.number().optional(),
   "customer_longitude": zod.number().optional(),
-<<<<<<< HEAD
   "payment_method": zod.enum(['cod', 'online', 'card']).default(createSalesOrderBodyPaymentMethodDefault),
-=======
   "delivery_fee": zod.number().optional(),            // ✅ ADD
   "delivery_distance_km": zod.number().optional(),    // ✅ ADD
   "delivery_fee_radius": zod.number().optional(),      // ✅ ADD
   "delivery_fee_per_km": zod.number().optional(),
->>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
   "entry_date": zod.coerce.date().optional(),
   "items": zod.array(zod.object({
   "product_id": zod.number(),

@@ -316,13 +316,8 @@ const placeOrderOnBackend = async () => {
     console.log('📦 Sales order items:', formattedItems);
     console.log('🏪 Using business_id:', businessId);
 
-<<<<<<< HEAD
-        const payload = {
-      business_id: Number(businessId), // ✅ FIXED: Use selected business
-=======
     const payload = {
       business_id: Number(businessId),
->>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
       customer_id: Number(user.id),
       channel: 'online',
       shipping_address: fullAddress,

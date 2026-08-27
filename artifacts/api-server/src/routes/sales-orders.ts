@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-=======
 
 
->>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
 import { Router, type IRouter } from "express";
 import { requireAuth, AuthPayload } from "../middlewares/auth";
 import {
@@ -255,11 +252,11 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
   const amount = itemsTotal + tax + deliveryFeeResult.fee;
 
   // 👇 NEW: actually compute + snapshot the delivery fee
-  const deliverySnapshot = await calculateAndSnapshotDeliveryFee(
-    d.business_id,
-    (d as any).customer_latitude,
-    (d as any).customer_longitude,
-  );
+  // const deliverySnapshot = await calculateAndSnapshotDeliveryFee(
+  //   d.business_id,
+  //   (d as any).customer_latitude,
+  //   (d as any).customer_longitude,
+  // );
 
   const toDateStr = (v: string | Date | null | undefined): string | undefined =>
     v instanceof Date ? v.toISOString().split("T")[0] : (v as string | undefined);
@@ -285,7 +282,7 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
       customerLongitude: deliveryFeeResult.lng !== null ? deliveryFeeResult.lng.toString() : null,
       entryDate: toDateStr(d.entry_date) ?? new Date().toISOString().split("T")[0],
       createdBy: userId,
-      ...deliverySnapshot, // 👈 deliveryDistanceKm, deliveryFee, deliveryFeeRadius, deliveryFeePerKm, customerLatitude, customerLongitude
+      // ...deliverySnapshot, // 👈 deliveryDistanceKm, deliveryFee, deliveryFeeRadius, deliveryFeePerKm, customerLatitude, customerLongitude
     })
     .returning();
 
@@ -344,18 +341,10 @@ router.post("/public/sales-orders", async (req, res): Promise<void> => {
     const itemsTotal = d.items.reduce((sum, it) => sum + it.qty * it.unit_price, 0);
     const tax = d.tax ?? 0;
 
-<<<<<<< HEAD
-    const deliverySnapshot = await calculateAndSnapshotDeliveryFee(
-      d.business_id,
-      d.customer_latitude,
-      d.customer_longitude,
-    );
-=======
     // 🔶 NEW — authoritative recalculation, ignores anything the client
     // may have precomputed and displayed in the checkout preview.
     const deliveryFeeResult = await resolveDeliveryFee(d);
     const amount = itemsTotal + tax + deliveryFeeResult.fee;
->>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
 
     const [order] = await db
       .insert(salesOrdersTable)
@@ -378,7 +367,7 @@ router.post("/public/sales-orders", async (req, res): Promise<void> => {
         customerLongitude: deliveryFeeResult.lng !== null ? deliveryFeeResult.lng.toString() : null,
         entryDate: new Date().toISOString().split("T")[0],
         createdBy: customer.id, // no staff user for public orders — attribute to the customer
-        ...deliverySnapshot,
+        // ...deliverySnapshot,
       })
       .returning();
 
@@ -519,16 +508,6 @@ router.put("/sales-orders/:id/status", requireAuth, async (req, res): Promise<vo
 
   // Notify the customer when the order gets confirmed (invoiced)
   if (status === "invoiced" && existing.status !== "invoiced") {
-<<<<<<< HEAD
-    // await db.insert(notificationsTable).values({
-    //   businessId: order.businessId,
-    //   customerId: order.customerId,
-    //   type: "order_confirmed",
-    //   message: `Your order #${order.id} has been confirmed!`,
-    // });
-
-=======
->>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
     const [customerForPush] = await db.select().from(customersTable).where(eq(customersTable.id, order.customerId));
     if (customerForPush?.pushToken) {
       notifyCustomerOrderConfirmed(customerForPush.pushToken, Number(order.id)).catch((err) =>

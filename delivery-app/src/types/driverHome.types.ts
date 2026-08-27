@@ -73,7 +73,8 @@ export type NotificationType =
   | 'assigned'
   | 'completed'
   | 'address_updated'
-  | 'payment_received';
+  | 'payment_received'
+  | 'order_confirmed';
 
 export interface NotificationEntry {
   id: string;

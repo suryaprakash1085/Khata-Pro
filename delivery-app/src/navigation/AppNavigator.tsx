@@ -94,7 +94,7 @@ const WebTopNavBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
   return (
     <View style={webNavStyles.container}>
       <View style={webNavStyles.links}>
-        {state.routes.map((route, index) => {
+        {state.routes.map((route: (typeof state.routes)[number], index: number) => {
           const { options } = descriptors[route.key];
           const label = (options.title as string) ?? route.name;
           const isFocused = state.index === index;
@@ -197,7 +197,7 @@ const HomeTabs = () => {
 
   return (
     <Tab.Navigator
-      tabBar={(props) =>
+      tabBar={(props: BottomTabBarProps) =>
         isDesktopWeb ? <WebTopNavBar {...props} /> : <BottomTabBar {...props} />
       }
       screenOptions={({ route }: { route: { name: string } }) => ({

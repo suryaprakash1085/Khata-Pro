@@ -67,16 +67,12 @@ interface ApiDelivery {
   delivered_at?: string | null;
   cancelled_at?: string | null;
   created_at: string;
-<<<<<<< HEAD
   customer_name?: string | null;
   customer_has_phone?: boolean; 
   order_number?: string | null;
   sales_order_id?: number | null;
-=======
-  customer_name?: string;
   customer_phone?: string;
   out_for_delivery_at?: string | null;
->>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
 }
 
 
@@ -422,16 +418,13 @@ const DriverOrdersScreen: React.FC = () => {
 
   const [activeFilter, setActiveFilter] = useState<OrderFilterKey>('all');
   const [search, setSearch] = useState('');
-<<<<<<< HEAD
   const [isOnline, setIsOnline] = useState<boolean>(authDriver?.status === 'available');
   const [showFilters, setShowFilters] = useState(false);
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'cod' | 'upi'>('all');
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
-=======
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [markingOutForDeliveryId, setMarkingOutForDeliveryId] = useState<string | null>(null);
->>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
 
  const {
   data: deliveriesResponse,
@@ -570,25 +563,49 @@ const DriverOrdersScreen: React.FC = () => {
           refetchDeliveries();
         },
         onError: (err: any) => {
-<<<<<<< HEAD
           showAlert('Could not reject delivery', err?.response?.data?.error ?? 'Please try again.');
-=======
           setUpdatingId(null);
           const msg = err?.response?.data?.error || err?.error || 'Could not update the order. Please try again.';
           Alert.alert('Error', msg);
           refetchDeliveries(); // resync UI in case another action already changed it
->>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
         },
       }
     );
   };
 
-<<<<<<< HEAD
-  const handleToggleOnline = (value: boolean) => {
+   const handleToggleOnline = (value: boolean) => {
     setIsOnline(value);
     if (!driverId) return;
     updateDriver.mutate({ id: driverId, data: { status: value ? 'available' : 'offline' } });
-=======
+  };
+
+  // Shared status-update helper used by pickedUp/delivered/cancelled below —
+  // hits the driver's own "/my-status" route with the driver token, same
+  // pattern as handleStartDelivery's out-for-delivery call.
+  const runStatusUpdate = async (id: string, status: 'picked_up' | 'delivered' | 'cancelled') => {
+    setUpdatingId(id);
+    try {
+      const token = await getDriverToken();
+      const res = await fetch(`${API_BASE}/deliveries/${id}/my-status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || 'Failed to update');
+      }
+      refetchDeliveries();
+    } catch (err: any) {
+      showAlert('Error', err?.message || 'Could not update the order. Please try again.');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const handleMarkPickedUp = (id: string) => runStatusUpdate(id, 'picked_up');
 
   // ✅ FIXED — was using the customer-app apiClient (wrong token, caused
@@ -611,7 +628,7 @@ const DriverOrdersScreen: React.FC = () => {
       }
       refetchDeliveries();
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Could not mark as out for delivery. Please try again.');
+      showAlert('Error', err?.message || 'Could not mark as out for delivery. Please try again.');
     } finally {
       setMarkingOutForDeliveryId(null);
     }
@@ -619,11 +636,6 @@ const DriverOrdersScreen: React.FC = () => {
 
   const handleMarkDelivered = (id: string) => runStatusUpdate(id, 'delivered');
   const handleUnableToDeliver = (id: string) => runStatusUpdate(id, 'cancelled');
-
-  const handleNavigate = (order: OrderCardData) => {
-    Alert.alert('Navigate', order.dropAddress);
->>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
-  };
 
   const handleTabPress = (tab: DriverShellTab) => {
     if (tab.key === 'orders') return;
@@ -781,7 +793,6 @@ const DriverOrdersScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
-<<<<<<< HEAD
       {listBody}
       <View style={styles.bottomNav}>
         {bottomTabs.map((tab) => {
@@ -794,151 +805,6 @@ const DriverOrdersScreen: React.FC = () => {
           );
         })}
       </View>
-=======
-
-      {isWideWeb && (
-        <View style={styles.webTopBar}>
-          <View style={styles.webTopBarInner}>
-            <Text style={styles.webBrand}>Khata-Pro · Driver</Text>
-            <View style={styles.webTopBarTabs}>
-              {bottomTabs.map((tab) => {
-                const active = tab.key === ACTIVE_TAB;
-                return (
-                  <TouchableOpacity
-                    key={tab.key}
-                    style={[styles.webTopBarTab, webNoOutlineStyle]}
-                    onPress={() => handleTabPress(tab)}
-                  >
-                    <Ionicons name={tab.icon as keyof typeof Ionicons.glyphMap} size={17} color={active ? COLORS.primary : COLORS.slate} />
-                    <Text style={[styles.webTopBarTabLabel, active && { color: COLORS.primary, fontWeight: '700' }]}>{tab.label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        </View>
-      )}
-
-      <TypedFlatList
-        data={filteredOrders}
-        keyExtractor={(item: OrderCardData) => item.id}
-        numColumns={columns}
-        key={`cols-${columns}`}
-        columnWrapperStyle={columns > 1 ? styles.columnWrapper : undefined}
-        contentContainerStyle={[styles.listContent, !isWideWeb && { paddingBottom: 90 }]}
-        refreshControl={
-          <RefreshControl refreshing={!isLoading && isFetching} onRefresh={refetchDeliveries} tintColor={COLORS.primary} />
-        }
-        ListHeaderComponent={
-          <View style={[styles.webContainer, isWideWeb && styles.webContainerWide]}>
-            {/* Header */}
-            {!isWideWeb ? (
-              <View style={styles.mobileHeader}>
-                <View>
-                  <Text style={styles.headerTitle}>My Orders</Text>
-                  <Text style={styles.headerDate}>{todayLabel}</Text>
-                </View>
-                <TouchableOpacity style={[styles.refreshBtn, webNoOutlineStyle]} onPress={() => refetchDeliveries()} hitSlop={8}>
-                  <Ionicons name="refresh-outline" size={20} color={COLORS.ink} />
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.webHeader}>
-                <View>
-                  <Text style={styles.headerTitle}>My Orders</Text>
-                  <Text style={styles.headerDate}>{todayLabel}</Text>
-                </View>
-                <TouchableOpacity style={[styles.refreshBtn, webNoOutlineStyle]} onPress={() => refetchDeliveries()}>
-                  <Ionicons name="refresh-outline" size={16} color={COLORS.ink} />
-                  <Text style={styles.refreshBtnText}>Refresh</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Summary */}
-            <View style={styles.section}>
-              <View style={styles.summaryGrid}>
-                {summaryItems.map((item) => (
-                  <View key={item.key} style={styles.summaryGridItem}>
-                    <OrderSummaryCard item={item} active={activeFilter === item.key} onPress={() => setActiveFilter(item.key)} />
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Search */}
-            <View style={styles.section}>
-              <View style={styles.searchBar}>
-                <Ionicons name="search-outline" size={16} color={COLORS.slate} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Search by Order ID, customer name or phone"
-                  placeholderTextColor={COLORS.slateLight}
-                  value={search}
-                  onChangeText={setSearch}
-                />
-                {search.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
-                    <Ionicons name="close-circle" size={18} color={COLORS.slateLight} />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-
-            {/* Filter tabs */}
-            <View style={[styles.section, { marginBottom: 4 }]}>
-              <OrderFilterTabs active={activeFilter} onChange={setActiveFilter} />
-            </View>
-          </View>
-        }
-        renderItem={({ item }: { item: OrderCardData }) => (
-          <View style={[styles.cardWrapper, isWideWeb && styles.cardWrapperWide]}>
-            <OrderCard
-              order={item}
-              updating={updatingId === item.id || markingOutForDeliveryId === item.id}
-              onNavigate={() => handleNavigate(item)}
-              onCall={() => handleCall(item)}
-              onMarkPickedUp={() => handleMarkPickedUp(item.id)}
-              onStartDelivery={() => handleStartDelivery(item.id)}
-              onMarkDelivered={() => handleMarkDelivered(item.id)}
-              onUnableToDeliver={() => handleUnableToDeliver(item.id)}
-            />
-          </View>
-        )}
-        ListEmptyComponent={
-          isLoading ? (
-            <View style={styles.loadingWrap}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
-            </View>
-          ) : (
-            <View style={[styles.webContainer, isWideWeb && styles.webContainerWide]}>
-              <EmptyOrdersState
-                message={activeFilter === 'all' ? 'No deliveries assigned yet.' : 'No orders found'}
-              />
-            </View>
-          )
-        }
-      />
-
-      {!isWideWeb && (
-        <View style={styles.bottomNav}>
-          {bottomTabs.map((tab) => {
-            const active = tab.key === ACTIVE_TAB;
-            return (
-              <TouchableOpacity
-                key={tab.key}
-                style={[styles.bottomNavItem, webNoOutlineStyle]}
-                activeOpacity={0.7}
-                onPress={() => handleTabPress(tab)}
-              >
-                <Ionicons name={tab.icon as keyof typeof Ionicons.glyphMap} size={22} color={active ? COLORS.primary : COLORS.slateLight} />
-                <Text style={[styles.bottomNavLabel, { color: active ? COLORS.primary : COLORS.slateLight }]}>{tab.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
->>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
     </SafeAreaView>
   );
 };
@@ -997,12 +863,10 @@ const styles = StyleSheet.create({
   listContent: { flexGrow: 1, paddingBottom: 24 },
   cardWrapper: { paddingHorizontal: 20, marginTop: 14 },
 
-  // ── Status pill (shared) ─────────────────────────────────────────
   statusPill: { alignSelf: 'flex-start', borderRadius: 8, paddingHorizontal: 9, paddingVertical: 5 },
   statusPillOutline: { borderWidth: 1.3, borderColor: COLORS.danger },
   statusPillText: { fontFamily: FONT_FAMILY, fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
 
-  // ── Wide-web horizontal row ───────────────────────────────────────
   rowCard: { backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, padding: 16 },
   rowMain: { flexDirection: 'row', alignItems: 'center', gap: 18 },
   rowColOrder: { width: 150 },
@@ -1043,7 +907,6 @@ const styles = StyleSheet.create({
 
   iconOnlyBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: COLORS.primaryLight, alignItems: 'center', justifyContent: 'center' },
 
-  // ── Mobile card ───────────────────────────────────────────────────
   mobileCard: { backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, padding: 16 },
   mobileTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
   mobileOrderId: { fontFamily: FONT_FAMILY, fontSize: 15, fontWeight: '700', color: COLORS.ink },
