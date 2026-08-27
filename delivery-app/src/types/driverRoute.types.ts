@@ -1,3 +1,6 @@
+
+import { OrderStatus } from './driverOrders.types';
+
 // ── Route Screen types ──────────────────────────────────────────────────
 // Mirrors the shape/conventions of driverHome.types.ts and
 // driverOrders.types.ts so the three screens stay consistent.
@@ -50,6 +53,7 @@ export interface RouteAlertItem {
   message: string;
   time: string;
 }
+
 export interface OrderCardData {
   id: string;
   orderId: string;
@@ -66,5 +70,5 @@ export interface OrderCardData {
   pickedUpAt?: string | null;
   deliveredAt?: string | null;
   cancelledAt?: string | null;
-  outForDeliveryAt?: string | null;   // ✅ ADDED
+ outForDeliveryAt?: string | null;  // ✅ ADD THIS PROPERTY
 }

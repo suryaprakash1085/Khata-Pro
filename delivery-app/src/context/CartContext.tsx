@@ -52,7 +52,8 @@ interface CartProviderProps {
   children: ReactNode;
 }
 
-export function CartProvider({ children }: CartProviderProps): JSX.Element {
+// export function CartProvider({ children }: CartProviderProps):Element {
+export function CartProvider({ children }: CartProviderProps): React.ReactElement {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 

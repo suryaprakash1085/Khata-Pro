@@ -1,4 +1,6 @@
 
+
+
 import React, { useContext, useState, useEffect } from 'react';
 import {
   View,
@@ -23,68 +25,6 @@ const OrdersSummary = ({ navigation }: { navigation: any }) => {
   const { cartItems } = useContext(CartContext);
   const { selectedBusiness } = useContext(SelectedBusinessContext);
 
-  // ✅ State for delivery fee calculation
-  const [deliveryFeeData, setDeliveryFeeData] = useState<any>(null);
-  const [isCalculatingFee, setIsCalculatingFee] = useState<boolean>(false);
-
-  // ✅ Get store ID
-  const getStoreId = (): number | null => {
-    if (selectedBusiness?.id) {
-      return Number(selectedBusiness.id);
-    }
-    if (cartItems.length > 0 && cartItems[0]?.restaurantId) {
-      return Number(cartItems[0].restaurantId);
-    }
-    return null;
-  };
-
-  // ✅ Calculate delivery fee from API when component mounts or cart changes
-  useEffect(() => {
-    if (cartItems.length > 0) {
-      calculateDeliveryFeeFromAPI();
-    } else {
-      setDeliveryFeeData(null);
-    }
-  }, [cartItems]);
-
-  // ✅ Function to calculate delivery fee from API
-  const calculateDeliveryFeeFromAPI = async () => {
-    const businessId = getStoreId();
-    if (!businessId) {
-      console.warn('No business ID found for delivery fee calculation');
-      return;
-    }
-
-    setIsCalculatingFee(true);
-    
-    try {
-      // Use default customer location (Delhi)
-      const customerLat = 28.6139;
-      const customerLng = 77.2090;
-      
-      const response = await axios.post(`${API_URL}/delivery-fees/calculate`, {
-        business_id: businessId,
-        customer_latitude: customerLat,
-        customer_longitude: customerLng,
-      });
-
-      console.log('✅ Delivery fee calculated in OrdersSummary:', response.data);
-      
-      setDeliveryFeeData({
-        delivery_fee: response.data.delivery_fee || 30,
-        distance_km: response.data.distance_km || 0,
-        free_delivery_radius: response.data.free_delivery_radius || 5,
-        chargeable_distance_km: response.data.chargeable_distance_km || 0,
-        is_free_delivery: response.data.is_free_delivery || false,
-      });
-      
-    } catch (error) {
-      console.error('❌ Failed to calculate delivery fee in OrdersSummary:', error);
-    } finally {
-      setIsCalculatingFee(false);
-    }
-  };
-
   // Calculate order statistics
   const totalOrders = orders?.length || 0;
   const deliveredOrders = orders?.filter((o: any) => o.status === 'Delivered').length || 0;
@@ -97,51 +37,6 @@ const OrdersSummary = ({ navigation }: { navigation: any }) => {
   }, 0) || 0;
 
   const itemsInCart = cartItems?.length || 0;
-  
-  // ✅ Calculate GST breakdown from cart items
-  const getGSTBreakdown = () => {
-    if (!cartItems || cartItems.length === 0) return null;
-    
-    const gstRates = new Map();
-    cartItems.forEach((item: any) => {
-      const rate = item.gst_rate || 0;
-      const itemTotal = (item.price || 0) * (item.quantity || 1);
-      const gstAmount = itemTotal * (rate / 100);
-      gstRates.set(rate, (gstRates.get(rate) || 0) + gstAmount);
-    });
-    
-    return Array.from(gstRates.entries()).map(([rate, amount]) => ({
-      rate,
-      amount: Math.round(amount)
-    }));
-  };
-
-  // ✅ Calculate total GST
-  const calculateTotalGST = () => {
-    if (!cartItems || cartItems.length === 0) return 0;
-    let totalGST = 0;
-    cartItems.forEach((item: any) => {
-      const itemTotal = (item.price || 0) * (item.quantity || 1);
-      const gstRate = item.gst_rate || 0;
-      totalGST += itemTotal * (gstRate / 100);
-    });
-    return Math.round(totalGST);
-  };
-
-  const gstBreakdown = getGSTBreakdown();
-  const totalGST = calculateTotalGST();
-
-  // ✅ Calculate cart total with delivery fee
-  const getCartTotal = () => {
-    const subtotal = cartItems.reduce((sum: number, item: any) => {
-      return sum + ((item.price || 0) * (item.quantity || 1));
-    }, 0);
-    const deliveryFee = deliveryFeeData?.delivery_fee ?? 30;
-    const total = subtotal + deliveryFee + totalGST;
-    return { subtotal, deliveryFee, tax: totalGST, total };
-  };
-
-  const { subtotal, deliveryFee, tax, total } = getCartTotal();
 
   // ✅ Get all delivered orders (past orders)
   const getDeliveredOrders = () => {
@@ -291,73 +186,6 @@ const OrdersSummary = ({ navigation }: { navigation: any }) => {
           </View>
         </View>
 
-        {/* ✅ Cart Summary with Delivery Fee and GST Breakdown */}
-        {itemsInCart > 0 && (
-          <View style={styles.cartSummaryContainer}>
-            <View style={styles.cartSummaryHeader}>
-              <Icon name="cart" size={20} color="#fc8019" />
-              <Text style={styles.cartSummaryTitle}>Current Cart Summary</Text>
-            </View>
-
-            <View style={styles.cartSummaryRow}>
-              <Text style={styles.cartSummaryLabel}>Subtotal</Text>
-              <Text style={styles.cartSummaryValue}>₹{subtotal}</Text>
-            </View>
-
-            {/* ✅ GST Breakdown by rate */}
-            {gstBreakdown && gstBreakdown.length > 0 ? (
-              gstBreakdown.map((gst, index) => (
-                <View key={index} style={styles.cartSummaryRow}>
-                  <Text style={styles.cartSummaryLabel}>GST {gst.rate}%</Text>
-                  <Text style={styles.cartSummaryValue}>₹{gst.amount}</Text>
-                </View>
-              ))
-            ) : (
-              <View style={styles.cartSummaryRow}>
-                <Text style={styles.cartSummaryLabel}>Tax (GST 18%)</Text>
-                <Text style={styles.cartSummaryValue}>₹{tax}</Text>
-              </View>
-            )}
-
-            <View style={styles.cartSummaryRow}>
-              <Text style={styles.cartSummaryLabel}>Delivery Fee</Text>
-              <View style={styles.cartSummaryValueContainer}>
-                {isCalculatingFee ? (
-                  <ActivityIndicator size="small" color="#fc8019" />
-                ) : (
-                  <Text style={styles.cartSummaryValue}>₹{deliveryFee}</Text>
-                )}
-              </View>
-            </View>
-
-            {/* ✅ Distance breakdown if available */}
-            {deliveryFeeData && !isCalculatingFee && (
-              <View style={styles.distanceBreakdown}>
-                <Text style={styles.distanceText}>
-                  📍 Distance: {deliveryFeeData.distance_km?.toFixed(1) || 'N/A'} KM
-                </Text>
-                {deliveryFeeData.is_free_delivery ? (
-                  <Text style={styles.freeDeliveryText}>
-                    ✅ Free delivery within {deliveryFeeData.free_delivery_radius || 5} KM
-                  </Text>
-                ) : (
-                  <Text style={styles.chargeableText}>
-                    Charged for {deliveryFeeData.chargeable_distance_km || 0} KM beyond {deliveryFeeData.free_delivery_radius || 5} KM
-                  </Text>
-                )}
-                <Text style={styles.perKmText}>
-                  Rate: ₹{deliveryFeeData.per_km_charge || 2}/KM after free radius
-                </Text>
-              </View>
-            )}
-
-            <View style={[styles.cartSummaryRow, styles.cartTotalRow]}>
-              <Text style={styles.cartTotalLabel}>Cart Total</Text>
-              <Text style={styles.cartTotalValue}>₹{total}</Text>
-            </View>
-          </View>
-        )}
-
         {/* ✅ Delivered Orders Section */}
         {deliveredOrdersList.length > 0 ? (
           <View style={styles.deliveredOrdersContainer}>
@@ -464,110 +292,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#282c3f',
     fontWeight: '600',
-  },
-
-  // ✅ Cart Summary Styles
-  cartSummaryContainer: {
-    backgroundColor: '#ffffff',
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-    borderLeftWidth: 4,
-    borderLeftColor: '#fc8019',
-  },
-  cartSummaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f5',
-  },
-  cartSummaryTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#282c3f',
-    marginLeft: 10,
-  },
-  cartSummaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
-  },
-  cartSummaryLabel: {
-    fontSize: 13,
-    color: '#7e808c',
-  },
-  cartSummaryValue: {
-    fontSize: 14,
-    color: '#282c3f',
-    fontWeight: '500',
-  },
-  cartSummaryValueContainer: {
-    minWidth: 60,
-    alignItems: 'flex-end',
-  },
-  cartTotalRow: {
-    borderTopWidth: 2,
-    borderTopColor: '#fc8019',
-    paddingTop: 8,
-    marginTop: 4,
-    borderBottomWidth: 0,
-  },
-  cartTotalLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#282c3f',
-  },
-  cartTotalValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#fc8019',
-  },
-
-  // ✅ Distance breakdown styles
-  distanceBreakdown: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
-    padding: 12,
-    marginVertical: 8,
-    borderWidth: 1,
-    borderColor: '#e8e8e8',
-  },
-  distanceText: {
-    fontSize: 13,
-    color: '#282c3f',
-    fontWeight: '500',
-  },
-  freeDeliveryText: {
-    fontSize: 13,
-    color: '#28a745',
-    fontWeight: '500',
-    marginTop: 4,
-  },
-  chargeableText: {
-    fontSize: 13,
-    color: '#fc8019',
-    fontWeight: '500',
-    marginTop: 4,
-  },
-  perKmText: {
-    fontSize: 12,
-    color: '#7e808c',
-    marginTop: 4,
   },
 
   // Delivered Orders Styles

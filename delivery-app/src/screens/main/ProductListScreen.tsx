@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
@@ -16,6 +15,8 @@ import {
   Modal,
   TouchableWithoutFeedback,
   Dimensions,
+  Platform,
+  useWindowDimensions,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { colors } from '../../constants/colors';
@@ -26,6 +27,7 @@ import axios from 'axios';
 import { API_URL } from '@env';
 
 const { width, height } = Dimensions.get('window');
+const DESKTOP_BREAKPOINT = 768;
 
 // ✅ maps the icon name saved in POS ("flash", "time", etc.) to an Ionicons name
 const getHighlightIconName = (icon: string) => {
@@ -42,6 +44,22 @@ const getHighlightIconName = (icon: string) => {
 
 export default function ProductListScreen({ route, navigation }: any) {
   const { storeId, storeName } = route.params || {};
+  const { width: windowWidth } = useWindowDimensions();
+  const isDesktopWeb = Platform.OS === 'web' && windowWidth >= DESKTOP_BREAKPOINT;
+
+  // ✅ Card sizing: mobile always shows a clean 2-column grid where each
+  // card fills its half of the row; web uses a larger, real-app-sized
+  // fixed-width card and fits as many columns as the screen allows.
+  const availableWidth = windowWidth - 32; // minus horizontal padding
+  const CARD_GAP = 12;
+
+  const numColumns = !isDesktopWeb
+    ? 2
+    : Math.max(1, Math.floor((availableWidth + CARD_GAP) / (260 + CARD_GAP)));
+
+  const cardWidth = !isDesktopWeb
+    ? (availableWidth - CARD_GAP * (numColumns - 1)) / numColumns
+    : 260;
 
   const [products, setProducts] = useState<any[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<any[]>([]);
@@ -365,16 +383,20 @@ export default function ProductListScreen({ route, navigation }: any) {
     navigation.navigate('Cart');
   };
 
+  // ✅ Product card — Amazon-style grid card: image fills the top,
+  // details stack below, ADD/quantity control anchored at the bottom.
   const renderProduct = ({ item }: { item: any }) => {
     const inCart = isItemInCart(item.id);
     const quantity = getItemQuantity(item.id);
 
     return (
-      <View style={styles.productCard}>
-        <TouchableOpacity style={styles.productContent} activeOpacity={0.7} onPress={() => handleProductPress(item)}>
+      <View style={[styles.productCard, { width: cardWidth }]}>
+        <TouchableOpacity activeOpacity={0.85} onPress={() => handleProductPress(item)}>
           <Image source={{ uri: item.image || 'https://placehold.co/150x150' }} style={styles.productImage} />
+        </TouchableOpacity>
 
-          <View style={styles.productInfo}>
+        <View style={styles.productCardBody}>
+          <TouchableOpacity activeOpacity={0.85} onPress={() => handleProductPress(item)}>
             <Text style={styles.productName} numberOfLines={2}>
               {item.name || 'Unnamed Product'}
             </Text>
@@ -386,27 +408,27 @@ export default function ProductListScreen({ route, navigation }: any) {
             <Text style={styles.productPrice}>₹{item.selling_price || 0}</Text>
 
             <Text style={styles.productStock}>Stock: {item.stock_qty || 0} units</Text>
+          </TouchableOpacity>
+
+          <View style={styles.productActionRow}>
+            {inCart ? (
+              <View style={styles.quantityContainer}>
+                <TouchableOpacity style={styles.quantityButton} onPress={() => handleUpdateQuantity(item, quantity - 1)}>
+                  <Icon name="remove" size={14} color="#fc8019" />
+                </TouchableOpacity>
+
+                <Text style={styles.quantityText}>{quantity}</Text>
+
+                <TouchableOpacity style={styles.quantityButton} onPress={() => handleUpdateQuantity(item, quantity + 1)}>
+                  <Icon name="add" size={14} color="#fc8019" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.addButton} onPress={() => handleAddToCart(item)}>
+                <Text style={styles.addButtonText}>ADD</Text>
+              </TouchableOpacity>
+            )}
           </View>
-        </TouchableOpacity>
-
-        <View style={styles.productAction}>
-          {inCart ? (
-            <View style={styles.quantityContainer}>
-              <TouchableOpacity style={styles.quantityButton} onPress={() => handleUpdateQuantity(item, quantity - 1)}>
-                <Icon name="remove" size={14} color="#fc8019" />
-              </TouchableOpacity>
-
-              <Text style={styles.quantityText}>{quantity}</Text>
-
-              <TouchableOpacity style={styles.quantityButton} onPress={() => handleUpdateQuantity(item, quantity + 1)}>
-                <Icon name="add" size={14} color="#fc8019" />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity style={styles.addButton} onPress={() => handleAddToCart(item)}>
-              <Text style={styles.addButtonText}>ADD</Text>
-            </TouchableOpacity>
-          )}
         </View>
       </View>
     );
@@ -674,9 +696,12 @@ export default function ProductListScreen({ route, navigation }: any) {
       )}
 
       <FlatList
+        key={numColumns}
         data={filteredProducts}
         renderItem={renderProduct}
         keyExtractor={(item) => String(item.id)}
+        numColumns={numColumns}
+        columnWrapperStyle={numColumns > 1 ? styles.productRowWrapper : undefined}
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 100 }}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -829,28 +854,43 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
   },
   filterButtonText: { fontSize: 13, color: colors.textLight, marginLeft: 4 },
+
+  // ✅ Product row wrapper for multi-column grid — left-aligned so a
+  // short last row (or a store with just 1–2 products) doesn't get
+  // stretched into giant cards.
+  productRowWrapper: {
+    justifyContent: 'flex-start',
+    gap: 12,
+  },
+
+  // ✅ Amazon-style product card: fixed width (not flex-stretched), image
+  // fills the top, details stack below, with the ADD/quantity control
+  // anchored at the card's bottom.
   productCard: {
     backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 12,
     marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
-  productContent: { flex: 1, flexDirection: 'row', alignItems: 'center', marginRight: 10 },
-  productImage: { width: 70, height: 70, borderRadius: 8, backgroundColor: '#f0f0f0', marginRight: 12 },
+  productImage: {
+    width: '100%',
+    height: 160,
+    backgroundColor: '#f0f0f0',
+  },
+  productCardBody: {
+    padding: 12,
+  },
   productInfo: { flex: 1 },
-  productName: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 2 },
-  productCategory: { fontSize: 12, color: colors.textLight, marginBottom: 4 },
-  productPrice: { fontSize: 15, fontWeight: '700', color: colors.primary, marginBottom: 2 },
-  productStock: { fontSize: 11, color: colors.textLight },
-  productAction: { justifyContent: 'center', alignItems: 'center', minWidth: 60 },
+  productName: { fontSize: 14.5, fontWeight: '600', color: colors.text, marginBottom: 2, minHeight: 36 },
+  productCategory: { fontSize: 12, color: colors.textLight, marginBottom: 5 },
+  productPrice: { fontSize: 15.5, fontWeight: '700', color: colors.primary, marginBottom: 2 },
+  productStock: { fontSize: 11, color: colors.textLight, marginBottom: 9 },
+  productActionRow: { alignItems: 'flex-start' },
   addButton: {
     borderWidth: 1,
     borderColor: colors.primary,

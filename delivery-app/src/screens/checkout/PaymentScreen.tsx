@@ -1,3 +1,5 @@
+
+
 import React, { useState, useContext } from 'react';
 import {
   View,
@@ -18,6 +20,10 @@ import { AuthContext } from '../../context/AuthContext';
 import { SelectedBusinessContext } from '../../context/SelectedBusinessContext';
 import { supabase } from '../../services/supabaseClient';
 import { useCreatePublicSalesOrder } from '@workspace/api-client-react';
+
+// ✅ Theme color — matched to Cart / Address screens' purple/indigo
+const THEME_COLOR = '#6C5CE7';
+const THEME_COLOR_LIGHT = '#F1EFFE'; // light tint for selected/active backgrounds
 
 // ============================================================
 // RAZORPAY
@@ -195,8 +201,8 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
       icon: 'card-outline',
       name: 'Razorpay',
       description: 'UPI, Cards, Net Banking • Instant',
-      color: '#fc8019',
-      bg: '#fff5ec',
+      color: THEME_COLOR,
+      bg: THEME_COLOR_LIGHT,
     },
     {
       id: 'cash',
@@ -316,13 +322,8 @@ const placeOrderOnBackend = async () => {
     console.log('📦 Sales order items:', formattedItems);
     console.log('🏪 Using business_id:', businessId);
 
-<<<<<<< HEAD
-        const payload = {
-      business_id: Number(businessId), // ✅ FIXED: Use selected business
-=======
     const payload = {
       business_id: Number(businessId),
->>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
       customer_id: Number(user.id),
       channel: 'online',
       shipping_address: fullAddress,
@@ -412,7 +413,7 @@ const placeOrderOnBackend = async () => {
           name: user?.name || address?.name || 'Customer',
         },
         theme: {
-          color: '#fc8019',
+          color: THEME_COLOR,
         },
       };
 
@@ -456,7 +457,7 @@ const placeOrderOnBackend = async () => {
         name: user?.name || address?.name || 'Customer',
       },
       theme: {
-        color: '#fc8019',
+        color: THEME_COLOR,
       },
       modal: {
         ondismiss: function () {
@@ -711,7 +712,7 @@ const placeOrderOnBackend = async () => {
       {isProcessing && (
         <View style={styles.loadingOverlay}>
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#fc8019" />
+            <ActivityIndicator size="large" color={THEME_COLOR} />
             <Text style={styles.loadingText}>Processing Order...</Text>
             <Text style={styles.loadingSubtext}>
               Please wait, do not close the app
@@ -756,7 +757,7 @@ const styles = StyleSheet.create({
   },
 
   goBackButton: {
-    backgroundColor: '#fc8019',
+    backgroundColor: THEME_COLOR,
     paddingHorizontal: 32,
     paddingVertical: 12,
     borderRadius: 8,
@@ -840,12 +841,12 @@ const styles = StyleSheet.create({
 
   // AMOUNT
   amountCard: {
-    backgroundColor: '#fc8019',
+    backgroundColor: THEME_COLOR,
     marginHorizontal: 16,
     marginTop: 16,
     padding: 20,
     borderRadius: 16,
-    shadowColor: '#fc8019',
+    shadowColor: THEME_COLOR,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -920,8 +921,8 @@ const styles = StyleSheet.create({
   },
 
   methodSelected: {
-    borderColor: '#fc8019',
-    backgroundColor: '#fff5ec',
+    borderColor: THEME_COLOR,
+    backgroundColor: THEME_COLOR_LIGHT,
   },
 
   methodLeft: {
@@ -950,7 +951,7 @@ const styles = StyleSheet.create({
   },
 
   methodNameSelected: {
-    color: '#fc8019',
+    color: THEME_COLOR,
   },
 
   methodDescription: {
@@ -1012,7 +1013,7 @@ const styles = StyleSheet.create({
   summaryTotalValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#fc8019',
+    color: THEME_COLOR,
   },
 
   footerSpacer: {
@@ -1034,7 +1035,7 @@ const styles = StyleSheet.create({
   },
 
   payButton: {
-    backgroundColor: '#fc8019',
+    backgroundColor: THEME_COLOR,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
@@ -1158,7 +1159,7 @@ const styles = StyleSheet.create({
   },
 
   successTotal: {
-    color: '#fc8019',
+    color: THEME_COLOR,
     fontWeight: '700',
     fontSize: 16,
   },
@@ -1169,7 +1170,7 @@ const styles = StyleSheet.create({
   },
 
   successButton: {
-    backgroundColor: '#fc8019',
+    backgroundColor: THEME_COLOR,
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 40,
@@ -1191,11 +1192,11 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#fc8019',
+    borderColor: THEME_COLOR,
   },
 
   successButtonSecondaryText: {
-    color: '#fc8019',
+    color: THEME_COLOR,
     fontSize: 16,
     fontWeight: '500',
   },

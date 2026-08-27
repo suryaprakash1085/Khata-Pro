@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
@@ -13,6 +15,10 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { ordersApi, CustomerOrder, CUSTOMER_TRACKING_STEPS } from '../../api/orders';
+
+// ✅ Theme color — matched to Address / Payment / Orders screens' purple/indigo
+const THEME_COLOR = '#6C5CE7';
+const THEME_COLOR_LIGHT = '#F1EFFE'; // light tint for backgrounds
 
 interface OrderTrackingScreenProps {
   navigation: any;
@@ -116,7 +122,7 @@ const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ navigation, r
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.centerFill}>
-          <ActivityIndicator size="large" color="#fc8019" />
+          <ActivityIndicator size="large" color={THEME_COLOR} />
         </View>
       </SafeAreaView>
     );
@@ -160,7 +166,7 @@ const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ navigation, r
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Order Tracking</Text>
         <TouchableOpacity style={styles.refreshButton} onPress={() => { setRefreshing(true); fetchTracking(true); }}>
-          {refreshing ? <ActivityIndicator size="small" color="#fc8019" /> : <Icon name="refresh-outline" size={22} color="#fc8019" />}
+          {refreshing ? <ActivityIndicator size="small" color={THEME_COLOR} /> : <Icon name="refresh-outline" size={22} color={THEME_COLOR} />}
         </TouchableOpacity>
       </View>
 
@@ -186,7 +192,7 @@ const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ navigation, r
         {/* Current status */}
         <View style={styles.progressContainer}>
           <View style={styles.statusHeader}>
-            <Icon name={isCancelled ? 'close-circle' : (activeMeta.icon as any)} size={28} color={isCancelled ? '#dc3545' : '#fc8019'} />
+            <Icon name={isCancelled ? 'close-circle' : (activeMeta.icon as any)} size={28} color={isCancelled ? '#dc3545' : THEME_COLOR} />
             <Text style={styles.statusTitle}>{isCancelled ? 'Cancelled' : activeMeta.label}</Text>
           </View>
           <Text style={styles.statusMessage}>
@@ -197,7 +203,7 @@ const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ navigation, r
         {/* Driver info — only shown once a driver is assigned */}
         {order.delivery?.driver_name && !isCancelled && (
           <View style={styles.driverCard}>
-            <Icon name="person-circle-outline" size={32} color="#fc8019" />
+            <Icon name="person-circle-outline" size={32} color={THEME_COLOR} />
             <View style={{ marginLeft: 10, flex: 1 }}>
               <Text style={styles.driverName}>{order.delivery.driver_name}</Text>
               <Text style={styles.driverPhone}>{order.delivery.driver_phone || 'No phone on file'}</Text>
@@ -282,7 +288,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   centerFill: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   errorText: { fontSize: 15, color: '#7e808c', textAlign: 'center', marginTop: 12, marginBottom: 20 },
-  retryButton: { backgroundColor: '#fc8019', paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
+  retryButton: { backgroundColor: THEME_COLOR, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
   retryButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
 
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
@@ -292,7 +298,7 @@ const styles = StyleSheet.create({
 
   restaurantContainer: { backgroundColor: '#ffffff', margin: 16, padding: 16, borderRadius: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 2 },
   restaurantHeader: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  restaurantIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#fc8019', justifyContent: 'center', alignItems: 'center' },
+  restaurantIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: THEME_COLOR, justifyContent: 'center', alignItems: 'center' },
   restaurantIconText: { fontSize: 20, fontWeight: '700', color: '#ffffff' },
   restaurantInfo: { marginLeft: 12, flex: 1 },
   restaurantName: { fontSize: 16, fontWeight: '600', color: '#282c3f' },
@@ -314,16 +320,16 @@ const styles = StyleSheet.create({
   stepIndicator: { alignItems: 'center', marginRight: 16, position: 'relative' },
   stepCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f0f0f5', justifyContent: 'center', alignItems: 'center', zIndex: 1 },
   stepCircleCompleted: { backgroundColor: '#28a745' },
-  stepCircleActive: { backgroundColor: '#fc8019' },
-  stepPulse: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#ffffff', borderWidth: 2, borderColor: '#fc8019' },
+  stepCircleActive: { backgroundColor: THEME_COLOR },
+  stepPulse: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#ffffff', borderWidth: 2, borderColor: THEME_COLOR },
   stepDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d0d0d0' },
   stepLine: { position: 'absolute', top: 32, width: 2, height: 40, backgroundColor: '#e0e0e0' },
   stepLineCompleted: { backgroundColor: '#28a745' },
   stepContent: { flex: 1, justifyContent: 'center' },
   stepLabel: { fontSize: 14, color: '#7e808c' },
   stepLabelCompleted: { color: '#28a745', fontWeight: '500' },
-  stepLabelActive: { color: '#fc8019', fontWeight: '600' },
-  stepSubtext: { fontSize: 11, color: '#fc8019', marginTop: 2 },
+  stepLabelActive: { color: THEME_COLOR, fontWeight: '600' },
+  stepSubtext: { fontSize: 11, color: THEME_COLOR, marginTop: 2 },
   stepSubtextCompleted: { fontSize: 11, color: '#28a745', marginTop: 2 },
 
   detailsCard: { backgroundColor: '#ffffff', marginHorizontal: 16, padding: 16, borderRadius: 12, marginTop: 4, elevation: 2 },
@@ -332,7 +338,7 @@ const styles = StyleSheet.create({
   detailLabel: { fontSize: 12, color: '#7e808c', marginBottom: 2 },
   detailValue: { fontSize: 14, color: '#282c3f', fontWeight: '500' },
 
-  homeButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fc8019', marginHorizontal: 16, marginTop: 16, paddingVertical: 14, borderRadius: 10, gap: 8 },
+  homeButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: THEME_COLOR, marginHorizontal: 16, marginTop: 16, paddingVertical: 14, borderRadius: 10, gap: 8 },
   homeButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
 
   bottomPadding: { height: 30 },

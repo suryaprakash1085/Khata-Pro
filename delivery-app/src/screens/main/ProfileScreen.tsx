@@ -20,6 +20,9 @@ import { AuthContext } from '../../context/AuthContext';
 import { CartContext } from '../../context/CartContext';
 import { OrderContext } from '../../context/OrderContext';
 
+// ✅ Theme color — matched to Address / Payment / Orders / Tracking screens' purple/indigo
+const THEME_COLOR = '#6C5CE7';
+
 // ✅ Same constants as AppNavigator's WebTopNavBar — kept in sync so this
 // screen always clears the fixed top navbar on desktop web, no matter
 // what padding the navigator itself does or doesn't apply.
@@ -116,7 +119,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
       icon: 'person-outline',
       label: 'Edit Profile',
       onPress: () => navigation.navigate('EditProfile'), // ✅ Navigate to EditProfile page
-      color: '#fc8019',
+      color: THEME_COLOR,
     },
     {
       id: 2,
@@ -256,7 +259,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#fc8019',
+    backgroundColor: THEME_COLOR,
     justifyContent: 'center',
     alignItems: 'center',
   },

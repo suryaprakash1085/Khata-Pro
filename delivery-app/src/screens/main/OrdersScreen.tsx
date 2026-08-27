@@ -1,4 +1,5 @@
 
+
 import React, { useState, useContext, useEffect, useCallback } from 'react';
 import {
   View,
@@ -19,6 +20,10 @@ import { ordersApi, CustomerOrder, CustomerTrackingStatus } from '../../api/orde
 import notificationService, { Notification } from '../../services/notificationService';
 import { AuthContext } from '../../context/AuthContext';
 import { SelectedBusinessContext } from '../../context/SelectedBusinessContext';
+
+// ✅ Theme color — matched to Cart / Address / Payment screens' purple/indigo
+const THEME_COLOR = '#6C5CE7';
+const THEME_COLOR_LIGHT = '#F1EFFE'; // light tint for badges/backgrounds
 
 const OrdersScreen: React.FC = ({ navigation }: any) => {
   const [activeTab, setActiveTab] = useState<'current' | 'past' | 'cancelled'>('current');
@@ -56,7 +61,7 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
     fetchOrders(false);
   }, [fetchOrders]);
 
-  // ── Notifications (unchanged — already wired to real backend) ──
+  // ── Notifications ──────────────────────────────────────────────
   const fetchNotifications = async () => {
     if (!driverId && !businessId) {
       console.error('❌ No driver_id or business_id found for user');
@@ -147,10 +152,9 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
     let title = 'Order Update';
     let bodyText = 'Your order status has been updated.';
     let deliveryLocation = 'Preparing...';
-    // let orderId = `Order #${String(id)}`;
     const orderIdMatch = rawMessage?.match(/order\s*#\s*(\d+)/i);
-let orderId = orderIdMatch ? `Order #${orderIdMatch[1]}` : `Order #${String(id)}`;
-const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
+    let orderId = orderIdMatch ? `Order #${orderIdMatch[1]}` : `Order #${String(id)}`;
+    const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
     let buttonText = 'View order details';
     let isUnread = !isRead;
 
@@ -182,18 +186,12 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
   };
 
   const renderNotification = ({ item }: { item: Notification }) => {
-    // const { title, bodyText, deliveryLocation, orderId, buttonText, isUnread } = parseAmazonRealUI(
-    //   item.type,
-    //   item.message,
-    //   item.id,
-    //   item.is_read,
-    // );
     const { title, bodyText, deliveryLocation, orderId, numericOrderId, buttonText, isUnread } = parseAmazonRealUI(
-  item.type,
-  item.message,
-  item.id,
-  item.is_read,
-);
+      item.type,
+      item.message,
+      item.id,
+      item.is_read,
+    );
     return (
       <View style={styles.amazonCard}>
         <View style={styles.amazonCardHeader}>
@@ -222,23 +220,16 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
           </View>
           <View style={styles.amazonProductImagePlaceholder} />
         </View>
-        {/* <TouchableOpacity
+        <TouchableOpacity
           style={styles.amazonActionButton}
           onPress={() => {
             handleMarkAsRead(item.id);
             setShowNotifications(false);
+            if (numericOrderId) {
+              navigation.navigate('OrderTracking', { orderId: numericOrderId });
+            }
           }}
-        > */}
-        <TouchableOpacity
-  style={styles.amazonActionButton}
-  onPress={() => {
-    handleMarkAsRead(item.id);
-    setShowNotifications(false);
-    if (numericOrderId) {
-      navigation.navigate('OrderTracking', { orderId: numericOrderId });   // ✅ ADD THIS — navigate to the exact order
-    }
-  }}
->
+        >
           <Text style={styles.amazonActionButtonText}>{buttonText}</Text>
         </TouchableOpacity>
       </View>
@@ -251,7 +242,7 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
     ORDER_CONFIRMED: { label: 'Confirmed', color: '#17a2b8', icon: 'checkmark-circle' },
     DRIVER_ASSIGNED: { label: 'Driver Assigned', color: '#17a2b8', icon: 'person' },
     PICKED_UP: { label: 'Picked Up', color: '#7C3AED', icon: 'cube' },
-    OUT_FOR_DELIVERY: { label: 'On the way', color: '#fc8019', icon: 'bicycle' },
+    OUT_FOR_DELIVERY: { label: 'On the way', color: THEME_COLOR, icon: 'bicycle' },
     DELIVERED: { label: 'Delivered', color: '#28a745', icon: 'checkmark-circle' },
     CANCELLED: { label: 'Cancelled', color: '#dc3545', icon: 'close-circle' },
   };
@@ -280,25 +271,41 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
     }
   };
 
-  // ── Cancel order: real backend call ─────────────────────────
-  // PUT /customers/me/orders/:id/cancel — only allowed while the order is
-  // still "pending" on the server. On success we patch tracking_status
-  // locally so the card moves to the Cancelled tab immediately.
-  //
-  // ⚠️ Alert.alert's multi-button confirm dialog does not render on
-  // React Native Web — it silently no-ops. So on web we fall back to
-  // window.confirm / window.alert; on native (iOS/Android) we keep the
-  // normal Alert.alert flow.
+  // ── Cancel order ─────────────────────────────────────────────
   const doCancelOrder = async (item: CustomerOrder) => {
     try {
-      const updatedOrder = await ordersApi.cancelOrder(item.id);
-      // ✅ backend confirmed cancellation — update local state
-      // so the card moves to the Cancelled tab immediately
+      const response = await ordersApi.cancelOrder(item.id);
+      // ✅ FIXED: The response might be the updated order or a status object
+      // Try to get tracking_status from response or fallback to CANCELLED
+      let updatedStatus: CustomerTrackingStatus = 'CANCELLED';
+      
+      if (response && typeof response === 'object') {
+        // Check if response has tracking_status directly
+        if ('tracking_status' in response) {
+          updatedStatus = (response as any).tracking_status;
+        } 
+        // Check if response has data property with tracking_status
+        else if ('data' in response && response.data && typeof response.data === 'object' && 'tracking_status' in response.data) {
+          updatedStatus = (response.data as any).tracking_status;
+        }
+        // Check if response has status property
+        else if ('status' in response) {
+          updatedStatus = (response as any).status as CustomerTrackingStatus;
+        }
+        // Check if response has data with status
+        else if ('data' in response && response.data && typeof response.data === 'object' && 'status' in response.data) {
+          updatedStatus = (response.data as any).status as CustomerTrackingStatus;
+        }
+      }
+      
       setOrdersList((prev) =>
         prev.map((o) =>
-          o.id === item.id ? { ...o, tracking_status: updatedOrder.tracking_status } : o,
+          o.id === item.id 
+            ? { ...o, tracking_status: updatedStatus } 
+            : o,
         ),
       );
+      
       const successMsg = `Order #${item.id} has been cancelled.`;
       if (Platform.OS === 'web') {
         window.alert(successMsg);
@@ -405,7 +412,7 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
                 }}
                 activeOpacity={0.8}
               >
-                <Icon name="eye-outline" size={14} color="#fc8019" />
+                <Icon name="eye-outline" size={14} color={THEME_COLOR} />
                 <Text style={styles.viewButtonText}>Track</Text>
               </TouchableOpacity>
             )}
@@ -424,7 +431,7 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Orders</Text>
         <TouchableOpacity style={styles.headerRight} onPress={() => setShowNotifications(true)}>
-          <Icon name="notifications-outline" size={24} color="#fc8019" />
+          <Icon name="notifications-outline" size={24} color={THEME_COLOR} />
           {unreadCount > 0 && (
             <View style={styles.notificationBadge}>
               <Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
@@ -449,7 +456,7 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
 
       {ordersLoading ? (
         <View style={styles.emptyContainer}>
-          <ActivityIndicator size="large" color="#fc8019" />
+          <ActivityIndicator size="large" color={THEME_COLOR} />
         </View>
       ) : ordersError ? (
         <View style={styles.emptyContainer}>
@@ -486,7 +493,7 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
         />
       )}
 
-      {/* NOTIFICATION MODAL — unchanged */}
+      {/* NOTIFICATION MODAL */}
       <Modal visible={showNotifications} animationType="slide" transparent={false} onRequestClose={() => setShowNotifications(false)}>
         <SafeAreaView style={styles.amazonModalContainer}>
           <View style={styles.amazonModalHeader}>
@@ -533,7 +540,6 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
   );
 };
 
-// styles unchanged from original — keep exactly as-is
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#f0f0f0', elevation: 2 },
@@ -546,10 +552,10 @@ const styles = StyleSheet.create({
   tab: { flex: 1, paddingVertical: 14, alignItems: 'center', position: 'relative', flexDirection: 'row', justifyContent: 'center' },
   activeTab: {},
   tabText: { fontSize: 14, color: '#7e808c', fontWeight: '500' },
-  activeTabText: { color: '#fc8019', fontWeight: '600' },
-  badge: { backgroundColor: '#fc8019', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 6, minWidth: 20, alignItems: 'center' },
+  activeTabText: { color: THEME_COLOR, fontWeight: '600' },
+  badge: { backgroundColor: THEME_COLOR, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 6, minWidth: 20, alignItems: 'center' },
   badgeText: { color: '#ffffff', fontSize: 10, fontWeight: '600' },
-  tabIndicator: { position: 'absolute', bottom: 0, left: '25%', right: '25%', height: 3, backgroundColor: '#fc8019', borderRadius: 2 },
+  tabIndicator: { position: 'absolute', bottom: 0, left: '25%', right: '25%', height: 3, backgroundColor: THEME_COLOR, borderRadius: 2 },
   ordersList: { padding: 16, paddingBottom: 80 },
   orderCard: { backgroundColor: '#ffffff', borderRadius: 12, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: '#e8e8e8', elevation: 1 },
   cancelledCard: { opacity: 0.7, borderColor: '#dc3545' },
@@ -565,14 +571,14 @@ const styles = StyleSheet.create({
   productName: { flex: 1, fontSize: 13, color: '#282c3f' },
   productQuantity: { fontSize: 13, color: '#7e808c', marginHorizontal: 8 },
   productPrice: { fontSize: 13, fontWeight: '500', color: '#282c3f' },
-  moreProducts: { fontSize: 12, color: '#fc8019', marginTop: 4, fontWeight: '500' },
+  moreProducts: { fontSize: 12, color: THEME_COLOR, marginTop: 4, fontWeight: '500' },
   orderFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
   orderTime: { fontSize: 12, color: '#7e808c' },
   footerButtons: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   cancelButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffebee', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: '#dc3545' },
   cancelButtonText: { color: '#dc3545', fontSize: 12, fontWeight: '500', marginLeft: 4 },
-  viewButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff3e0', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: '#fc8019' },
-  viewButtonText: { color: '#fc8019', fontSize: 12, fontWeight: '500', marginLeft: 4 },
+  viewButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: THEME_COLOR_LIGHT, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: THEME_COLOR },
+  viewButtonText: { color: THEME_COLOR, fontSize: 12, fontWeight: '500', marginLeft: 4 },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80 },
   emptyText: { fontSize: 18, fontWeight: '500', color: '#282c3f', marginTop: 16 },
   emptySubText: { fontSize: 14, color: '#7e808c', marginTop: 8, marginBottom: 24 },
@@ -586,12 +592,12 @@ const styles = StyleSheet.create({
   amazonCard: { backgroundColor: '#ffffff', padding: 16, marginBottom: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e8e8e8', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
   amazonCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
   amazonTitleRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  amazonIconCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#ff9900', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  amazonIconCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: THEME_COLOR, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
   amazonTitleColumn: { flex: 1 },
   amazonTitleText: { fontSize: 16, fontWeight: '700', color: '#000000' },
   amazonTimeText: { fontSize: 12, color: '#565959' },
   amazonHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  amazonUnreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ff9900' },
+  amazonUnreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: THEME_COLOR },
   amazonBodyText: { fontSize: 14, color: '#0f1111', lineHeight: 20, marginBottom: 4 },
   amazonOrderIdText: { fontSize: 12, color: '#565959', marginBottom: 12 },
   amazonDeliveryCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f7f8fa', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e8e8e8', marginBottom: 14 },
@@ -599,12 +605,12 @@ const styles = StyleSheet.create({
   amazonDeliveryTitle: { fontSize: 13, color: '#0f1111' },
   amazonDeliveryDate: { fontSize: 15, fontWeight: '700', color: '#067d62' },
   amazonProductImagePlaceholder: { width: 48, height: 48, borderRadius: 8, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#f0f0f0' },
-  amazonActionButton: { backgroundColor: '#ffd814', paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#fcd200' },
-  amazonActionButtonText: { fontSize: 14, fontWeight: '600', color: '#0f1111' },
+  amazonActionButton: { backgroundColor: THEME_COLOR, paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: THEME_COLOR },
+  amazonActionButtonText: { fontSize: 14, fontWeight: '600', color: '#ffffff' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   errorText: { color: '#dc3545', fontSize: 16, marginTop: 10, marginBottom: 20 },
-  retryButton: { backgroundColor: '#fc8019', paddingHorizontal: 30, paddingVertical: 10, borderRadius: 8 },
+  retryButton: { backgroundColor: THEME_COLOR, paddingHorizontal: 30, paddingVertical: 10, borderRadius: 8 },
   retryButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '500' },
   emptyNotifications: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
   emptyNotificationsText: { fontSize: 18, fontWeight: '500', color: '#282c3f', marginTop: 16 },

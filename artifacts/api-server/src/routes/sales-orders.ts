@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-=======
 
-
->>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
-import { Router, type IRouter } from "express";
+ import { Router, type IRouter } from "express";
 import { requireAuth, AuthPayload } from "../middlewares/auth";
 import {
   db,
@@ -15,7 +11,12 @@ import {
   deliveriesTable,
   notificationsTable,
 } from "@workspace/db";
-import { CreateSalesOrderBody, UpdateSalesOrderBody, UpdateSalesOrderStatusBody } from "@workspace/api-zod";
+import { 
+  CreateSalesOrderBody, 
+  CreatePublicSalesOrderBody,  // ✅ ADD THIS IMPORT
+  UpdateSalesOrderBody, 
+  UpdateSalesOrderStatusBody 
+} from "@workspace/api-zod";
 import { eq, and, gte, sql, desc, count, inArray } from "drizzle-orm";
 import { notifyCustomerOrderConfirmed } from "../services/pushNotifications";
 import {
@@ -23,9 +24,9 @@ import {
   ShopLocationMissingError,
   CustomerLocationMissingError,
 } from "../services/deliveryFee.service";
-
+ 
 const router: IRouter = Router();
-
+ 
 function formatSalesOrder(so: any, customerName?: string, itemCount?: number) {
   return {
     id: Number(so.id),
@@ -40,7 +41,6 @@ function formatSalesOrder(so: any, customerName?: string, itemCount?: number) {
     invoice_no: so.invoiceNo ?? null,
     description: so.description,
     shipping_address: so.shippingAddress,
-    // 🔶 NEW — delivery fee snapshot fields
     delivery_distance_km:
       so.deliveryDistanceKm !== null && so.deliveryDistanceKm !== undefined
         ? parseFloat(so.deliveryDistanceKm)
@@ -69,9 +69,7 @@ function formatSalesOrder(so: any, customerName?: string, itemCount?: number) {
     created_at: so.createdAt,
   };
 }
-
-// Shared helper — resolves a business's pickup address for auto-created
-// deliveries. Used by both the admin and public order-creation routes.
+ 
 async function resolvePickupAddress(businessId: number): Promise<string> {
   const [business] = await db.select().from(businessesTable).where(eq(businessesTable.id, businessId));
   return (
@@ -80,13 +78,7 @@ async function resolvePickupAddress(businessId: number): Promise<string> {
     "Store"
   );
 }
-
-// 🔶 NEW — shared helper: given the parsed CreateSalesOrderBody, computes the
-// delivery-fee snapshot to persist on the order. NEVER trusts a client-sent
-// delivery fee — always recalculates server-side from current
-// delivery_fee_settings. Falls back to a zero/null snapshot (never throws)
-// if shipping_address or coordinates are missing, since not every order is
-// a home delivery.
+ 
 async function resolveDeliveryFee(d: {
   business_id: number;
   customer_latitude?: number;
@@ -103,7 +95,7 @@ async function resolveDeliveryFee(d: {
       lng: null as number | null,
     };
   }
-
+ 
   try {
     const result = await calculateDeliveryFeeForBusiness(
       d.business_id,
@@ -134,7 +126,7 @@ async function resolveDeliveryFee(d: {
     };
   }
 }
-
+ 
 // GET /sales-orders
 router.get("/sales-orders", requireAuth, async (req, res): Promise<void> => {
   const businessId = parseInt(req.query.business_id as string, 10);
@@ -142,7 +134,7 @@ router.get("/sales-orders", requireAuth, async (req, res): Promise<void> => {
     res.status(400).json({ error: "business_id is required" });
     return;
   }
-
+ 
   const customerId = req.query.customer_id ? parseInt(req.query.customer_id as string, 10) : undefined;
   const status = req.query.status as string | undefined;
   const channel = req.query.channel as string | undefined;
@@ -151,22 +143,22 @@ router.get("/sales-orders", requireAuth, async (req, res): Promise<void> => {
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 50;
   const offset = (page - 1) * limit;
-
+ 
   const conditions: any[] = [eq(salesOrdersTable.businessId, businessId), eq(salesOrdersTable.isDeleted, false)];
   if (customerId) conditions.push(eq(salesOrdersTable.customerId, customerId));
   if (status) conditions.push(eq(salesOrdersTable.status, status as any));
   if (channel) conditions.push(eq(salesOrdersTable.channel, channel as any));
   if (from) conditions.push(gte(salesOrdersTable.entryDate, from));
   if (to) conditions.push(sql`${salesOrdersTable.entryDate} <= ${to}`);
-
+ 
   const [orders, totalResult] = await Promise.all([
     db.select().from(salesOrdersTable).where(and(...conditions)).limit(limit).offset(offset).orderBy(desc(salesOrdersTable.entryDate)),
     db.select({ count: count() }).from(salesOrdersTable).where(and(...conditions)),
   ]);
-
+ 
   const orderIds = orders.map((o: any) => Number(o.id));
   const customerIds = [...new Set(orders.map((o: any) => Number(o.customerId)))];
-
+ 
   const [customers, itemCounts] = await Promise.all([
     customerIds.length > 0
       ? db.select({ id: customersTable.id, name: customersTable.name }).from(customersTable).where(inArray(customersTable.id, customerIds))
@@ -179,10 +171,10 @@ router.get("/sales-orders", requireAuth, async (req, res): Promise<void> => {
           .groupBy(salesOrderItemsTable.salesOrderId)
       : Promise.resolve([] as any[]),
   ]);
-
+ 
   const customerMap = new Map(customers.map((c: any) => [Number(c.id), c.name]));
   const itemCountMap = new Map(itemCounts.map((r: any) => [Number(r.salesOrderId), Number(r.count)]));
-
+ 
   res.json({
     data: orders.map((o: any) => formatSalesOrder(o, customerMap.get(Number(o.customerId)), itemCountMap.get(Number(o.id)))),
     total: Number(totalResult[0].count),
@@ -190,7 +182,7 @@ router.get("/sales-orders", requireAuth, async (req, res): Promise<void> => {
     limit,
   });
 });
-
+ 
 // GET /sales-orders/:id
 router.get("/sales-orders/:id", requireAuth, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id as string, 10);
@@ -199,7 +191,7 @@ router.get("/sales-orders/:id", requireAuth, async (req, res): Promise<void> => 
     res.status(404).json({ error: "Sales order not found" });
     return;
   }
-
+ 
   const [customer] = await db.select({ name: customersTable.name }).from(customersTable).where(eq(customersTable.id, Number(order.customerId)));
   const items = await db
     .select({
@@ -212,7 +204,7 @@ router.get("/sales-orders/:id", requireAuth, async (req, res): Promise<void> => 
     .from(salesOrderItemsTable)
     .innerJoin(productsTable, eq(salesOrderItemsTable.productId, productsTable.id))
     .where(eq(salesOrderItemsTable.salesOrderId, id));
-
+ 
   res.json({
     ...formatSalesOrder(order, customer?.name, items.length),
     items: items.map((it: any) => ({
@@ -224,13 +216,9 @@ router.get("/sales-orders/:id", requireAuth, async (req, res): Promise<void> => 
     })),
   });
 });
-
+ 
 // ============================================================
 // POST /sales-orders — admin/staff create (authenticated).
-// Does NOT touch stock; order is only "placed" here, not fulfilled.
-// Auto-creates a matching `deliveries` row when a shipping_address
-// is provided (home-delivery order, not in-store pickup).
-// 🔶 UPDATED — now computes delivery fee server-side and adds it to `amount`.
 // ============================================================
 router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
   const parsed = CreateSalesOrderBody.safeParse(req.body);
@@ -240,30 +228,22 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
   }
   const d = parsed.data;
   const { userId } = (req as any).user as AuthPayload;
-
+ 
   const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, d.customer_id));
   if (!customer) {
     res.status(404).json({ error: "Customer not found" });
     return;
   }
-
+ 
   const itemsTotal = d.items.reduce((sum, it) => sum + it.qty * it.unit_price, 0);
   const tax = d.tax ?? 0;
-
-  // 🔶 NEW — delivery fee computed server-side, never trusted from client
+ 
   const deliveryFeeResult = await resolveDeliveryFee(d);
   const amount = itemsTotal + tax + deliveryFeeResult.fee;
-
-  // 👇 NEW: actually compute + snapshot the delivery fee
-  const deliverySnapshot = await calculateAndSnapshotDeliveryFee(
-    d.business_id,
-    (d as any).customer_latitude,
-    (d as any).customer_longitude,
-  );
-
+ 
   const toDateStr = (v: string | Date | null | undefined): string | undefined =>
     v instanceof Date ? v.toISOString().split("T")[0] : (v as string | undefined);
-
+ 
   const [order] = await db
     .insert(salesOrdersTable)
     .values({
@@ -276,7 +256,6 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
       gstRate: (d.tax ?? 0).toString(),
       description: d.description,
       shippingAddress: d.shipping_address,
-      // 🔶 NEW — delivery fee snapshot
       deliveryDistanceKm: deliveryFeeResult.distanceKm !== null ? deliveryFeeResult.distanceKm.toString() : null,
       deliveryFee: deliveryFeeResult.fee.toString(),
       deliveryFeeRadius: deliveryFeeResult.radius !== null ? deliveryFeeResult.radius.toString() : null,
@@ -285,10 +264,9 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
       customerLongitude: deliveryFeeResult.lng !== null ? deliveryFeeResult.lng.toString() : null,
       entryDate: toDateStr(d.entry_date) ?? new Date().toISOString().split("T")[0],
       createdBy: userId,
-      ...deliverySnapshot, // 👈 deliveryDistanceKm, deliveryFee, deliveryFeeRadius, deliveryFeePerKm, customerLatitude, customerLongitude
     })
     .returning();
-
+ 
   if (d.items.length > 0) {
     await db.insert(salesOrderItemsTable).values(
       d.items.map((it) => ({
@@ -299,8 +277,9 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
       })),
     );
   }
-
-    if (d.shipping_address) {
+ 
+  // ✅ FIXED: Admin route uses "online" as default
+  if (d.shipping_address) {
     const pickupAddress = await resolvePickupAddress(d.business_id);
     await db.insert(deliveriesTable).values({
       businessId: d.business_id,
@@ -309,54 +288,38 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
       pickupAddress,
       dropAddress: d.shipping_address,
       amount: amount.toString(),
-      payment_method: d.payment_method ?? "online",
+      payment_method: "online", // ✅ Hardcoded "online" for admin route
       status: "pending",
     });
   }
-
+ 
   res.status(201).json(formatSalesOrder(order, customer.name, d.items.length));
 });
-
-
+ 
 // ============================================================
-// POST /public/sales-orders — customer-facing order placement (no auth).
-// Mirrors the admin route above, including the delivery auto-create,
-// but is unauthenticated since the customer app doesn't hold a staff JWT.
-// `business_id` is taken directly from the request body (d.business_id) —
-// no server-side override, so whatever the client sends is what gets billed.
-// 🔶 UPDATED — same delivery-fee integration as the admin route above.
+// POST /public/sales-orders — customer-facing (no auth).
 // ============================================================
 router.post("/public/sales-orders", async (req, res): Promise<void> => {
   try {
-    const parsed = CreateSalesOrderBody.safeParse(req.body);
+    const parsed = CreatePublicSalesOrderBody.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.message });
       return;
     }
     const d = parsed.data;
-
+ 
     const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, d.customer_id));
     if (!customer) {
       res.status(404).json({ error: "Customer not found" });
       return;
     }
-
+ 
     const itemsTotal = d.items.reduce((sum, it) => sum + it.qty * it.unit_price, 0);
     const tax = d.tax ?? 0;
-
-<<<<<<< HEAD
-    const deliverySnapshot = await calculateAndSnapshotDeliveryFee(
-      d.business_id,
-      d.customer_latitude,
-      d.customer_longitude,
-    );
-=======
-    // 🔶 NEW — authoritative recalculation, ignores anything the client
-    // may have precomputed and displayed in the checkout preview.
+ 
     const deliveryFeeResult = await resolveDeliveryFee(d);
     const amount = itemsTotal + tax + deliveryFeeResult.fee;
->>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
-
+ 
     const [order] = await db
       .insert(salesOrdersTable)
       .values({
@@ -369,7 +332,6 @@ router.post("/public/sales-orders", async (req, res): Promise<void> => {
         gstRate: (d.tax ?? 0).toString(),
         description: d.description,
         shippingAddress: d.shipping_address,
-        // 🔶 NEW — delivery fee snapshot
         deliveryDistanceKm: deliveryFeeResult.distanceKm !== null ? deliveryFeeResult.distanceKm.toString() : null,
         deliveryFee: deliveryFeeResult.fee.toString(),
         deliveryFeeRadius: deliveryFeeResult.radius !== null ? deliveryFeeResult.radius.toString() : null,
@@ -377,11 +339,10 @@ router.post("/public/sales-orders", async (req, res): Promise<void> => {
         customerLatitude: deliveryFeeResult.lat !== null ? deliveryFeeResult.lat.toString() : null,
         customerLongitude: deliveryFeeResult.lng !== null ? deliveryFeeResult.lng.toString() : null,
         entryDate: new Date().toISOString().split("T")[0],
-        createdBy: customer.id, // no staff user for public orders — attribute to the customer
-        ...deliverySnapshot,
+        createdBy: customer.id,
       })
       .returning();
-
+ 
     if (d.items.length > 0) {
       await db.insert(salesOrderItemsTable).values(
         d.items.map((it) => ({
@@ -392,7 +353,8 @@ router.post("/public/sales-orders", async (req, res): Promise<void> => {
         })),
       );
     }
-
+ 
+    // ✅ FIXED: Public route uses d.payment_method from CreatePublicSalesOrderBody
     if (d.shipping_address) {
       try {
         const pickupAddress = await resolvePickupAddress(d.business_id);
@@ -403,15 +365,14 @@ router.post("/public/sales-orders", async (req, res): Promise<void> => {
           pickupAddress,
           dropAddress: d.shipping_address,
           amount: amount.toString(),
-          payment_method: d.payment_method ?? "online",
+          payment_method: d.payment_method ?? "online", // ✅ Uses schema property
           status: "pending",
         });
       } catch (err) {
         console.error("[public/sales-orders] Failed to create delivery:", err);
-        // Order still succeeds even if delivery creation fails
       }
     }
-
+ 
     res.status(201).json(formatSalesOrder(order, customer.name, d.items.length));
   } catch (err) {
     console.error("[public/sales-orders] failed:", err);
@@ -421,7 +382,7 @@ router.post("/public/sales-orders", async (req, res): Promise<void> => {
     });
   }
 });
-
+ 
 // PUT /sales-orders/:id — meta only
 router.put("/sales-orders/:id", requireAuth, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id as string, 10);
@@ -431,30 +392,29 @@ router.put("/sales-orders/:id", requireAuth, async (req, res): Promise<void> => 
     return;
   }
   const d = parsed.data;
-
+ 
   const [existing] = await db.select().from(salesOrdersTable).where(and(eq(salesOrdersTable.id, id), eq(salesOrdersTable.isDeleted, false)));
   if (!existing) {
     res.status(404).json({ error: "Sales order not found" });
     return;
   }
-
+ 
   const updates: any = {};
   if (d.description !== undefined) updates.description = d.description;
   if (d.shipping_address !== undefined) updates.shippingAddress = d.shipping_address;
   if (d.entry_date) updates.entryDate = d.entry_date instanceof Date ? d.entry_date.toISOString().split("T")[0] : d.entry_date;
-
+ 
   const [order] = await db
     .update(salesOrdersTable)
     .set(updates)
     .where(and(eq(salesOrdersTable.id, id), eq(salesOrdersTable.isDeleted, false)))
     .returning();
-
+ 
   const [customer] = await db.select({ name: customersTable.name }).from(customersTable).where(eq(customersTable.id, Number(order.customerId)));
   res.json(formatSalesOrder(order, customer?.name));
 });
-
-// PUT /sales-orders/:id/status — moves order through the pipeline.
-// When status becomes "invoiced", stock is reduced (order is fulfilled here).
+ 
+// PUT /sales-orders/:id/status
 router.put("/sales-orders/:id/status", requireAuth, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id as string, 10);
   const parsed = UpdateSalesOrderStatusBody.safeParse(req.body);
@@ -463,23 +423,22 @@ router.put("/sales-orders/:id/status", requireAuth, async (req, res): Promise<vo
     return;
   }
   const { status } = parsed.data;
-
+ 
   const [existing] = await db.select().from(salesOrdersTable).where(and(eq(salesOrdersTable.id, id), eq(salesOrdersTable.isDeleted, false)));
   if (!existing) {
     res.status(404).json({ error: "Sales order not found" });
     return;
   }
-
+ 
   const updates: any = { status: status as any };
-
-  // Only reduce stock + assign invoice number the first time an order transitions INTO invoiced
+ 
   if (status === "invoiced" && existing.status !== "invoiced") {
     const items = await db.select().from(salesOrderItemsTable).where(eq(salesOrderItemsTable.salesOrderId, id));
-
+ 
     const productIds = items.map((it) => Number(it.productId));
     const products = productIds.length > 0 ? await db.select().from(productsTable).where(inArray(productsTable.id, productIds)) : [];
     const stockMap = new Map(products.map((p: any) => [Number(p.id), p.stockQty]));
-
+ 
     const shortages = items
       .map((item) => {
         const needed = Math.round(parseFloat(item.qty));
@@ -487,7 +446,7 @@ router.put("/sales-orders/:id/status", requireAuth, async (req, res): Promise<vo
         return { productId: Number(item.productId), needed, available };
       })
       .filter((s) => s.needed > s.available);
-
+ 
     if (shortages.length > 0) {
       const productNames = new Map(products.map((p: any) => [Number(p.id), p.name]));
       res.status(409).json({
@@ -501,7 +460,7 @@ router.put("/sales-orders/:id/status", requireAuth, async (req, res): Promise<vo
       });
       return;
     }
-
+ 
     for (const item of items) {
       await db
         .update(productsTable)
@@ -510,25 +469,14 @@ router.put("/sales-orders/:id/status", requireAuth, async (req, res): Promise<vo
     }
     updates.invoiceNo = `INV-${existing.businessId}-${String(id).padStart(5, "0")}`;
   }
-
+ 
   const [order] = await db
     .update(salesOrdersTable)
     .set(updates)
     .where(and(eq(salesOrdersTable.id, id), eq(salesOrdersTable.isDeleted, false)))
     .returning();
-
-  // Notify the customer when the order gets confirmed (invoiced)
+ 
   if (status === "invoiced" && existing.status !== "invoiced") {
-<<<<<<< HEAD
-    // await db.insert(notificationsTable).values({
-    //   businessId: order.businessId,
-    //   customerId: order.customerId,
-    //   type: "order_confirmed",
-    //   message: `Your order #${order.id} has been confirmed!`,
-    // });
-
-=======
->>>>>>> 86fcc3108705dfc033dcf38c088894abb3a43174
     const [customerForPush] = await db.select().from(customersTable).where(eq(customersTable.id, order.customerId));
     if (customerForPush?.pushToken) {
       notifyCustomerOrderConfirmed(customerForPush.pushToken, Number(order.id)).catch((err) =>
@@ -536,11 +484,11 @@ router.put("/sales-orders/:id/status", requireAuth, async (req, res): Promise<vo
       );
     }
   }
-
+ 
   const [customer] = await db.select({ name: customersTable.name }).from(customersTable).where(eq(customersTable.id, Number(order.customerId)));
   res.json(formatSalesOrder(order, customer?.name));
 });
-
+ 
 // DELETE /sales-orders/:id
 router.delete("/sales-orders/:id", requireAuth, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id as string, 10);
@@ -551,6 +499,5 @@ router.delete("/sales-orders/:id", requireAuth, async (req, res): Promise<void> 
   }
   res.json({ message: "Sales order deleted" });
 });
-
-
+ 
 export default router;
