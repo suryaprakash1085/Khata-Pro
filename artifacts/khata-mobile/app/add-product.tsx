@@ -466,7 +466,7 @@ export default function AddProductScreen() {
 
     const goToStock = () => {
       showAlert('Success', isEditMode ? 'Product updated successfully' : 'Product added successfully', () => {
-        router.replace('/(tabs)/current-stock' as any);
+        router.replace('/all-products' as any);
       });
     };
 
@@ -1088,7 +1088,7 @@ export default function AddProductScreen() {
               {postSaveModal?.productName} was added successfully. Print its barcode label now?
             </Text>
             <View style={styles.modalButtons}>
-              <TouchableOpacity onPress={() => router.replace('/(tabs)/current-stock' as any)} style={styles.modalCancelBtn}>
+              <TouchableOpacity onPress={() => router.replace('/all-products' as any)} style={styles.modalCancelBtn}>
                 <Text style={styles.cancelBtnText}>Continue / Close</Text>
               </TouchableOpacity>
               <PrimaryButton label="Print Barcode" onPress={() => setPrintModalVisible(true)} style={styles.saveBtn} />
@@ -1102,7 +1102,7 @@ export default function AddProductScreen() {
         onClose={() => {
           setPrintModalVisible(false);
           if (postSaveModal) {
-            router.replace('/(tabs)/current-stock' as any);
+            router.replace('/all-products' as any);
           }
         }}
         businessName={business?.business_name}

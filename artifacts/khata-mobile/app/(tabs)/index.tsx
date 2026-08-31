@@ -32,6 +32,8 @@ import {
 // @ts-ignore
 import type { Customer } from '@workspace/api-client-react';
 import { formatCurrency } from '@/lib/format';
+import { customFetch } from '@workspace/api-client-react';
+import { useQuery } from '@tanstack/react-query';
 
 const IS_WEB = Platform.OS === 'web';
 
@@ -85,6 +87,13 @@ function getProductImage(p: any): string | null {
 }
 function getProductUnit(p: any): string {
   return p?.unit ?? 'pcs';
+}
+function useVendorPendingTotal(businessId?: number, enabled?: boolean) {
+  return useQuery<{ total_pending: number }>({
+    queryKey: ['purchases', 'pending-total', businessId],
+    enabled: !!businessId && !!enabled,
+    queryFn: () => customFetch(`/api/purchases/pending-total?business_id=${businessId}`, { responseType: 'json' }),
+  });
 }
 
 export default function HomeScreen() {
@@ -148,6 +157,8 @@ export default function HomeScreen() {
     const totalCost = purchases.reduce((sum, p) => sum + (Number(p?.amount) || 0), 0);
     return { itemsOrdered, totalCost };
   }, [purchases]);
+  
+  const { data: vendorPending } = useVendorPendingTotal(business?.id, !!business?.id);
 
   // ---------------- Sales Order — this month's orders, grouped by channel + status ----------------
   const salesOrdersParams = { business_id: business?.id as number, from: monthFrom, to: monthTo, limit: 200 };
@@ -276,9 +287,11 @@ export default function HomeScreen() {
           <View style={styles.statGrid}>
             {SALES_ACTIVITY_CARDS.map((item, i) => {
               const value =
-                item.field === 'transaction_count'
-                  ? String(stats?.transaction_count ?? 0)
-                  : formatCurrency((stats as any)?.[item.field] ?? 0, business?.currency);
+              item.field === 'transaction_count'
+              ? String(stats?.transaction_count ?? 0)
+              : item.field === 'total_to_pay'
+              ? formatCurrency(vendorPending?.total_pending ?? 0, business?.currency)
+              : formatCurrency((stats as any)?.[item.field] ?? 0, business?.currency);
               const isRightCol = i % 2 === 1;
               const isTopRow = i < 2;
               return (

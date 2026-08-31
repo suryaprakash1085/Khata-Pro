@@ -96,6 +96,24 @@ router.get("/purchases", requireAuth, async (req, res): Promise<void> => {
   });
 });
 
+// GET /purchases/pending-total — total amount still owed to ALL vendors
+// (sum of amount - amount_paid across every non-deleted purchase), computed
+// in the DB so it isn't limited by pagination like the list endpoint is.
+// IMPORTANT: this MUST be declared before "/purchases/:id" below — Express
+// matches routes top-to-bottom, and a "/purchases/:id" route declared first
+// would swallow this request as id="pending-total" (which parses to NaN).
+router.get("/purchases/pending-total", requireAuth, async (req, res): Promise<void> => {
+  const businessId = parseInt(req.query.business_id as string, 10);
+  if (isNaN(businessId)) { res.status(400).json({ error: "business_id is required" }); return; }
+
+  const [row] = await db.select({
+    pending: sql<string>`coalesce(sum(${purchasesTable.amount} - ${purchasesTable.amountPaid}), 0)`,
+  }).from(purchasesTable)
+    .where(and(eq(purchasesTable.businessId, businessId), eq(purchasesTable.isDeleted, false)));
+
+  res.json({ total_pending: parseFloat(row.pending ?? "0") });
+});
+
 // GET /purchases/:id — includes line items
 router.get("/purchases/:id", requireAuth, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id as string, 10);
