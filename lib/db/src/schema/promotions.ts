@@ -1,4 +1,5 @@
-import { pgTable, bigserial, bigint, varchar, decimal, date, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
+
+import { pgTable, bigserial, bigint, varchar, text, decimal, date, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { productsTable } from "./products";
@@ -19,6 +20,10 @@ export const promotionsTable = pgTable("promotions", {
   // Only meaningful when promotion_type = 'percentage'. Left NULL for bogo —
   // free-quantity logic never reads this field, by design (see spec §4).
   discountPercentage: decimal("discount_percentage", { precision: 5, scale: 2 }),
+  description: text("description"),
+  promoCode: varchar("promo_code", { length: 50 }),
+  minOrderAmount: decimal("min_order_amount", { precision: 10, scale: 2 }),
+  bannerImage: text("banner_image"),
   isDeleted: boolean("is_deleted").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

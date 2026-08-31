@@ -1,5 +1,6 @@
-
 import React, { useContext, useState, useEffect } from 'react';
+import promotionService, { Promotion } from '../../services/promotionService';
+import PromotionCard from '../../components/PromotionCard';
 import {
   View,
   Text,
@@ -14,6 +15,7 @@ import {
   Platform,
   Modal,
   FlatList,
+  TextInput,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import axios from 'axios';
@@ -108,7 +110,7 @@ const PaymentSuccessModal = ({ visible, onClose, orderDetails, onViewOrders, onC
 };
 
 // ✅ Order Summary Modal Component
-const OrderSummaryModal = ({ visible, onClose, subtotal, deliveryFee, tax, total, distanceInfo, isCalculating, cartItems }: any) => {
+const OrderSummaryModal = ({ visible, onClose, subtotal, deliveryFee, tax, total, distanceInfo, isCalculating, cartItems, discount }: any) => {
   if (!visible) return null;
 
   const getGSTBreakdown = () => {
@@ -170,6 +172,13 @@ const OrderSummaryModal = ({ visible, onClose, subtotal, deliveryFee, tax, total
               <Text style={styles.modalSummaryLabel}>Delivery Fee</Text>
               <Text style={styles.modalSummaryValue}>₹{deliveryFee}</Text>
             </View>
+
+            {discount > 0 && (
+              <View style={[styles.modalSummaryRow, { borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 8, marginTop: 4 }]}>
+                <Text style={[styles.modalSummaryLabel, { color: COLORS.success, fontWeight: '600' }]}>Discount</Text>
+                <Text style={[styles.modalSummaryValue, { color: COLORS.success, fontWeight: '700' }]}>-₹{discount}</Text>
+              </View>
+            )}
           </View>
 
           {distanceInfo && !isCalculating && (
@@ -231,6 +240,17 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
   const [recommendedProducts, setRecommendedProducts] = useState<any[]>([]);
   const [loadingRecommendations, setLoadingRecommendations] = useState<boolean>(false);
   const [showRecommendations, setShowRecommendations] = useState<boolean>(true);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [loadingPromotions, setLoadingPromotions] = useState<boolean>(false);
+  const [promotionsError, setPromotionsError] = useState<string | null>(null);
+
+  // 👇 promo code state
+  const [promoInput, setPromoInput] = useState<string>('');
+  const [appliedPromo, setAppliedPromo] = useState<Promotion | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoSuccess, setPromoSuccess] = useState<string | null>(null);
+  // 👇 NEW — which promotion card is currently selected (radio), before "Apply" is pressed
+  const [selectedPromoCard, setSelectedPromoCard] = useState<Promotion | null>(null);
 
   const getStoreId = (): number | null => {
     if (selectedBusiness?.id) {
@@ -254,8 +274,10 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
   useEffect(() => {
     if (storeCartItems.length > 0) {
       fetchRecommendations();
+      fetchPromotions();
     } else {
       setRecommendedProducts([]);
+      setPromotions([]);
     }
   }, [cartItems, storeId]);
 
@@ -297,6 +319,27 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
       console.error('Failed to fetch recommendations:', err);
     } finally {
       setLoadingRecommendations(false);
+    }
+  };
+
+  const fetchPromotions = async () => {
+    const businessId = getStoreId();
+    if (!businessId) {
+      setPromotions([]);
+      return;
+    }
+
+    try {
+      setLoadingPromotions(true);
+      setPromotionsError(null);
+      const data = await promotionService.getActivePromotions(businessId);
+      setPromotions(data);
+    } catch (err) {
+      console.error('Failed to fetch promotions:', err);
+      setPromotionsError('Could not load promotions');
+      setPromotions([]);
+    } finally {
+      setLoadingPromotions(false);
     }
   };
 
@@ -388,24 +431,159 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
     }
   };
 
+  const calculateDiscount = (subtotalAmount: number): { discount: number; eligibleAmount: number } => {
+    if (!appliedPromo) return { discount: 0, eligibleAmount: 0 };
+
+    const eligibleItems =
+      !appliedPromo.apply_to ||
+      appliedPromo.apply_to === 'all' ||
+      !appliedPromo.product_ids ||
+      appliedPromo.product_ids.length === 0
+        ? storeCartItems
+        : storeCartItems.filter((i) => appliedPromo.product_ids?.includes(Number(i.id)));
+
+    if (eligibleItems.length === 0) return { discount: 0, eligibleAmount: 0 };
+
+    const eligibleAmount = eligibleItems.reduce(
+      (sum, i) => sum + (i.price || 0) * (i.quantity || 1),
+      0
+    );
+
+    // ── PERCENTAGE ──
+    if (appliedPromo.promotion_type === 'percentage') {
+      const discount = Math.round(eligibleAmount * ((appliedPromo.discount_percentage || 0) / 100));
+      return { discount, eligibleAmount };
+    }
+
+    // ── BOGO ──
+    if (appliedPromo.promotion_type === 'bogo') {
+      const unitPrices: number[] = [];
+      eligibleItems.forEach((item) => {
+        for (let i = 0; i < (item.quantity || 0); i++) {
+          unitPrices.push(item.price);
+        }
+      });
+
+      unitPrices.sort((a, b) => a - b); // cheapest units first
+
+      const totalUnits = unitPrices.length;
+      const freePairs = Math.floor(totalUnits / 2);
+
+      // Every full pair → cheapest unit of that pair is free
+      let discount = unitPrices.slice(0, freePairs).reduce((sum, p) => sum + p, 0);
+
+      // 👇 Odd one out (or a single-item cart) gets 50% off instead of ₹0,
+      //    so BOGO shows a visible discount even with only 1 qty in cart
+      if (totalUnits % 2 !== 0) {
+        const remaining = unitPrices[freePairs];
+        if (remaining) discount += remaining * 0.5;
+      }
+
+      return { discount: Math.round(discount), eligibleAmount };
+    }
+
+    return { discount: 0, eligibleAmount };
+  };
+
   const calculateTotal = () => {
     const subtotal = storeCartItems.reduce(
       (sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1),
       0
     );
 
+    const { discount } = calculateDiscount(subtotal);
+
+    // 👇 GST calculate pannுறதுக்கு munnadி, item level la discount proportionally apply pannுறோம்
+    const discountRatio = subtotal > 0 ? discount / subtotal : 0;
+
     const totalGST = storeCartItems.reduce((sum: number, item: any) => {
       const itemTotal = (item.price || 0) * (item.quantity || 1);
+      const discountedItemTotal = itemTotal - itemTotal * discountRatio;
       const gstRate = item.gst_rate || 0;
-      const gstAmount = itemTotal * (gstRate / 100);
+      const gstAmount = discountedItemTotal * (gstRate / 100);
       return sum + gstAmount;
     }, 0);
 
     const roundedGST = Math.round(totalGST);
     const deliveryFee = 30;
-    const total = subtotal + deliveryFee + roundedGST;
+    const total = subtotal - discount + roundedGST + deliveryFee;
 
-    return { subtotal, tax: roundedGST, deliveryFee, total };
+    return { subtotal, tax: roundedGST, deliveryFee, discount, total };
+  };
+
+  // 👇 Shared validator — used by BOTH manual input apply AND card apply button
+  const validateAndApplyPromo = (promo: Promotion): boolean => {
+    setPromoError(null);
+    setPromoSuccess(null);
+
+    const now = new Date();
+    if (new Date(promo.start_date) > now || new Date(promo.end_date) < now) {
+      setPromoError('This promo code has expired');
+      return false;
+    }
+
+    const { subtotal } = calculateTotal();
+    if (promo.min_order_amount && subtotal < promo.min_order_amount) {
+      setPromoError(`Minimum order ₹${promo.min_order_amount} required for this code`);
+      return false;
+    }
+
+    setAppliedPromo(promo); // 👈 replaces whatever was applied before
+    setPromoInput(promo.promo_code || '');
+    setPromoSuccess(`"${promo.promo_code}" applied successfully!`);
+    return true;
+  };
+
+  // Manual "Enter promo code" box
+  const handleApplyPromo = () => {
+    const code = promoInput.trim().toUpperCase();
+    setPromoError(null);
+    setPromoSuccess(null);
+
+    if (!code) {
+      setPromoError('Please enter a promo code');
+      return;
+    }
+
+    const match = promotions.find(
+      (p) => p.promo_code?.toUpperCase() === code && p.status === 'active'
+    );
+
+    if (!match) {
+      setPromoError('Invalid or inactive promo code');
+      setAppliedPromo(null);
+      return;
+    }
+
+    validateAndApplyPromo(match);
+  };
+
+  // 👇 NEW — tapping a card just selects it (radio-style), does NOT apply yet
+  const handleSelectPromotionCard = (promo: Promotion) => {
+    setPromoError(null);
+    setPromoSuccess(null);
+    // tapping the already-selected card again deselects it
+    setSelectedPromoCard((prev) => (prev?.id === promo.id ? null : promo));
+  };
+
+  // 👇 NEW — the single shared "Apply" button uses whichever card is selected
+  const handleApplySelectedCard = () => {
+    if (!selectedPromoCard) {
+      setPromoError('Please select an offer first');
+      return;
+    }
+    const applied = validateAndApplyPromo(selectedPromoCard);
+    if (applied) {
+      setSelectedPromoCard(null); // clear the radio selection once applied
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    setSelectedPromoCard(null);
+    setPromoInput('');
+    setPromoError(null);
+    setPromoSuccess(null);
   };
 
   const handleUpdateQuantity = (item: any, newQuantity: number) => {
@@ -756,6 +934,7 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
     }
   };
 
+  // 👇 Pass discount and promo info to AddressSelection
   const handleProceedToCheckout = () => {
     if (storeCartItems.length === 0) {
       Alert.alert('Cart is Empty', 'Please add items to your cart first.');
@@ -769,20 +948,16 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
       return;
     }
 
-    const { subtotal, tax, deliveryFee, total } = calculateTotal();
-
-    console.log('🛒 Proceeding to checkout with:');
-    console.log('  Store ID:', businessId);
-    console.log('  Subtotal:', subtotal);
-    console.log('  Delivery Fee:', deliveryFee);
-    console.log('  Tax:', tax);
-    console.log('  Total:', total);
+    const { subtotal, tax, deliveryFee, discount, total } = calculateTotal();
 
     navigation.navigate('AddressSelection', {
       totalAmount: total,
       subtotal: subtotal,
       deliveryFee: deliveryFee,
       tax: tax,
+      discount: discount,
+      promoCode: appliedPromo?.promo_code || null,
+      promoId: appliedPromo?.id || null,
       restaurantName: selectedBusiness?.name || storeCartItems[0]?.restaurantName || 'QuickBite',
       cartItems: storeCartItems,
       business_id: businessId,
@@ -903,7 +1078,7 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
     );
   };
 
-  const { subtotal, tax, deliveryFee, total } = calculateTotal();
+  const { subtotal, tax, deliveryFee, discount, total } = calculateTotal();
   const storeItemsCount = storeCartItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
   if (storeCartItems.length === 0 && !showSuccessModal) {
@@ -973,6 +1148,7 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
           <Icon name="arrow-forward" size={16} color={COLORS.primary} />
         </TouchableOpacity>
 
+        {/* ── 1️⃣ RECOMMENDED FOR YOU ──────────────────────────────────────── */}
         {recommendedProducts.length > 0 && (
           <View style={styles.recommendedContainer}>
             <View style={styles.recommendedHeader}>
@@ -994,6 +1170,139 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
                 contentContainerStyle={styles.recommendedList}
                 ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
               />
+            )}
+          </View>
+        )}
+
+        {/* ── 2️⃣ APPLY PROMO CODE ──────────────────────────────────────────── */}
+        <View style={styles.recommendedContainer}>
+          <View style={styles.recommendedHeader}>
+            <Text style={styles.recommendedTitle}>🎟️ Apply Promo Code</Text>
+          </View>
+
+          <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
+            {appliedPromo ? (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: COLORS.successBg,
+                  borderRadius: 10,
+                  padding: 12,
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Icon name="checkmark-circle" size={18} color={COLORS.success} />
+                  <Text style={{ marginLeft: 8, color: COLORS.text, fontWeight: '600' }}>
+                    {appliedPromo.promo_code} applied
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={handleRemovePromo}>
+                  <Text style={{ color: COLORS.danger, fontWeight: '600', fontSize: 13 }}>Remove</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <View style={{ flexDirection: 'row' }}>
+                  <TextInput
+                    style={{
+                      flex: 1,
+                      borderWidth: 1,
+                      borderColor: COLORS.border,
+                      borderRadius: 10,
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      fontSize: 14,
+                      marginRight: 8,
+                      textTransform: 'characters',
+                    }}
+                    placeholder="Enter promo code"
+                    value={promoInput}
+                    onChangeText={setPromoInput}
+                    autoCapitalize="characters"
+                  />
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: COLORS.primary,
+                      paddingHorizontal: 18,
+                      justifyContent: 'center',
+                      borderRadius: 10,
+                    }}
+                    onPress={handleApplyPromo}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '700' }}>Apply</Text>
+                  </TouchableOpacity>
+                </View>
+                {promoError && (
+                  <Text style={{ color: COLORS.danger, fontSize: 12, marginTop: 6 }}>{promoError}</Text>
+                )}
+                {promoSuccess && (
+                  <Text style={{ color: COLORS.success, fontSize: 12, marginTop: 6 }}>{promoSuccess}</Text>
+                )}
+              </>
+            )}
+          </View>
+        </View>
+
+        {/* ── 3️⃣ PROMOTIONS FOR YOU ────────────────────────────────────────── */}
+        {(loadingPromotions || promotionsError || promotions.length > 0) && (
+          <View style={styles.recommendedContainer}>
+            <View style={styles.recommendedHeader}>
+              <Text style={styles.recommendedTitle}>🏷️ Promotions for You</Text>
+            </View>
+
+            {loadingPromotions ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+                <Text style={styles.loadingText}>Loading promotions...</Text>
+              </View>
+            ) : promotionsError ? (
+              <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>{promotionsError}</Text>
+              </View>
+            ) : promotions.length === 0 ? (
+              <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>No active promotions right now</Text>
+              </View>
+            ) : (
+              <>
+                <FlatList
+                  data={promotions}
+                  renderItem={({ item }) => (
+                    <PromotionCard
+                      promotion={item}
+                      isSelected={
+                        appliedPromo?.id === item.id || selectedPromoCard?.id === item.id
+                      }
+                      onSelect={() => handleSelectPromotionCard(item)}
+                    />
+                  )}
+                  keyExtractor={(item) => item.id.toString()}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.recommendedList}
+                  ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+                />
+
+                {/* 👇 single shared Apply button for whichever card is selected */}
+                {!appliedPromo && (
+                  <View style={{ paddingHorizontal: 14, marginTop: 4 }}>
+                    <TouchableOpacity
+                      style={styles.sharedPromoApplyBtn}
+                      onPress={handleApplySelectedCard}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.sharedPromoApplyBtnText}>Apply</Text>
+                    </TouchableOpacity>
+                    {promoError && (
+                      <Text style={{ color: COLORS.danger, fontSize: 12, marginTop: 6 }}>
+                        {promoError}
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </>
             )}
           </View>
         )}
@@ -1026,6 +1335,7 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
         deliveryFee={deliveryFee}
         tax={tax}
         total={total}
+        discount={discount}
         distanceInfo={deliveryFeeData}
         isCalculating={isCalculatingFee}
         cartItems={storeCartItems}
@@ -1291,6 +1601,18 @@ const styles = StyleSheet.create({
   addButtonTextSmall: {
     color: COLORS.primary,
     fontSize: 12.5,
+    fontWeight: '700',
+  },
+  // 👇 shared Apply button for the promotions carousel (matches manual Apply button style)
+  sharedPromoApplyBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  sharedPromoApplyBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
     fontWeight: '700',
   },
   loadingContainer: {

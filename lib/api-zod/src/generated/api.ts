@@ -929,6 +929,10 @@ export const ListPromotionsResponse = zod.object({
   "end_date": zod.coerce.date(),
   "status": zod.enum(['active', 'inactive']),
   "discount_percentage": zod.number().nullish(),
+  "description": zod.string().nullish(),
+  "promo_code": zod.string().nullish(),
+  "min_order_amount": zod.number().nullish(),
+  "banner_image": zod.string().nullish(),
   "product_ids": zod.array(zod.number()).optional(),
   "product_names": zod.array(zod.string()).optional(),
   "created_at": zod.coerce.date()
@@ -954,6 +958,10 @@ export const CreatePromotionBody = zod.object({
   "end_date": zod.coerce.date(),
   "status": zod.enum(['active', 'inactive']).default(createPromotionBodyStatusDefault),
   "discount_percentage": zod.number().optional(),
+  "description": zod.string().optional(),
+  "promo_code": zod.string().optional(),
+  "min_order_amount": zod.number().optional(),
+  "banner_image": zod.string().optional(),
   "product_ids": zod.array(zod.number()).optional()
 })
 
@@ -967,6 +975,10 @@ export const CreatePromotionResponse = zod.object({
   "end_date": zod.coerce.date(),
   "status": zod.enum(['active', 'inactive']),
   "discount_percentage": zod.number().nullish(),
+  "description": zod.string().nullish(),
+  "promo_code": zod.string().nullish(),
+  "min_order_amount": zod.number().nullish(),
+  "banner_image": zod.string().nullish(),
   "product_ids": zod.array(zod.number()).optional(),
   "product_names": zod.array(zod.string()).optional(),
   "created_at": zod.coerce.date()
@@ -990,6 +1002,10 @@ export const ListActivePromotionsResponseItem = zod.object({
   "end_date": zod.coerce.date(),
   "status": zod.enum(['active', 'inactive']),
   "discount_percentage": zod.number().nullish(),
+  "description": zod.string().nullish(),
+  "promo_code": zod.string().nullish(),
+  "min_order_amount": zod.number().nullish(),
+  "banner_image": zod.string().nullish(),
   "product_ids": zod.array(zod.number()).optional(),
   "product_names": zod.array(zod.string()).optional(),
   "created_at": zod.coerce.date()
@@ -1014,6 +1030,10 @@ export const GetPromotionResponse = zod.object({
   "end_date": zod.coerce.date(),
   "status": zod.enum(['active', 'inactive']),
   "discount_percentage": zod.number().nullish(),
+  "description": zod.string().nullish(),
+  "promo_code": zod.string().nullish(),
+  "min_order_amount": zod.number().nullish(),
+  "banner_image": zod.string().nullish(),
   "product_ids": zod.array(zod.number()).optional(),
   "product_names": zod.array(zod.string()).optional(),
   "created_at": zod.coerce.date()
@@ -1033,6 +1053,10 @@ export const UpdatePromotionBody = zod.object({
   "start_date": zod.coerce.date().optional(),
   "end_date": zod.coerce.date().optional(),
   "status": zod.enum(['active', 'inactive']).optional(),
+  "description": zod.string().optional(),
+  "promo_code": zod.string().optional(),
+  "min_order_amount": zod.number().optional(),
+  "banner_image": zod.string().optional(),
   "product_ids": zod.array(zod.number()).optional()
 })
 
@@ -1046,6 +1070,10 @@ export const UpdatePromotionResponse = zod.object({
   "end_date": zod.coerce.date(),
   "status": zod.enum(['active', 'inactive']),
   "discount_percentage": zod.number().nullish(),
+  "description": zod.string().nullish(),
+  "promo_code": zod.string().nullish(),
+  "min_order_amount": zod.number().nullish(),
+  "banner_image": zod.string().nullish(),
   "product_ids": zod.array(zod.number()).optional(),
   "product_names": zod.array(zod.string()).optional(),
   "created_at": zod.coerce.date()
@@ -1085,6 +1113,10 @@ export const UpdatePromotionStatusResponse = zod.object({
   "end_date": zod.coerce.date(),
   "status": zod.enum(['active', 'inactive']),
   "discount_percentage": zod.number().nullish(),
+  "description": zod.string().nullish(),
+  "promo_code": zod.string().nullish(),
+  "min_order_amount": zod.number().nullish(),
+  "banner_image": zod.string().nullish(),
   "product_ids": zod.array(zod.number()).optional(),
   "product_names": zod.array(zod.string()).optional(),
   "created_at": zod.coerce.date()
@@ -1459,21 +1491,13 @@ export const CreateSalesOrderBody = zod.object({
   "shipping_address": zod.string().optional(),
   "customer_latitude": zod.number().optional(),
   "customer_longitude": zod.number().optional(),
-<<<<<<< HEAD
-=======
   "payment_method": zod.enum(['cod', 'online', 'card']).default(createSalesOrderBodyPaymentMethodDefault),
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
-  "delivery_fee": zod.number().optional(),            // ✅ ADD
-  "delivery_distance_km": zod.number().optional(),    // ✅ ADD
-  "delivery_fee_radius": zod.number().optional(),      // ✅ ADD
-  "delivery_fee_per_km": zod.number().optional(),
   "entry_date": zod.coerce.date().optional(),
   "items": zod.array(zod.object({
   "product_id": zod.number(),
   "qty": zod.number(),
   "unit_price": zod.number()
 }))
-
 })
 
 export const CreateSalesOrderResponse = zod.object({
@@ -2213,7 +2237,7 @@ export const UpdateDeliveryStatusParams = zod.object({
 })
 
 export const UpdateDeliveryStatusBody = zod.object({
-  "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_progress', 'delivered', 'cancelled'])
+  "status": zod.enum(['pending', 'assigned', 'picked_up', 'in_transit', 'delivered', 'cancelled'])
 })
 
 export const UpdateDeliveryStatusResponse = zod.object({

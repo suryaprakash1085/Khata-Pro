@@ -69,20 +69,12 @@ interface ApiDelivery {
   delivered_at?: string | null;
   cancelled_at?: string | null;
   created_at: string;
-<<<<<<< HEAD
-  customer_name?: string;
-  customer_phone?: string;
-  out_for_delivery_at?: string | null;
   order_number?: string | number | null;
   customer_has_phone?: boolean;
-=======
   customer_name?: string | null;
-  customer_has_phone?: boolean; 
-  order_number?: string | null;
   sales_order_id?: number | null;
   customer_phone?: string;
   out_for_delivery_at?: string | null;
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
 }
 
 
@@ -427,25 +419,15 @@ const DriverOrdersScreen: React.FC = () => {
   const isWideWeb = Platform.OS === 'web' && width >= 1000;
 
   const [activeFilter, setActiveFilter] = useState<OrderFilterKey>('all');
-<<<<<<< HEAD
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'cod' | 'upi'>('all');
-  const [search, setSearch] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [markingOutForDeliveryId, setMarkingOutForDeliveryId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-  const [isOnline, setIsOnline] = useState(true);
-=======
   const [search, setSearch] = useState('');
   const [isOnline, setIsOnline] = useState<boolean>(authDriver?.status === 'available');
-  const [showFilters, setShowFilters] = useState(false);
-  const [paymentFilter, setPaymentFilter] = useState<'all' | 'cod' | 'upi'>('all');
-  const [rejectingId, setRejectingId] = useState<string | null>(null);
-  const [rejectReason, setRejectReason] = useState('');
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [markingOutForDeliveryId, setMarkingOutForDeliveryId] = useState<string | null>(null);
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
+
 
   const {
     data: deliveriesResponse,
@@ -584,33 +566,33 @@ const DriverOrdersScreen: React.FC = () => {
   }, [allOrders, counts]);
 
   // ── Handlers ─────────────────────────────────────────────────────────
-  const handleToggleOnline = () => {
-    setIsOnline(!isOnline);
-  };
+  // const handleToggleOnline = () => {
+  //   setIsOnline(!isOnline);
+  // };
 
-  const runStatusUpdate = async (id: string, status: string) => {
-    setUpdatingId(id);
-    try {
-      const token = await getDriverToken();
-      const res = await fetch(`${API_BASE}/deliveries/${id}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.error || 'Failed to update status');
-      }
-      refetchDeliveries();
-    } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Could not update status. Please try again.');
-    } finally {
-      setUpdatingId(null);
-    }
-  };
+  // const runStatusUpdate = async (id: string, status: string) => {
+  //   setUpdatingId(id);
+  //   try {
+  //     const token = await getDriverToken();
+  //     const res = await fetch(`${API_BASE}/deliveries/${id}/status`, {
+  //       method: 'PUT',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //         Authorization: `Bearer ${token}`,
+  //       },
+  //       body: JSON.stringify({ status }),
+  //     });
+  //     if (!res.ok) {
+  //       const err = await res.json().catch(() => ({}));
+  //       throw new Error(err?.error || 'Failed to update status');
+  //     }
+  //     refetchDeliveries();
+  //   } catch (err: any) {
+  //     Alert.alert('Error', err?.message || 'Could not update status. Please try again.');
+  //   } finally {
+  //     setUpdatingId(null);
+  //   }
+  // };
 
   const handleCall = (order: OrderCardData) => {
     if (!order.phone) {
@@ -659,10 +641,7 @@ const DriverOrdersScreen: React.FC = () => {
           refetchDeliveries();
         },
         onError: (err: any) => {
-<<<<<<< HEAD
-=======
           showAlert('Could not reject delivery', err?.response?.data?.error ?? 'Please try again.');
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
           setUpdatingId(null);
           const msg = err?.response?.data?.error || err?.error || 'Could not update the order. Please try again.';
           Alert.alert('Error', msg);
@@ -672,8 +651,6 @@ const DriverOrdersScreen: React.FC = () => {
     );
   };
 
-<<<<<<< HEAD
-=======
    const handleToggleOnline = (value: boolean) => {
     setIsOnline(value);
     if (!driverId) return;
@@ -707,7 +684,6 @@ const DriverOrdersScreen: React.FC = () => {
     }
   };
 
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
   const handleMarkPickedUp = (id: string) => runStatusUpdate(id, 'picked_up');
 
   // ✅ FIXED — was using the customer-app apiClient (wrong token, caused
@@ -739,13 +715,10 @@ const DriverOrdersScreen: React.FC = () => {
   const handleMarkDelivered = (id: string) => runStatusUpdate(id, 'delivered');
   const handleUnableToDeliver = (id: string) => runStatusUpdate(id, 'cancelled');
 
-<<<<<<< HEAD
   const handleNavigateLegacy = (order: OrderCardData) => {
     Alert.alert('Navigate', order.dropAddress);
   };
 
-=======
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
   const handleTabPress = (tab: DriverShellTab) => {
     if (tab.key === 'orders') return;
     if (tab.screen) navigation.navigate(tab.screen);
@@ -902,7 +875,7 @@ const DriverOrdersScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
-<<<<<<< HEAD
+
 
       {isWideWeb && (
         <View style={styles.webTopBar}>
@@ -1045,7 +1018,6 @@ const DriverOrdersScreen: React.FC = () => {
           })}
         </View>
       )}
-=======
       {listBody}
       <View style={styles.bottomNav}>
         {bottomTabs.map((tab) => {
@@ -1058,7 +1030,6 @@ const DriverOrdersScreen: React.FC = () => {
           );
         })}
       </View>
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
     </SafeAreaView>
   );
 };

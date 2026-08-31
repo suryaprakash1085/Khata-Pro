@@ -14,5 +14,9 @@ export interface PromotionUpdate {
   start_date?: Date;
   end_date?: Date;
   status?: PromotionUpdateStatus;
+  description?: string;
+  promo_code?: string;
+  min_order_amount?: number;
+  banner_image?: string;
   product_ids?: number[];
 }

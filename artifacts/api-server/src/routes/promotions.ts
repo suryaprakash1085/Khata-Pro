@@ -17,6 +17,10 @@ function formatPromotion(p: any, productIds?: number[], productNames?: string[])
     end_date: p.endDate,
     status: p.status,
     discount_percentage: p.discountPercentage !== null && p.discountPercentage !== undefined ? parseFloat(p.discountPercentage) : null,
+      description: p.description ?? null,
+       promo_code: p.promoCode ?? null,
+    min_order_amount: p.minOrderAmount !== null && p.minOrderAmount !== undefined ? parseFloat(p.minOrderAmount) : null,
+    banner_image: p.bannerImage ?? null,
     product_ids: productIds ?? [],
     product_names: productNames ?? [],
     created_at: p.createdAt,
@@ -74,7 +78,7 @@ router.get("/promotions", requireAuth, async (req, res): Promise<void> => {
 });
 
 // GET /promotions/active — Billing calls this
-router.get("/promotions/active", requireAuth, async (req, res): Promise<void> => {
+router.get("/promotions/active", async (req, res): Promise<void> => {
   const businessId = parseInt(req.query.business_id as string, 10);
   if (isNaN(businessId)) { res.status(400).json({ error: "business_id is required" }); return; }
 
@@ -138,6 +142,10 @@ router.post("/promotions", requireAuth, async (req, res): Promise<void> => {
     endDate: d.end_date,
     status: d.status ?? "active",
     discountPercentage,
+    description: d.description ?? null,
+promoCode: d.promo_code ?? null,
+minOrderAmount: d.min_order_amount !== undefined ? String(d.min_order_amount) : null,
+bannerImage: d.banner_image ?? null,
   }).returning();
 
   if (applyTo === "selected" && d.product_ids?.length > 0) {
@@ -180,6 +188,10 @@ router.put("/promotions/:id", requireAuth, async (req, res): Promise<void> => {
   if (d.start_date !== undefined) updates.startDate = d.start_date;
   if (d.end_date !== undefined) updates.endDate = d.end_date;
   if (d.status !== undefined) updates.status = d.status;
+  if (d.description !== undefined) updates.description = d.description;
+if (d.promo_code !== undefined) updates.promoCode = d.promo_code;
+if (d.min_order_amount !== undefined) updates.minOrderAmount = String(d.min_order_amount);
+if (d.banner_image !== undefined) updates.bannerImage = d.banner_image;
   // discount_percentage is intentionally never editable here — stays fixed
   // at 10 for percentage promotions, null for bogo (spec §19).
 

@@ -145,6 +145,8 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({
     deliveryFee = 40,
     tax = 0,
     subtotal = 0,
+      discount = 0,          // 👈 NEW
+  promoCode = null, 
   } = route.params || {};
 
   // ==========================================================

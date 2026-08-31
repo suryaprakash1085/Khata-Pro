@@ -190,8 +190,8 @@ const AddressSelectionScreen: React.FC<AddressSelectionScreenProps> = ({
   navigation,
   route,
 }) => {
-  const { totalAmount, restaurantName, cartItems } = route.params || {};
-
+  // const { totalAmount, restaurantName, cartItems } = route.params || {};
+const { totalAmount, restaurantName, cartItems, discount = 0, promoCode = null, promoId = null } = route.params || {};
   const {
     addresses,
     selectedAddress,
@@ -793,6 +793,9 @@ const AddressSelectionScreen: React.FC<AddressSelectionScreenProps> = ({
       deliveryFee: fee,               // ✅ REAL fee, no more hardcoded 40
       deliveryFeeBreakdown: breakdown, // optional: show "Free within 5km" etc on PaymentScreen
       tax: roundedGst,
+       discount: discount,        // 👈 NEW — forward pannunga
+    promoCode: promoCode,      // 👈 NEW
+    promoId: promoId,  
       restaurantName: restaurantName,
       cartItems: cartItems,
       orderId: 'ORD-' + Date.now().toString().slice(-6),

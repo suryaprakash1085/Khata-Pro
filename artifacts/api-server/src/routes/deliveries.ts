@@ -1,9 +1,5 @@
 
-<<<<<<< HEAD
- 
-import { Router, type IRouter } from "express";
-import { db, deliveriesTable, driversTable, notificationsTable, customersTable,salesOrdersTable, deliveryStatusHistoryTable,   salesOrderItemsTable,  productsTable,} from "@workspace/db";
-=======
+  
 import { Router, type IRouter } from "express";
 import {
   db,
@@ -17,7 +13,6 @@ import {
   transactionsTable,
   salesOrdersTable
 } from "@workspace/db";
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
 import { eq, and, count, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { requireDriverAuth } from "../middlewares/driverAuth";
@@ -27,16 +22,11 @@ import { sendOtpSms } from "../services/sms";
 import { z } from "zod/v4";
 import { initiateMaskedCall, CallMaskingConfigError, CallMaskingProviderError } from "../services/callMasking";
 import crypto from "node:crypto";
-<<<<<<< HEAD
-=======
 import bcrypt from "bcryptjs";
-
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
+ 
 const router: IRouter = Router();
  
-// ============================================================
-// OTP / payment config
-// ============================================================
+
 const OTP_EXPIRY_MINUTES = 10;
 const OTP_MAX_ATTEMPTS = 5;
 const OTP_RESEND_COOLDOWN_SECONDS = 60;
@@ -46,9 +36,7 @@ function generateSixDigitOtp(): string {
   return crypto.randomInt(100000, 999999).toString();
 }
  
-// ============================================================
-// Formatters
-// ============================================================
+
  
 function formatDelivery(d: any) {
   return {
@@ -93,11 +81,7 @@ function formatDelivery(d: any) {
   };
 }
  
-// ------------------------------------------------------------
-// maskPhone — hides all but the last 2 digits of a customer's
-// number so drivers never see the real number in the UI.
-// Calling still works via the Exotel masked-call endpoint.
-// ------------------------------------------------------------
+
 function maskPhone(phone?: string | null): string | null {
   if (!phone) return null;
   const digits = phone.replace(/\D/g, "");
@@ -126,11 +110,7 @@ function parseId(raw: unknown): number | null {
   const id = parseInt(value as string, 10);
   return Number.isInteger(id) ? id : null;
 }
-<<<<<<< HEAD
  
-=======
-
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
 async function loadOwnedDelivery(id: number, driverId: number, businessId: number) {
   const [delivery] = await db.select().from(deliveriesTable).where(eq(deliveriesTable.id, id));
   if (!delivery || Number(delivery.businessId) !== businessId || Number(delivery.driverId) !== driverId) {
@@ -138,11 +118,7 @@ async function loadOwnedDelivery(id: number, driverId: number, businessId: numbe
   }
   return delivery;
 }
-// ============================================================
-// EXISTING ADMIN ROUTES (unchanged — used by khata-mobile POS)
-// ============================================================
- 
-// GET /deliveries
+
 router.get("/deliveries", requireAuth, async (req, res): Promise<void> => {
   const businessId = parseInt(req.query.business_id as string, 10);
   if (isNaN(businessId)) {
@@ -193,19 +169,7 @@ router.post("/deliveries", requireAuth, async (req, res): Promise<void> => {
   res.status(201).json(formatDelivery(delivery));
 });
  
-// ============================================================
-// driver-app (delivery-app) routes — secured with requireDriverAuth
-//
-// ⚠️ IMPORTANT: static routes like "/deliveries/my" MUST be registered
-// BEFORE any "/deliveries/:id" route. Express matches routes top-to-bottom,
-// so if a "/deliveries/:id" route is registered first, a request to
-// "/deliveries/my" gets caught by it and "my" gets parsed as the id
-// (parseInt("my") -> NaN), which then blows up the DB query. This block
-// used to live further down the file, after the admin :id routes — that
-// was the bug. Keep it here, above GET /deliveries/:id.
-// ============================================================
- 
-// GET /deliveries/my
+
 router.get("/deliveries/my", requireDriverAuth, async (req, res): Promise<void> => {
   const { driverId, businessId } = (req as any).driver;
   const status = req.query.status as string | undefined;
@@ -376,34 +340,14 @@ router.put("/deliveries/:id/status", requireAuth, async (req, res): Promise<void
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-<<<<<<< HEAD
- 
-  const [existing] = await db.select().from(deliveriesTable).where(eq(deliveriesTable.id, id));
-  if (!existing) {
-    res.status(404).json({ error: "Delivery not found" });
-    return;
-  }
- 
   const status = parsed.data.status;
-  if (!isValidTransition(existing.status as string, status)) {
-    res.status(409).json({
-      error: `Cannot change status from "${existing.status}" to "${status}"`,
-      current_status: existing.status,
-    });
-    return;
-  }
- 
-=======
-  const status = parsed.data.status;
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
   const updates: any = { status };
   if (status === "picked_up") updates.pickedUpAt = new Date();
   if (status === "delivered") updates.deliveredAt = new Date();
   if (status === "cancelled") updates.cancelledAt = new Date();
  
+  const [existing] = await db.select().from(deliveriesTable).where(eq(deliveriesTable.id, id));
   const [delivery] = await db.update(deliveriesTable).set(updates).where(eq(deliveriesTable.id, id)).returning();
-<<<<<<< HEAD
-=======
   if (!delivery) {
     res.status(404).json({ error: "Delivery not found" });
     return;
@@ -413,13 +357,10 @@ router.put("/deliveries/:id/status", requireAuth, async (req, res): Promise<void
       statusHistoryPayload(id, existing.status, status, null, "admin")
     );
   }
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
   res.json(formatDelivery(delivery));
 });
  
-// GET /deliveries/:id/my-details
-// Full driver-facing view: delivery + customer contact + order items.
-// This is the endpoint the Order Details screen should call.
+
 router.get("/deliveries/:id/my-details", requireDriverAuth, async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
   if (id === null) {
@@ -493,11 +434,7 @@ router.get("/deliveries/:id/my-details", requireDriverAuth, async (req, res): Pr
     items,
   });
 });
-<<<<<<< HEAD
  
-// PUT /deliveries/:id/my-status  (driver updates their own delivery's status — with transition validation)
-=======
-
 // PUT /deliveries/:id/my-status  (driver updates their own delivery's status — with transition validation)
 router.put("/deliveries/:id/my-status", requireDriverAuth, async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
@@ -511,13 +448,13 @@ router.put("/deliveries/:id/my-status", requireDriverAuth, async (req, res): Pro
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-
+ 
   const existing = await loadOwnedDelivery(id, driverId, businessId);
   if (!existing) {
     res.status(404).json({ error: "Delivery not found" });
     return;
   }
-
+ 
   const status = parsed.data.status;
   if (!isValidTransition(existing.status as string, status)) {
     res.status(409).json({
@@ -526,21 +463,21 @@ router.put("/deliveries/:id/my-status", requireDriverAuth, async (req, res): Pro
     });
     return;
   }
-
+ 
   const updates: any = { status };
   if (status === "picked_up") updates.pickedUpAt = new Date();
   if (status === "delivered") updates.deliveredAt = new Date();
   if (status === "cancelled") updates.cancelledAt = new Date();
-
+ 
   const [delivery] = await db.update(deliveriesTable).set(updates).where(eq(deliveriesTable.id, id)).returning();
-
+ 
   await db.insert(deliveryStatusHistoryTable).values(
     statusHistoryPayload(id, existing.status, status, driverId, "driver")
   );
-
+ 
   res.json(formatDelivery(delivery));
 });
-
+ 
 // PUT /deliveries/:id/my-out-for-delivery  (driver marks "out for delivery"
 // WITHOUT touching the `status` field — status stays whatever it is,
 // e.g. teammate's POS/payment flow relies on it separately)
@@ -548,22 +485,22 @@ router.put("/deliveries/:id/my-out-for-delivery", requireDriverAuth, async (req,
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   const { driverId } = (req as any).driver;
-
+ 
   const [existing] = await db.select().from(deliveriesTable).where(eq(deliveriesTable.id, id));
   if (!existing || Number(existing.driverId) !== driverId) {
     res.status(404).json({ error: "Delivery not found" });
     return;
   }
-
+ 
   const [delivery] = await db
     .update(deliveriesTable)
     .set({ outForDeliveryAt: new Date() }) // only this column changes
     .where(eq(deliveriesTable.id, id))
     .returning();
-
+ 
   res.json(formatDelivery(delivery));
 });
-
+ 
 // POST /deliveries/:id/accept  (driver accepts an assigned delivery — stamps acceptedAt only)
 router.post("/deliveries/:id/accept", requireDriverAuth, async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
@@ -572,7 +509,7 @@ router.post("/deliveries/:id/accept", requireDriverAuth, async (req, res): Promi
     return;
   }
   const { driverId, businessId } = (req as any).driver;
-
+ 
   const delivery = await loadOwnedDelivery(id, driverId, businessId);
   if (!delivery) {
     res.status(404).json({ error: "Delivery not found" });
@@ -582,16 +519,16 @@ router.post("/deliveries/:id/accept", requireDriverAuth, async (req, res): Promi
     res.status(409).json({ error: "This delivery is no longer available." });
     return;
   }
-
+ 
   const [updated] = await db.update(deliveriesTable)
     .set({ acceptedAt: new Date() })
     .where(eq(deliveriesTable.id, id))
     .returning();
-
+ 
   await db.insert(deliveryStatusHistoryTable).values(
     statusHistoryPayload(id, delivery.status, delivery.status, driverId, "driver", "Driver accepted delivery")
   );
-  
+ 
   await db.insert(notificationsTable).values({
     businessId,
     driverId,
@@ -601,10 +538,10 @@ router.post("/deliveries/:id/accept", requireDriverAuth, async (req, res): Promi
     title: "Delivery Accepted",
     message: `Your delivery for order has been accepted.`,
   });
-
+ 
   res.json(formatDelivery(updated));
 });
-
+ 
 // POST /deliveries/:id/reject  (driver rejects an assigned delivery)
 const RejectBody = z.object({ reason: z.string().min(1).max(500) });
 router.post("/deliveries/:id/reject", requireDriverAuth, async (req, res): Promise<void> => {
@@ -619,7 +556,7 @@ router.post("/deliveries/:id/reject", requireDriverAuth, async (req, res): Promi
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-
+ 
   const delivery = await loadOwnedDelivery(id, driverId, businessId);
   if (!delivery) {
     res.status(404).json({ error: "Delivery not found" });
@@ -629,7 +566,7 @@ router.post("/deliveries/:id/reject", requireDriverAuth, async (req, res): Promi
     res.status(409).json({ error: "This delivery can no longer be rejected." });
     return;
   }
-
+ 
   // Return to the admin/dispatcher queue rather than cancelling the order outright.
   const [updated] = await db.update(deliveriesTable)
     .set({
@@ -641,14 +578,14 @@ router.post("/deliveries/:id/reject", requireDriverAuth, async (req, res): Promi
     })
     .where(eq(deliveriesTable.id, id))
     .returning();
-
+ 
   await db.insert(deliveryStatusHistoryTable).values(
     statusHistoryPayload(id, delivery.status, "pending", driverId, "driver", `Rejected: ${parsed.data.reason}`)
   );
-
+ 
   res.json(formatDelivery(updated));
 });
-
+ 
 // POST /deliveries/:id/pickup  (driver marks an accepted delivery as picked up)
 router.post("/deliveries/:id/pickup", requireDriverAuth, async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
@@ -657,7 +594,7 @@ router.post("/deliveries/:id/pickup", requireDriverAuth, async (req, res): Promi
     return;
   }
   const { driverId, businessId } = (req as any).driver;
-
+ 
   const delivery = await loadOwnedDelivery(id, driverId, businessId);
   if (!delivery) {
     res.status(404).json({ error: "Delivery not found" });
@@ -667,16 +604,16 @@ router.post("/deliveries/:id/pickup", requireDriverAuth, async (req, res): Promi
     res.status(409).json({ error: "You must accept this delivery before marking it picked up." });
     return;
   }
-
+ 
   const [updated] = await db.update(deliveriesTable)
     .set({ status: "picked_up", pickedUpAt: new Date() })
     .where(eq(deliveriesTable.id, id))
     .returning();
-
+ 
   await db.insert(deliveryStatusHistoryTable).values(
     statusHistoryPayload(id, delivery.status, "picked_up", driverId, "driver")
   );
-  
+ 
   await db.insert(notificationsTable).values({
     businessId,
     driverId,
@@ -686,10 +623,10 @@ router.post("/deliveries/:id/pickup", requireDriverAuth, async (req, res): Promi
     title: "Order Picked Up",
     message: `Order has been picked up successfully.`,
   });
-
+ 
   res.json(formatDelivery(updated));
 });
-
+ 
 router.post("/deliveries/:id/start-delivery", requireDriverAuth, async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
   if (id === null) {
@@ -697,7 +634,7 @@ router.post("/deliveries/:id/start-delivery", requireDriverAuth, async (req, res
     return;
   }
   const { driverId, businessId } = (req as any).driver;
-
+ 
   const delivery = await loadOwnedDelivery(id, driverId, businessId);
   if (!delivery) {
     res.status(404).json({ error: "Delivery not found" });
@@ -707,16 +644,16 @@ router.post("/deliveries/:id/start-delivery", requireDriverAuth, async (req, res
     res.status(409).json({ error: "Delivery must be picked up before starting the trip." });
     return;
   }
-
+ 
   const [updated] = await db.update(deliveriesTable)
     .set({ status: "in_transit", outForDeliveryAt: new Date() })
     .where(eq(deliveriesTable.id, id))
     .returning();
-
+ 
   await db.insert(deliveryStatusHistoryTable).values(
     statusHistoryPayload(id, delivery.status, "in_transit", driverId, "driver")
   );
-  
+ 
   await db.insert(notificationsTable).values({
     businessId,
     driverId,
@@ -726,16 +663,16 @@ router.post("/deliveries/:id/start-delivery", requireDriverAuth, async (req, res
     title: "Out for Delivery",
     message: `Order is now out for delivery.`,
   });
-
+ 
   res.json(formatDelivery(updated));
 });
-
+ 
 // Internal helper — generates + sends a fresh delivery OTP, updates the row.
 async function generateAndSendDeliveryOtp(deliveryId: number, customerPhone: string) {
   const otp = generateSixDigitOtp();
   const otpHash = await bcrypt.hash(otp, 10);
   const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
-
+ 
   await db.update(deliveriesTable).set({
     otpHash,
     otpExpiresAt: expiresAt,
@@ -743,10 +680,10 @@ async function generateAndSendDeliveryOtp(deliveryId: number, customerPhone: str
     otpLastSentAt: new Date(),
     otpVerifiedAt: null,
   }).where(eq(deliveriesTable.id, deliveryId));
-
+ 
   await sendOtpSms(customerPhone, otp);
 }
-
+ 
 // POST /deliveries/:id/arrived
 router.post("/deliveries/:id/arrived", requireDriverAuth, async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
@@ -755,7 +692,7 @@ router.post("/deliveries/:id/arrived", requireDriverAuth, async (req, res): Prom
     return;
   }
   const { driverId, businessId } = (req as any).driver;
-
+ 
   const delivery = await loadOwnedDelivery(id, driverId, businessId);
   if (!delivery) {
     res.status(404).json({ error: "Delivery not found" });
@@ -765,15 +702,15 @@ router.post("/deliveries/:id/arrived", requireDriverAuth, async (req, res): Prom
     res.status(409).json({ error: "Delivery must be in transit and not already arrived." });
     return;
   }
-
+ 
   const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, delivery.customerId));
   if (!customer?.phone) {
     res.status(422).json({ error: "Customer has no phone number on file — cannot send delivery OTP." });
     return;
   }
-
+ 
   const isCod = delivery.payment_method === "cod";
-
+ 
   const [updated] = await db.update(deliveriesTable)
     .set({
       arrivedAt: new Date(),
@@ -781,11 +718,11 @@ router.post("/deliveries/:id/arrived", requireDriverAuth, async (req, res): Prom
     })
     .where(eq(deliveriesTable.id, id))
     .returning();
-
+ 
   await db.insert(deliveryStatusHistoryTable).values(
     statusHistoryPayload(id, delivery.status, delivery.status, driverId, "driver", "Driver arrived at customer location")
   );
-
+ 
   try {
     await generateAndSendDeliveryOtp(id, customer.phone);
   } catch (err) {
@@ -793,11 +730,11 @@ router.post("/deliveries/:id/arrived", requireDriverAuth, async (req, res): Prom
     res.status(502).json({ error: "Arrived, but failed to send OTP to customer. Ask them to request a resend." });
     return;
   }
-
+ 
   const [final] = await db.select().from(deliveriesTable).where(eq(deliveriesTable.id, id));
   res.json(formatDelivery(final));
 });
-
+ 
 // POST /deliveries/:id/otp/resend
 router.post("/deliveries/:id/otp/resend", requireDriverAuth, async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
@@ -806,7 +743,7 @@ router.post("/deliveries/:id/otp/resend", requireDriverAuth, async (req, res): P
     return;
   }
   const { driverId, businessId } = (req as any).driver;
-
+ 
   const delivery = await loadOwnedDelivery(id, driverId, businessId);
   if (!delivery) {
     res.status(404).json({ error: "Delivery not found" });
@@ -827,13 +764,13 @@ router.post("/deliveries/:id/otp/resend", requireDriverAuth, async (req, res): P
       return;
     }
   }
-
+ 
   const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, delivery.customerId));
   if (!customer?.phone) {
     res.status(422).json({ error: "Customer has no phone number on file." });
     return;
   }
-
+ 
   try {
     await generateAndSendDeliveryOtp(id, customer.phone);
   } catch (err) {
@@ -841,14 +778,14 @@ router.post("/deliveries/:id/otp/resend", requireDriverAuth, async (req, res): P
     res.status(502).json({ error: "Failed to resend OTP. Please try again." });
     return;
   }
-
+ 
   await db.update(deliveriesTable)
     .set({ otpResendCount: (delivery.otpResendCount ?? 0) + 1 })
     .where(eq(deliveriesTable.id, id));
-
+ 
   res.json({ message: "OTP resent" });
 });
-
+ 
 // POST /deliveries/:id/otp/verify
 const VerifyDeliveryOtpBody = z.object({ otp: z.string().min(4).max(6) });
 router.post("/deliveries/:id/otp/verify", requireDriverAuth, async (req, res): Promise<void> => {
@@ -863,7 +800,7 @@ router.post("/deliveries/:id/otp/verify", requireDriverAuth, async (req, res): P
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-
+ 
   const delivery = await loadOwnedDelivery(id, driverId, businessId);
   if (!delivery) {
     res.status(404).json({ error: "Delivery not found" });
@@ -889,7 +826,7 @@ router.post("/deliveries/:id/otp/verify", requireDriverAuth, async (req, res): P
     res.status(429).json({ error: "Too many incorrect attempts. Please request a resend." });
     return;
   }
-
+ 
   const matches = await bcrypt.compare(parsed.data.otp, delivery.otpHash);
   if (!matches) {
     await db.update(deliveriesTable)
@@ -898,28 +835,20 @@ router.post("/deliveries/:id/otp/verify", requireDriverAuth, async (req, res): P
     res.status(401).json({ error: "Incorrect OTP." });
     return;
   }
-
+ 
   const [updated] = await db.update(deliveriesTable)
     .set({ otpVerifiedAt: new Date() })
     .where(eq(deliveriesTable.id, id))
     .returning();
-
+ 
   await db.insert(deliveryStatusHistoryTable).values(
     statusHistoryPayload(id, delivery.status, delivery.status, driverId, "driver", "Delivery OTP verified")
   );
-
+ 
   res.json(formatDelivery(updated));
 });
+ 
 
-// POST /deliveries/:id/payment
-// COD collection confirmation. Also writes a ledger row into `transactions`
-// so customer balance / reports stay accurate — this does NOT create a
-// second/duplicate payment system, it's the gating state + a normal ledger entry.
-//
-// 🔶 NOTE: balance math below assumes `you_got` reduces what the customer
-// owes (currentBalance - amount). If your existing balance convention is
-// the opposite, flip the sign here — check how your other you_got entries
-// (e.g. billing screen) compute balanceAfter and match that exactly.
 const ConfirmPaymentBody = z.object({
   amount: z.number().positive(),
 });
@@ -935,7 +864,7 @@ router.post("/deliveries/:id/payment", requireDriverAuth, async (req, res): Prom
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-
+ 
   const delivery = await loadOwnedDelivery(id, driverId, businessId);
   if (!delivery) {
     res.status(404).json({ error: "Delivery not found" });
@@ -949,21 +878,21 @@ router.post("/deliveries/:id/payment", requireDriverAuth, async (req, res): Prom
     res.status(409).json({ error: "Payment has already been collected for this delivery." });
     return;
   }
-
+ 
   const orderTotal = delivery.amount !== null && delivery.amount !== undefined ? parseFloat(delivery.amount as any) : null;
   if (orderTotal !== null && parsed.data.amount > orderTotal) {
     res.status(422).json({ error: `Collected amount cannot exceed the order total (₹${orderTotal}).` });
     return;
   }
-
+ 
   const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, delivery.customerId));
   let transactionId: number | null = null;
-
+ 
   if (customer) {
     const currentBalance = parseFloat(customer.currentBalance as any);
     const newBalance = currentBalance - parsed.data.amount;
     const today = new Date().toISOString().slice(0, 10);
-
+ 
     const [txn] = await db.insert(transactionsTable).values({
       businessId: delivery.businessId,
       customerId: delivery.customerId,
@@ -979,14 +908,14 @@ router.post("/deliveries/:id/payment", requireDriverAuth, async (req, res): Prom
                             // constraint for driver-originated transactions, or add a small
                             // "system/driver" placeholder user row and use its id here instead.
     }).returning();
-
+ 
     transactionId = Number(txn.id);
-
+ 
     await db.update(customersTable)
       .set({ currentBalance: newBalance.toString() })
       .where(eq(customersTable.id, delivery.customerId));
   }
-
+ 
   const [updated] = await db.update(deliveriesTable)
     .set({
       paymentStatus: "collected",
@@ -997,14 +926,14 @@ router.post("/deliveries/:id/payment", requireDriverAuth, async (req, res): Prom
     })
     .where(eq(deliveriesTable.id, id))
     .returning();
-
+ 
   await db.insert(deliveryStatusHistoryTable).values(
     statusHistoryPayload(id, delivery.status, delivery.status, driverId, "driver", `COD payment collected: ₹${parsed.data.amount}`)
   );
-
+ 
   res.json(formatDelivery(updated));
 });
-
+ 
 // POST /deliveries/:id/complete
 router.post("/deliveries/:id/complete", requireDriverAuth, async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
@@ -1013,7 +942,7 @@ router.post("/deliveries/:id/complete", requireDriverAuth, async (req, res): Pro
     return;
   }
   const { driverId, businessId } = (req as any).driver;
-
+ 
   const delivery = await loadOwnedDelivery(id, driverId, businessId);
   if (!delivery) {
     res.status(404).json({ error: "Delivery not found" });
@@ -1031,16 +960,16 @@ router.post("/deliveries/:id/complete", requireDriverAuth, async (req, res): Pro
     res.status(409).json({ error: "COD payment must be collected before completing the delivery." });
     return;
   }
-
+ 
     const [updated] = await db.update(deliveriesTable)
     .set({ status: "delivered", deliveredAt: new Date() })
     .where(eq(deliveriesTable.id, id))
     .returning();
-
+ 
   await db.insert(deliveryStatusHistoryTable).values(
     statusHistoryPayload(id, delivery.status, "delivered", driverId, "driver")
   );
-
+ 
   // NEW — completion notification
   await db.insert(notificationsTable).values({
     businessId,
@@ -1051,7 +980,7 @@ router.post("/deliveries/:id/complete", requireDriverAuth, async (req, res): Pro
     title: "Delivery Completed",
     message: `Order has been delivered successfully.`,
   });
-
+ 
   // NEW — fee-earned notification, using the ACTUAL stored delivery fee.
   // Never recalculated here — this is the same deliveryFee column
   // /my-details already reads from salesOrdersTable.
@@ -1060,7 +989,7 @@ router.post("/deliveries/:id/complete", requireDriverAuth, async (req, res): Pro
       .select({ deliveryFee: salesOrdersTable.deliveryFee })
       .from(salesOrdersTable)
       .where(eq(salesOrdersTable.id, delivery.salesOrderId));
-
+ 
     if (salesOrder?.deliveryFee != null) {
       const fee = parseFloat(salesOrder.deliveryFee as any);
       await db.insert(notificationsTable).values({
@@ -1074,15 +1003,11 @@ router.post("/deliveries/:id/complete", requireDriverAuth, async (req, res): Pro
       });
     }
   }
-
+ 
   res.json({ success: true, message: "Delivery completed successfully", data: formatDelivery(updated) });
 });
+ 
 
-// PUT /deliveries/:id/my-status  (kept for backward compatibility — prefer the
-// dedicated endpoints above, which enforce the correct transition + side effects.
-// This raw setter is left in place only for any existing frontend calls that
-// haven't migrated yet; it does NOT run OTP/payment gating.)
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
 router.put("/deliveries/:id/my-status", requireDriverAuth, async (req, res): Promise<void> => {
   const id = parseId(req.params.id);
   if (id === null) {
@@ -1103,17 +1028,6 @@ router.put("/deliveries/:id/my-status", requireDriverAuth, async (req, res): Pro
   }
  
   const status = parsed.data.status;
-<<<<<<< HEAD
-  if (!isValidTransition(existing.status as string, status)) {
-    res.status(409).json({
-      error: `Cannot change status from "${existing.status}" to "${status}"`,
-      current_status: existing.status,
-    });
-    return;
-  }
- 
-=======
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
   const updates: any = { status };
   if (status === "picked_up") updates.pickedUpAt = new Date();
   if (status === "delivered") updates.deliveredAt = new Date();
@@ -1127,31 +1041,7 @@ router.put("/deliveries/:id/my-status", requireDriverAuth, async (req, res): Pro
  
   res.json(formatDelivery(delivery));
 });
-<<<<<<< HEAD
  
-// PUT /deliveries/:id/my-out-for-delivery  (driver marks "out for delivery"
-// WITHOUT touching the `status` field — status stays whatever it is,
-// e.g. teammate's POS/payment flow relies on it separately)
-router.put("/deliveries/:id/my-out-for-delivery", requireDriverAuth, async (req, res): Promise<void> => {
-  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const id = parseInt(raw, 10);
-  const { driverId } = (req as any).driver;
- 
-  const [existing] = await db.select().from(deliveriesTable).where(eq(deliveriesTable.id, id));
-  if (!existing || Number(existing.driverId) !== driverId) {
-    res.status(404).json({ error: "Delivery not found" });
-    return;
-  }
- 
-  const [delivery] = await db
-    .update(deliveriesTable)
-    .set({ outForDeliveryAt: new Date() }) // only this column changes
-    .where(eq(deliveriesTable.id, id))
-    .returning();
- 
-  res.json(formatDelivery(delivery));
-=======
-
 // POST /deliveries/:id/call
 // Bridges the driver and customer through Exotel without ever exposing
 // either party's real number to the other side.
@@ -1162,16 +1052,16 @@ router.post("/deliveries/:id/call", requireDriverAuth, async (req, res): Promise
     return;
   }
   const { driverId, businessId } = (req as any).driver;
-
+ 
   const delivery = await loadOwnedDelivery(id, driverId, businessId);
   if (!delivery) {
     res.status(404).json({ error: "Delivery not found" });
     return;
   }
-
+ 
   const [driver] = await db.select().from(driversTable).where(eq(driversTable.id, driverId));
   const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, delivery.customerId));
-
+ 
   if (!driver?.phone) {
     res.status(422).json({ error: "Your driver profile has no phone number on file. Add one in your profile to use Call Customer." });
     return;
@@ -1180,18 +1070,18 @@ router.post("/deliveries/:id/call", requireDriverAuth, async (req, res): Promise
     res.status(422).json({ error: "This customer has no phone number on file." });
     return;
   }
-
+ 
   try {
     const result = await initiateMaskedCall({
       driverPhone: driver.phone,
       customerPhone: customer.phone,
       deliveryId: id,
     });
-
+ 
     await db.insert(deliveryStatusHistoryTable).values(
       statusHistoryPayload(id, delivery.status, delivery.status, driverId, "driver", "Driver initiated masked call to customer")
     );
-
+ 
     res.json({
       message: "Connecting your call — your phone will ring in a few seconds.",
       call_sid: result.callSid,
@@ -1210,7 +1100,6 @@ router.post("/deliveries/:id/call", requireDriverAuth, async (req, res): Promise
     console.error("[deliveries] Unexpected error initiating masked call:", err);
     res.status(500).json({ error: "Something went wrong. Please try again." });
   }
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
 });
  
 export default router;

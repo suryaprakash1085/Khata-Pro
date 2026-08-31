@@ -1,7 +1,5 @@
 
-
-
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,103 +8,106 @@ import {
   StatusBar,
   TouchableOpacity,
   ScrollView,
-  Image,
+  RefreshControl,
   ActivityIndicator,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import axios from 'axios';
-import { API_URL } from '@env';
-import { OrderContext } from '../../context/OrderContext';
+import { ordersApi, CustomerOrder } from '../../api/orders';
 import { CartContext } from '../../context/CartContext';
-import { SelectedBusinessContext } from '../../context/SelectedBusinessContext';
 
-const OrdersSummary = ({ navigation }: { navigation: any }) => {
-  const { orders } = useContext(OrderContext);
+// ✅ Theme color — matched to Address / Payment / Orders / Profile screens' purple/indigo
+const THEME_COLOR = '#6C5CE7';
+
+interface OrderSummaryProps {
+  navigation: any;
+  route?: any;
+}
+
+const OrdersSummary = ({ navigation, route }: OrderSummaryProps) => {
   const { cartItems } = useContext(CartContext);
-  const { selectedBusiness } = useContext(SelectedBusinessContext);
 
-  // Calculate order statistics
-  const totalOrders = orders?.length || 0;
-  const deliveredOrders = orders?.filter((o: any) => o.status === 'Delivered').length || 0;
-  const cancelledOrders = orders?.filter((o: any) => o.status === 'Cancelled').length || 0;
-  const totalSpent = orders?.reduce((sum: number, order: any) => {
-    if (order.status !== 'Cancelled') {
-      return sum + (order.total || 0);
+  // ✅ FIX: pull real orders straight from the backend (same source
+  // OrdersScreen uses) instead of relying on OrderContext, which was
+  // never populated — that's why every stat showed 0 before.
+  const [orders, setOrders] = useState<CustomerOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Get discount and promo code from route params if available
+  const discount = route?.params?.discount || 0;
+  const promoCode = route?.params?.promoCode || null;
+
+  const fetchOrders = useCallback(async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
+      const res = await ordersApi.getMyOrders();
+      setOrders(res.data ?? []);
+      setLoadError(null);
+    } catch (err: any) {
+      if (!silent) setLoadError(err?.message || 'Unable to load your orders.');
+    } finally {
+      if (!silent) setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchOrders(false);
+  }, [fetchOrders]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchOrders(true);
+  };
+
+  // ✅ Calculate order statistics from real tracking_status values
+  const totalOrders = orders.length;
+  const deliveredOrdersList = orders
+    .filter((o) => o.tracking_status === 'DELIVERED')
+    .sort((a, b) => new Date(b.entry_date).getTime() - new Date(a.entry_date).getTime());
+  const deliveredCount = deliveredOrdersList.length;
+  const cancelledCount = orders.filter((o) => o.tracking_status === 'CANCELLED').length;
+  const totalSpent = orders.reduce((sum, order) => {
+    if (order.tracking_status !== 'CANCELLED') {
+      return sum + (order.amount || 0);
     }
     return sum;
-  }, 0) || 0;
+  }, 0);
 
   const itemsInCart = cartItems?.length || 0;
 
-  // ✅ Get all delivered orders (past orders)
-  const getDeliveredOrders = () => {
-    if (!orders || orders.length === 0) return [];
-    const delivered = orders.filter((order: any) => 
-      order.status === 'Delivered'
-    );
-    return delivered.sort((a: any, b: any) => {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch (e) {
+      return '';
+    }
   };
 
-  const deliveredOrdersList = getDeliveredOrders();
-
-  // ✅ Render order items for delivered orders
-  const renderDeliveredOrder = (order: any, index: number) => {
-    const items = order.items || [];
-    const totalAmount = items.reduce((sum: number, item: any) => 
-      sum + ((item.price || 0) * (item.quantity || 1)), 0
-    );
-
+  // ✅ Render a delivered order card using real order fields
+  const renderDeliveredOrder = (order: CustomerOrder, index: number) => {
     return (
-      <View key={index} style={styles.deliveredOrderCard}>
+      <View key={order.id ?? index} style={styles.deliveredOrderCard}>
         <View style={styles.deliveredOrderHeader}>
-          <Text style={styles.deliveredOrderRestaurant}>{order.restaurantName || 'Restaurant'}</Text>
+          <Text style={styles.deliveredOrderRestaurant}>Order #{order.id}</Text>
           <View style={styles.deliveredStatusBadge}>
             <Icon name="checkmark-circle" size={14} color="#28a745" />
             <Text style={styles.deliveredStatusText}>Delivered</Text>
           </View>
         </View>
 
-        {items.slice(0, 3).map((item: any, idx: number) => (
-          <View key={idx} style={styles.orderItemCard}>
-            <View style={styles.orderItemImageContainer}>
-              {item.image ? (
-                <Image source={{ uri: item.image }} style={styles.orderItemImage} />
-              ) : (
-                <View style={styles.orderItemImagePlaceholder}>
-                  <Icon name="fast-food-outline" size={30} color="#fc8019" />
-                </View>
-              )}
-            </View>
-            <View style={styles.orderItemInfo}>
-              <Text style={styles.orderItemName}>{item.name || 'Food Item'}</Text>
-              <View style={styles.orderItemDetails}>
-                <Text style={styles.orderItemQuantity}>Qty: {item.quantity || 1}</Text>
-                <Text style={styles.orderItemPrice}>₹{item.price || 0}</Text>
-              </View>
-            </View>
-            <View style={styles.orderItemTotal}>
-              <Text style={styles.orderItemTotalPrice}>
-                ₹{(item.price || 0) * (item.quantity || 1)}
-              </Text>
-            </View>
-          </View>
-        ))}
-
-        {items.length > 3 && (
-          <Text style={styles.moreItemsText}>+{items.length - 3} more items</Text>
+        {order.delivery?.driver_name && (
+          <Text style={styles.driverText}>Driver: {order.delivery.driver_name}</Text>
         )}
 
         <View style={styles.deliveredOrderFooter}>
-          <Text style={styles.deliveredOrderDate}>
-            {new Date(order.createdAt).toLocaleDateString('en-IN', { 
-              day: '2-digit', 
-              month: 'short', 
-              year: 'numeric' 
-            })}
-          </Text>
-          <Text style={styles.deliveredOrderTotal}>₹{totalAmount}</Text>
+          <Text style={styles.deliveredOrderDate}>{formatDate(order.entry_date)}</Text>
+          <Text style={styles.deliveredOrderTotal}>₹{order.amount}</Text>
         </View>
       </View>
     );
@@ -129,84 +130,114 @@ const OrdersSummary = ({ navigation }: { navigation: any }) => {
         <View style={styles.headerPlaceholder} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Order Summary Card */}
-        <View style={styles.orderSummaryContainer}>
-          <Text style={styles.orderSummaryTitle}>Order Summary</Text>
-
-          {/* Total Orders */}
-          <View style={styles.orderSummaryRow}>
-            <View style={styles.rowLeft}>
-              <Icon name="receipt-outline" size={20} color="#fc8019" />
-              <Text style={styles.orderSummaryLabel}>Total Orders</Text>
-            </View>
-            <Text style={styles.orderSummaryValue}>{totalOrders}</Text>
-          </View>
-
-          {/* Delivered */}
-          <View style={styles.orderSummaryRow}>
-            <View style={styles.rowLeft}>
-              <Icon name="checkmark-circle-outline" size={20} color="#28a745" />
-              <Text style={styles.orderSummaryLabel}>Delivered</Text>
-            </View>
-            <Text style={[styles.orderSummaryValue, { color: '#28a745' }]}>
-              {deliveredOrders}
-            </Text>
-          </View>
-
-          {/* Cancelled */}
-          <View style={styles.orderSummaryRow}>
-            <View style={styles.rowLeft}>
-              <Icon name="close-circle-outline" size={20} color="#dc3545" />
-              <Text style={styles.orderSummaryLabel}>Cancelled</Text>
-            </View>
-            <Text style={[styles.orderSummaryValue, { color: '#dc3545' }]}>
-              {cancelledOrders}
-            </Text>
-          </View>
-
-          {/* Total Spent */}
-          <View style={styles.orderSummaryRow}>
-            <View style={styles.rowLeft}>
-              <Icon name="cash-outline" size={20} color="#fc8019" />
-              <Text style={styles.orderSummaryLabel}>Total Spent</Text>
-            </View>
-            <Text style={[styles.orderSummaryValue, { color: '#fc8019', fontWeight: '700' }]}>
-              ₹{totalSpent}
-            </Text>
-          </View>
-
-          {/* Items in Cart */}
-          <View style={[styles.orderSummaryRow, styles.lastRow]}>
-            <View style={styles.rowLeft}>
-              <Icon name="cart-outline" size={20} color="#17a2b8" />
-              <Text style={styles.orderSummaryLabel}>Items in Cart</Text>
-            </View>
-            <Text style={styles.orderSummaryValue}>{itemsInCart}</Text>
-          </View>
+      {loading ? (
+        <View style={styles.centerFill}>
+          <ActivityIndicator size="large" color={THEME_COLOR} />
         </View>
+      ) : loadError ? (
+        <View style={styles.centerFill}>
+          <Icon name="alert-circle-outline" size={50} color="#dc3545" />
+          <Text style={styles.errorText}>{loadError}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => fetchOrders(false)}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
+          {/* Order Summary Card */}
+          <View style={styles.orderSummaryContainer}>
+            <Text style={styles.orderSummaryTitle}>Order History</Text>
 
-        {/* ✅ Delivered Orders Section */}
-        {deliveredOrdersList.length > 0 ? (
+            {/* Total Orders */}
+            <View style={styles.orderSummaryRow}>
+              <View style={styles.rowLeft}>
+                <Icon name="receipt-outline" size={20} color={THEME_COLOR} />
+                <Text style={styles.orderSummaryLabel}>Total Orders</Text>
+              </View>
+              <Text style={styles.orderSummaryValue}>{totalOrders}</Text>
+            </View>
+
+            {/* Delivered */}
+            <View style={styles.orderSummaryRow}>
+              <View style={styles.rowLeft}>
+                <Icon name="checkmark-circle-outline" size={20} color="#28a745" />
+                <Text style={styles.orderSummaryLabel}>Delivered</Text>
+              </View>
+              <Text style={[styles.orderSummaryValue, { color: '#28a745' }]}>
+                {deliveredCount}
+              </Text>
+            </View>
+
+            {/* Cancelled */}
+            <View style={styles.orderSummaryRow}>
+              <View style={styles.rowLeft}>
+                <Icon name="close-circle-outline" size={20} color="#dc3545" />
+                <Text style={styles.orderSummaryLabel}>Cancelled</Text>
+              </View>
+              <Text style={[styles.orderSummaryValue, { color: '#dc3545' }]}>
+                {cancelledCount}
+              </Text>
+            </View>
+
+            {/* Total Spent */}
+            <View style={styles.orderSummaryRow}>
+              <View style={styles.rowLeft}>
+                <Icon name="cash-outline" size={20} color={THEME_COLOR} />
+                <Text style={styles.orderSummaryLabel}>Total Spent</Text>
+              </View>
+              <Text style={[styles.orderSummaryValue, { color: THEME_COLOR, fontWeight: '700' }]}>
+                ₹{totalSpent}
+              </Text>
+            </View>
+
+            {/* ✅ Discount Row — promo apply pannirundha mattum kaamikkum */}
+            {discount > 0 && (
+              <View style={styles.orderSummaryRow}>
+                <View style={styles.rowLeft}>
+                  <Icon name="pricetag-outline" size={20} color="#28a745" />
+                  <Text style={[styles.orderSummaryLabel, { color: '#28a745' }]}>
+                    Discount {promoCode ? `(${promoCode})` : ''}
+                  </Text>
+                </View>
+                <Text style={[styles.orderSummaryValue, { color: '#28a745', fontWeight: '700' }]}>
+                  -₹{discount}
+                </Text>
+              </View>
+            )}
+
+            {/* Items in Cart */}
+            <View style={[styles.orderSummaryRow, styles.lastRow]}>
+              <View style={styles.rowLeft}>
+                <Icon name="cart-outline" size={20} color="#17a2b8" />
+                <Text style={styles.orderSummaryLabel}>Items in Cart</Text>
+              </View>
+              <Text style={styles.orderSummaryValue}>{itemsInCart}</Text>
+            </View>
+          </View>
+
+          {/* ✅ Delivered Orders Section — no more "No Delivered Orders" fallback text;
+              cards render directly once real data comes in. Empty state only shows
+              a light hint icon so the layout doesn't look broken while truly empty. */}
           <View style={styles.deliveredOrdersContainer}>
             <View style={styles.orderItemsHeader}>
               <Text style={styles.orderItemsTitle}>Delivered Orders</Text>
-              <Text style={styles.orderItemsCount}>{deliveredOrdersList.length} orders</Text>
+              <Text style={styles.orderItemsCount}>{deliveredCount} orders</Text>
             </View>
 
-            {deliveredOrdersList.map((order, index) => renderDeliveredOrder(order, index))}
+            {deliveredOrdersList.length > 0 ? (
+              deliveredOrdersList.map((order, index) => renderDeliveredOrder(order, index))
+            ) : (
+              <View style={styles.emptyInline}>
+                <Icon name="checkmark-circle-outline" size={40} color="#e0e0e0" />
+                <Text style={styles.emptyInlineText}>Nothing delivered yet</Text>
+              </View>
+            )}
           </View>
-        ) : (
-          // No Delivered Orders Message
-          <View style={styles.emptyContainer}>
-            <Icon name="checkmark-circle-outline" size={60} color="#e0e0e0" />
-            <Text style={styles.emptyTitle}>No Delivered Orders</Text>
-            <Text style={styles.emptySubtitle}>
-              You haven't received any orders yet. Your delivered orders will appear here!
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 };
@@ -215,6 +246,30 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+  },
+  centerFill: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  errorText: {
+    fontSize: 15,
+    color: '#7e808c',
+    textAlign: 'center',
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: THEME_COLOR,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   header: {
     backgroundColor: '#ffffff',
@@ -345,6 +400,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 4,
   },
+  driverText: {
+    fontSize: 12,
+    color: '#7e808c',
+    marginBottom: 4,
+  },
   deliveredOrderFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -361,13 +421,7 @@ const styles = StyleSheet.create({
   deliveredOrderTotal: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#fc8019',
-  },
-  moreItemsText: {
-    fontSize: 12,
-    color: '#fc8019',
-    marginTop: 4,
-    fontWeight: '500',
+    color: THEME_COLOR,
   },
 
   // Order Items Styles
@@ -389,81 +443,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#7e808c',
   },
-  orderItemCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
-  },
-  orderItemImageContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    marginRight: 12,
-    backgroundColor: '#f8f9fa',
-    overflow: 'hidden',
-  },
-  orderItemImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  orderItemImagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff5ed',
-  },
-  orderItemInfo: {
-    flex: 1,
-  },
-  orderItemName: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#282c3f',
-  },
-  orderItemDetails: {
-    flexDirection: 'row',
-    marginTop: 4,
-    alignItems: 'center',
-  },
-  orderItemQuantity: {
-    fontSize: 12,
-    color: '#7e808c',
-  },
-  orderItemPrice: {
-    fontSize: 12,
-    color: '#7e808c',
-    marginLeft: 10,
-  },
-  orderItemTotal: {
-    alignItems: 'flex-end',
-  },
-  orderItemTotalPrice: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#fc8019',
-  },
-  emptyContainer: {
+  emptyInline: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
-    marginHorizontal: 16,
+    paddingVertical: 24,
   },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#282c3f',
-    marginTop: 16,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#7e808c',
-    textAlign: 'center',
+  emptyInlineText: {
+    fontSize: 13,
+    color: '#9e9e9e',
     marginTop: 8,
-    paddingHorizontal: 20,
   },
 });
 

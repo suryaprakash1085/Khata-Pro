@@ -1,10 +1,7 @@
 
-<<<<<<< HEAD
- import { Router, type IRouter } from "express";
-=======
+ 
 
 import { Router, type IRouter } from "express";
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
 import { requireAuth, AuthPayload } from "../middlewares/auth";
 import {
   db,
@@ -245,9 +242,7 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
  
   const deliveryFeeResult = await resolveDeliveryFee(d);
   const amount = itemsTotal + tax + deliveryFeeResult.fee;
-<<<<<<< HEAD
- 
-=======
+
 
   // 👇 NEW: actually compute + snapshot the delivery fee
   // const deliverySnapshot = await calculateAndSnapshotDeliveryFee(
@@ -256,7 +251,6 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
   //   (d as any).customer_longitude,
   // );
 
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
   const toDateStr = (v: string | Date | null | undefined): string | undefined =>
     v instanceof Date ? v.toISOString().split("T")[0] : (v as string | undefined);
  
@@ -280,10 +274,7 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
       customerLongitude: deliveryFeeResult.lng !== null ? deliveryFeeResult.lng.toString() : null,
       entryDate: toDateStr(d.entry_date) ?? new Date().toISOString().split("T")[0],
       createdBy: userId,
-<<<<<<< HEAD
-=======
       // ...deliverySnapshot, // 👈 deliveryDistanceKm, deliveryFee, deliveryFeeRadius, deliveryFeePerKm, customerLatitude, customerLongitude
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
     })
     .returning();
  
@@ -336,19 +327,15 @@ router.post("/public/sales-orders", async (req, res): Promise<void> => {
  
     const itemsTotal = d.items.reduce((sum, it) => sum + it.qty * it.unit_price, 0);
     const tax = d.tax ?? 0;
-<<<<<<< HEAD
  
     const deliveryFeeResult = await resolveDeliveryFee(d);
     const amount = itemsTotal + tax + deliveryFeeResult.fee;
  
-=======
 
     // 🔶 NEW — authoritative recalculation, ignores anything the client
     // may have precomputed and displayed in the checkout preview.
-    const deliveryFeeResult = await resolveDeliveryFee(d);
-    const amount = itemsTotal + tax + deliveryFeeResult.fee;
+    
 
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
     const [order] = await db
       .insert(salesOrdersTable)
       .values({
@@ -368,12 +355,9 @@ router.post("/public/sales-orders", async (req, res): Promise<void> => {
         customerLatitude: deliveryFeeResult.lat !== null ? deliveryFeeResult.lat.toString() : null,
         customerLongitude: deliveryFeeResult.lng !== null ? deliveryFeeResult.lng.toString() : null,
         entryDate: new Date().toISOString().split("T")[0],
-<<<<<<< HEAD
         createdBy: customer.id,
-=======
-        createdBy: customer.id, // no staff user for public orders — attribute to the customer
+       // no staff user for public orders — attribute to the customer
         // ...deliverySnapshot,
->>>>>>> 26841bfa2b2b0e92eefdd1c4fa082340002355e0
       })
       .returning();
  
