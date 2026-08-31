@@ -18,5 +18,9 @@ export interface PromotionInput {
   end_date: Date;
   status?: PromotionInputStatus;
   discount_percentage?: number;
+  description?: string;
+  promo_code?: string;
+  min_order_amount?: number;
+  banner_image?: string;
   product_ids?: number[];
 }

@@ -58,7 +58,12 @@ class NotificationService {
   }): Promise<void> {
     try {
       console.log('📤 Marking all notifications as read:', params);
-      await axios.post(`${API_BASE_URL}/notifications/mark-read`, params);
+      // ✅ FIX: this was posting to /notifications/mark-read (the
+      // single-notification route, which expects a notification id and
+      // has no idea what to do with business_id/driver_id) instead of
+      // the dedicated /notifications/mark-all-read route. That mismatch
+      // was the exact 400 Bad Request you saw with payload {business_id: 8}.
+      await axios.post(`${API_BASE_URL}/notifications/mark-all-read`, params);
       console.log('✅ All notifications marked as read');
     } catch (error) {
       console.error('❌ Error marking all as read:', error);

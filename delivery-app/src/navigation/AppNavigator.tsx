@@ -1,4 +1,5 @@
 
+ 
 import React, { useContext } from 'react';
 import { NavigationContainer, LinkingOptions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -17,12 +18,12 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { colors } from '../constants/colors';
-
+ 
 import { AuthContext } from '../context/AuthContext';
 import { DriverAuthContext } from '../context/DriverAuthContext';
 import AuthNavigator from './AuthNavigator';
 import DriverMainNavigator from './DriverMainNavigator';
-
+ 
 // Main (customer) screens
 import HomeScreen from '../screens/main/HomeScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
@@ -34,24 +35,24 @@ import OrderTrackingScreen from '../screens/order/OrderTrackingScreen';
 import OrderSuccessScreen from '../screens/order/OrderSuccessScreen';
 import AddressSelectionScreen from '../screens/checkout/AddressSelectionScreen';
 import PaymentScreen from '../screens/checkout/PaymentScreen';
-
+ 
 import ProductListScreen from '../screens/main/ProductListScreen';
 import OrdersSummary from '../screens/main/OrdersSummary';
 import EditProfileScreen from '../screens/main/EditProfileScreen';
-
+ 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
-
+ 
 // ✅ Height of the web top navbar — used both by the navbar itself and
 // by the screen padding so content never sits underneath it.
 const WEB_NAV_HEIGHT = 64;
-
+ 
 // ✅ Below this window width we're on a phone-sized browser viewport —
 // keep the familiar bottom tab bar there. At or above it (a real desktop
 // browser window) we switch to the top navbar instead. Native apps
 // (Platform.OS !== 'web') never use this — they always get the bottom bar.
 const DESKTOP_BREAKPOINT = 768;
-
+ 
 const linking: LinkingOptions<any> = {
   prefixes: [],
   config: {
@@ -82,7 +83,7 @@ const linking: LinkingOptions<any> = {
     },
   },
 };
-
+ 
 // =====================================================
 // ✅ WEB TOP NAVBAR — replaces the bottom tab bar ONLY on web.
 // Receives the exact same props React Navigation gives a custom
@@ -98,25 +99,25 @@ const WebTopNavBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
           const { options } = descriptors[route.key];
           const label = (options.title as string) ?? route.name;
           const isFocused = state.index === index;
-
+ 
           let iconName = 'ellipse-outline';
           if (route.name === 'Home') iconName = isFocused ? 'home' : 'home-outline';
           else if (route.name === 'Cart') iconName = isFocused ? 'cart' : 'cart-outline';
           else if (route.name === 'Orders') iconName = isFocused ? 'clipboard' : 'clipboard-outline';
           else if (route.name === 'Profile') iconName = isFocused ? 'person' : 'person-outline';
-
+ 
           const onPress = () => {
             const event = navigation.emit({
               type: 'tabPress',
               target: route.key,
               canPreventDefault: true,
             });
-
+ 
             if (!isFocused && !event.defaultPrevented) {
               navigation.navigate(route.name);
             }
           };
-
+ 
           return (
             <TouchableOpacity
               key={route.key}
@@ -135,7 +136,7 @@ const WebTopNavBar = ({ state, descriptors, navigation }: BottomTabBarProps) => 
     </View>
   );
 };
-
+ 
 const webNavStyles = StyleSheet.create({
   container: {
     position: 'absolute',
@@ -183,18 +184,18 @@ const webNavStyles = StyleSheet.create({
     color: colors.primary,
   },
 });
-
+ 
 // Bottom tab navigator for the logged-in customer home area.
 // On web this renders WebTopNavBar (fixed to the top) instead of the
 // native bottom tab bar; mobile keeps the default BottomTabBar untouched.
 const HomeTabs = () => {
   const { width } = useWindowDimensions();
-
+ 
   // ✅ Only a wide (desktop-sized) web browser window gets the top navbar.
   // A phone browser (narrow width) still gets the normal bottom tab bar,
   // exactly like the native app.
   const isDesktopWeb = Platform.OS === 'web' && width >= DESKTOP_BREAKPOINT;
-
+ 
   return (
     <Tab.Navigator
       tabBar={(props: BottomTabBarProps) =>
@@ -204,7 +205,7 @@ const HomeTabs = () => {
         headerShown: false,
         tabBarIcon: ({ focused, color, size }: { focused: boolean; color: string; size: number }) => {
           let iconName: string = '';
-
+ 
           if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Cart') {
@@ -214,7 +215,7 @@ const HomeTabs = () => {
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
           }
-
+ 
           return <Icon name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: colors.primary,
@@ -243,7 +244,7 @@ const HomeTabs = () => {
     </Tab.Navigator>
   );
 };
-
+ 
 // Stack for the logged-in customer: tabs + all the screens layered on top of them
 const MainStack = () => {
   return (
@@ -263,15 +264,15 @@ const MainStack = () => {
     </Stack.Navigator>
   );
 };
-
+ 
 export default function AppNavigator() {
   const { user, loading } = useContext(AuthContext);
   const { isDriverAuthenticated, loading: driverLoading } = useContext(DriverAuthContext);
-
+ 
   // Wait for both auth checks before deciding what to show — otherwise a
   // logged-in driver or customer can briefly flash the login screen on reload.
   if (loading || driverLoading) return null;
-
+ 
   return (
     <NavigationContainer linking={linking}>
       {isDriverAuthenticated ? (
@@ -284,3 +285,5 @@ export default function AppNavigator() {
     </NavigationContainer>
   );
 }
+ 
+ 

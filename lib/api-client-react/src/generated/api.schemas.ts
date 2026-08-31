@@ -556,6 +556,14 @@ export interface Promotion {
   status: PromotionStatus;
   /** @nullable */
   discount_percentage?: number | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  promo_code?: string | null;
+  /** @nullable */
+  min_order_amount?: number | null;
+  /** @nullable */
+  banner_image?: string | null;
   product_ids?: number[];
   product_names?: string[];
   created_at: string;
@@ -594,6 +602,10 @@ export interface PromotionInput {
   end_date: string;
   status?: PromotionInputStatus;
   discount_percentage?: number;
+  description?: string;
+  promo_code?: string;
+  min_order_amount?: number;
+  banner_image?: string;
   product_ids?: number[];
 }
 
@@ -619,6 +631,10 @@ export interface PromotionUpdate {
   start_date?: string;
   end_date?: string;
   status?: PromotionUpdateStatus;
+  description?: string;
+  promo_code?: string;
+  min_order_amount?: number;
+  banner_image?: string;
   product_ids?: number[];
 }
 

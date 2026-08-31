@@ -1,3 +1,4 @@
+
 import React, { useState, useContext, useEffect } from 'react';
 import {
   View,
@@ -23,6 +24,10 @@ import * as Location from 'expo-location';
 
 const API_BASE_URL = 'http://localhost:3000'; // Change to your actual API URL (LAN IP for device testing)
 let authToken: string | null = null;
+
+// ✅ Theme color — matched to Cart screen's purple/indigo (#6C5CE7)
+const THEME_COLOR = '#6C5CE7';
+const THEME_COLOR_LIGHT = '#F1EFFE'; // light tint for selected/active backgrounds
 
 // ✅ Indian States & Union Territories
 const INDIAN_STATES = [
@@ -185,8 +190,8 @@ const AddressSelectionScreen: React.FC<AddressSelectionScreenProps> = ({
   navigation,
   route,
 }) => {
-  const { totalAmount, restaurantName, cartItems } = route.params || {};
-
+  // const { totalAmount, restaurantName, cartItems } = route.params || {};
+const { totalAmount, restaurantName, cartItems, discount = 0, promoCode = null, promoId = null } = route.params || {};
   const {
     addresses,
     selectedAddress,
@@ -788,6 +793,9 @@ const AddressSelectionScreen: React.FC<AddressSelectionScreenProps> = ({
       deliveryFee: fee,               // ✅ REAL fee, no more hardcoded 40
       deliveryFeeBreakdown: breakdown, // optional: show "Free within 5km" etc on PaymentScreen
       tax: roundedGst,
+       discount: discount,        // 👈 NEW — forward pannunga
+    promoCode: promoCode,      // 👈 NEW
+    promoId: promoId,  
       restaurantName: restaurantName,
       cartItems: cartItems,
       orderId: 'ORD-' + Date.now().toString().slice(-6),
@@ -1033,7 +1041,7 @@ const handleAddAddress = async () => {
           style={styles.addButton}
           onPress={() => setShowAddAddressModal(true)}
         >
-          <Icon name="add-circle-outline" size={28} color="#fc8019" />
+          <Icon name="add-circle-outline" size={28} color={THEME_COLOR} />
         </TouchableOpacity>
       </View>
 
@@ -1044,10 +1052,10 @@ const handleAddAddress = async () => {
         disabled={gettingLocation}
       >
         {gettingLocation ? (
-          <ActivityIndicator size="small" color="#fc8019" />
+          <ActivityIndicator size="small" color={THEME_COLOR} />
         ) : (
           <>
-            <Icon name="locate-outline" size={22} color="#fc8019" />
+            <Icon name="locate-outline" size={22} color={THEME_COLOR} />
 
             <Text style={styles.locationButtonText}>
               Use Current Location
@@ -1151,7 +1159,7 @@ const handleAddAddress = async () => {
                         name={getAddressTypeIcon(type)}
                         size={18}
                         color={
-                          formData.type === type ? '#fc8019' : '#757575'
+                          formData.type === type ? THEME_COLOR : '#757575'
                         }
                       />
 
@@ -1327,7 +1335,7 @@ const handleAddAddress = async () => {
                               <Icon
                                 name="checkmark"
                                 size={18}
-                                color="#fc8019"
+                                color={THEME_COLOR}
                               />
                             )}
                           </TouchableOpacity>
@@ -1416,7 +1424,7 @@ const handleAddAddress = async () => {
                               <Icon
                                 name="checkmark"
                                 size={18}
-                                color="#fc8019"
+                                color={THEME_COLOR}
                               />
                             )}
                           </TouchableOpacity>
@@ -1468,7 +1476,7 @@ const handleAddAddress = async () => {
                       formData.isDefault ? 'checkbox' : 'square-outline'
                     }
                     size={24}
-                    color="#fc8019"
+                    color={THEME_COLOR}
                   />
 
                   <Text style={styles.defaultCheckboxText}>
@@ -1556,12 +1564,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#fc8019',
+    borderColor: THEME_COLOR,
     borderStyle: 'dashed',
   },
 
   locationButtonText: {
-    color: '#fc8019',
+    color: THEME_COLOR,
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 8,
@@ -1589,9 +1597,9 @@ const styles = StyleSheet.create({
   },
 
   addressCardSelected: {
-    borderColor: '#fc8019',
+    borderColor: THEME_COLOR,
     borderWidth: 2,
-    backgroundColor: '#fff8f0',
+    backgroundColor: THEME_COLOR_LIGHT,
   },
 
   addressHeader: {
@@ -1710,7 +1718,7 @@ const styles = StyleSheet.create({
   },
 
   deliverButton: {
-    backgroundColor: '#fc8019',
+    backgroundColor: THEME_COLOR,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
@@ -1791,11 +1799,11 @@ const styles = StyleSheet.create({
   },
 
   pickerRowActive: {
-    backgroundColor: '#fff8f0',
+    backgroundColor: THEME_COLOR_LIGHT,
   },
 
   pickerRowTextActive: {
-    color: '#fc8019',
+    color: THEME_COLOR,
     fontWeight: '600',
   },
 
@@ -1914,8 +1922,8 @@ const styles = StyleSheet.create({
   },
 
   addressTypeButtonActive: {
-    borderColor: '#fc8019',
-    backgroundColor: '#fff8f0',
+    borderColor: THEME_COLOR,
+    backgroundColor: THEME_COLOR_LIGHT,
   },
 
   addressTypeButtonText: {
@@ -1924,7 +1932,7 @@ const styles = StyleSheet.create({
   },
 
   addressTypeButtonTextActive: {
-    color: '#fc8019',
+    color: THEME_COLOR,
     fontWeight: '600',
   },
 
@@ -1957,7 +1965,7 @@ const styles = StyleSheet.create({
   },
 
   submitButton: {
-    backgroundColor: '#fc8019',
+    backgroundColor: THEME_COLOR,
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',

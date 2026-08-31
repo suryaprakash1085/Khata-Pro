@@ -131,7 +131,9 @@ export default function HomeScreen({ navigation }: any) {
     : 'Set your delivery location';
 
   // =====================================================
-  // STORE CARD — tap syncs context AND navigates to ProductList
+  // STORE CARD — Amazon-style grid product card.
+  // Same data/behaviour as before (tap syncs context + navigates to
+  // ProductList) — only the card's visual structure changed.
   // =====================================================
   const renderStoreCard = ({ item }: { item: any }) => (
     <TouchableOpacity
@@ -150,11 +152,11 @@ export default function HomeScreen({ navigation }: any) {
           storeName: item.business_name || 'Store',
         });
       }}
-      activeOpacity={0.8}
+      activeOpacity={0.75}
     >
       <View style={styles.storeCardContent}>
         <View style={styles.storeIconContainer}>
-          <Icon name="storefront" size={32} color={colors.primary} />
+          <Icon name="storefront" size={28} color={colors.primary} />
         </View>
 
         <View style={styles.storeInfo}>
@@ -167,22 +169,23 @@ export default function HomeScreen({ navigation }: any) {
           </Text>
 
           {item.address && (
-            <Text style={styles.storeAddress} numberOfLines={1}>
+            <View style={styles.storeAddressRow}>
               <Icon name="location-outline" size={12} color={colors.textLight} />
-              {' '}
-              {item.address}
-            </Text>
+              <Text style={styles.storeAddress} numberOfLines={1}>
+                {' '}{item.address}
+              </Text>
+            </View>
           )}
 
           <View style={styles.storeMeta}>
-            <Text style={styles.storeProducts}>
-              <Icon name="cube-outline" size={12} color={colors.textLight} />
-              {' '}View Products
-            </Text>
+            <Icon name="cube-outline" size={12} color={colors.primary} />
+            <Text style={styles.storeProducts}>{' '}View Products</Text>
           </View>
         </View>
 
-        <Icon name="chevron-forward" size={20} color={colors.textLight} />
+        <View style={styles.storeChevronWrap}>
+          <Icon name="chevron-forward" size={20} color={colors.textLight} />
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -360,55 +363,72 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 12,
   },
+
   storeCard: {
-    backgroundColor: colors.lightGray,
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: '#f4f2fc',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
     marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 1,
   },
   storeCardContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   storeIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: colors.white,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 1,
   },
   storeInfo: {
     flex: 1,
   },
   storeName: {
-    fontSize: 16,
+    fontSize: 15.5,
     fontWeight: '700',
     color: colors.text,
     marginBottom: 2,
   },
   storeType: {
-    fontSize: 13,
-    color: colors.textLight,
-    marginBottom: 2,
-  },
-  storeAddress: {
-    fontSize: 12,
+    fontSize: 12.5,
     color: colors.textLight,
     marginBottom: 4,
+  },
+  storeAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  storeAddress: {
+    fontSize: 11.5,
+    color: colors.textLight,
+    flexShrink: 1,
   },
   storeMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
   },
   storeProducts: {
-    fontSize: 12,
-    color: colors.textLight,
-    marginTop: 2,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  storeChevronWrap: {
+    marginLeft: 8,
   },
   emptyProducts: {
     backgroundColor: colors.lightGray,

@@ -20,6 +20,14 @@ export interface Promotion {
   status: PromotionStatus;
   /** @nullable */
   discount_percentage?: number | null;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  promo_code?: string | null;
+  /** @nullable */
+  min_order_amount?: number | null;
+  /** @nullable */
+  banner_image?: string | null;
   product_ids?: number[];
   product_names?: string[];
   created_at: Date;

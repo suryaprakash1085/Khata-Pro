@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, TextInput, View, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -73,6 +74,12 @@ export default function AddPromotionScreen() {
   const [error, setError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(!isEditMode);
 
+  // ── New optional promotion detail fields ──────────────────────────────────
+  const [description, setDescription] = useState('');
+  const [promoCode, setPromoCode] = useState('');
+  const [minOrderAmount, setMinOrderAmount] = useState('');
+  const [bannerImage, setBannerImage] = useState('');
+
   const { data: existingPromotion, isLoading: isLoadingPromotion } = useGetPromotion(promotionId as number, {
     query: { enabled: isEditMode && !!promotionId, queryKey: getGetPromotionQueryKey(promotionId as number) },
   });
@@ -91,6 +98,15 @@ export default function AddPromotionScreen() {
       const nameMap: Record<number, string> = {};
       ids.forEach((pid, i) => { nameMap[pid] = names[i] ?? `Product #${pid}`; });
       setSelectedProductNames(nameMap);
+
+      // ── Hydrate new optional fields ──────────────────────────────────────
+      setDescription(existingPromotion.description ?? '');
+      setPromoCode(existingPromotion.promo_code ?? '');
+      setMinOrderAmount(
+        existingPromotion.min_order_amount != null ? String(existingPromotion.min_order_amount) : ''
+      );
+      setBannerImage(existingPromotion.banner_image ?? '');
+
       setHydrated(true);
     }
   }, [isEditMode, existingPromotion, hydrated]);
@@ -134,6 +150,10 @@ export default function AddPromotionScreen() {
       setError('Select at least one product for this promotion');
       return;
     }
+    if (minOrderAmount.trim() && Number.isNaN(parseFloat(minOrderAmount))) {
+      setError('Enter a valid minimum order amount');
+      return;
+    }
     if (!business?.id) { setError('No business selected.'); return; }
 
     const goBack = () => {
@@ -165,6 +185,10 @@ export default function AddPromotionScreen() {
             start_date: startDate,
             end_date: endDate,
             status,
+            description: description.trim() || undefined,
+            promo_code: promoCode.trim() || undefined,
+            min_order_amount: minOrderAmount.trim() ? parseFloat(minOrderAmount) : undefined,
+            banner_image: bannerImage.trim() || undefined,
             product_ids: applyTo === 'selected' ? selectedProductIds : [],
           },
         } as any,
@@ -187,6 +211,10 @@ export default function AddPromotionScreen() {
           end_date: endDate,
           status,
           discount_percentage: promotionType === 'percentage' ? 10 : undefined,
+          description: description.trim() || undefined,
+          promo_code: promoCode.trim() || undefined,
+          min_order_amount: minOrderAmount.trim() ? parseFloat(minOrderAmount) : undefined,
+          banner_image: bannerImage.trim() || undefined,
           product_ids: applyTo === 'selected' ? selectedProductIds : undefined,
         },
       } as any,
@@ -332,6 +360,50 @@ export default function AddPromotionScreen() {
           </View>
         </>
       )}
+
+      {/* Description */}
+      <Text style={[styles.rowLabel, { marginTop: 16 }]}>Description</Text>
+      <TextInput
+        placeholder="e.g. Get 10% off on all shampoo products"
+        placeholderTextColor="#9CA3AF"
+        value={description}
+        onChangeText={setDescription}
+        style={[styles.input, { minHeight: 70, textAlignVertical: 'top' }]}
+        multiline
+      />
+
+      {/* Promo Code */}
+      <Text style={[styles.rowLabel, { marginTop: 16 }]}>Promo Code</Text>
+      <TextInput
+        placeholder="e.g. SHAMP10"
+        placeholderTextColor="#9CA3AF"
+        value={promoCode}
+        onChangeText={(v) => setPromoCode(v.toUpperCase())}
+        autoCapitalize="characters"
+        style={styles.input}
+      />
+
+      {/* Min Order Amount */}
+      <Text style={[styles.rowLabel, { marginTop: 16 }]}>Min Order Amount</Text>
+      <TextInput
+        placeholder="e.g. 500"
+        placeholderTextColor="#9CA3AF"
+        value={minOrderAmount}
+        onChangeText={(v) => setMinOrderAmount(v.replace(/[^0-9.]/g, ''))}
+        keyboardType="numeric"
+        style={styles.input}
+      />
+
+      {/* Banner Image URL */}
+      <Text style={[styles.rowLabel, { marginTop: 16 }]}>Banner Image URL</Text>
+      <TextInput
+        placeholder="https://..."
+        placeholderTextColor="#9CA3AF"
+        value={bannerImage}
+        onChangeText={setBannerImage}
+        autoCapitalize="none"
+        style={styles.input}
+      />
 
       {/* Dates */}
       <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>

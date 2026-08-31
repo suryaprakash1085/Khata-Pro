@@ -1,3 +1,5 @@
+
+
 import React, { useContext, useState, useEffect } from 'react';
 import {
   View,
@@ -13,6 +15,9 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { AuthContext } from '../../context/AuthContext';
+
+// ✅ Theme color — matched to Profile / Address / Payment / Orders screens' purple/indigo
+const THEME_COLOR = '#6C5CE7';
 
   const EditProfileScreen = ({ navigation }: { navigation: any }) => {
   const { user, updateUser } = useContext(AuthContext);
@@ -229,7 +234,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
   },
   saveButton: {
-    backgroundColor: '#fc8019',
+    backgroundColor: THEME_COLOR,
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: 'center',

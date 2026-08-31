@@ -955,6 +955,7 @@ import { DriverAuthContext } from '../../context/DriverAuthContext';
 import { COLORS } from '../../components/driver/DriverHomeComponents';
 import { DriverWebShell, DriverShellTab } from '../../components/driver/DriverWebShell';
 import { OrderCardData, OrderFilterKey, OrderStatus } from '../../types/driverOrders.types';
+import { OrderSummaryCard, OrderFilterTabs, OrderCard } from '../../components/driver/DriverOrdersComponents';
 
 // ── Orval-generated hooks ────────────────────────────────────────────────
 import {
@@ -981,6 +982,7 @@ const TypedFlatList = FlatList as unknown as React.ComponentType<any>;
 const PICKUP_BLUE = '#2563EB';
 const PICKUP_BLUE_LIGHT = '#DBEAFE';
 
+const ACTIVE_TAB = 'orders';
 
 interface ApiDelivery {
   id: number;
@@ -1000,9 +1002,9 @@ interface ApiDelivery {
   delivered_at?: string | null;
   cancelled_at?: string | null;
   created_at: string;
+  order_number?: string | number | null;
+  customer_has_phone?: boolean;
   customer_name?: string | null;
-  customer_has_phone?: boolean; 
-  order_number?: string | null;
   sales_order_id?: number | null;
   customer_phone?: string;
   out_for_delivery_at?: string | null;
@@ -1350,24 +1352,25 @@ const DriverOrdersScreen: React.FC = () => {
   const isWideWeb = Platform.OS === 'web' && width >= 1000;
 
   const [activeFilter, setActiveFilter] = useState<OrderFilterKey>('all');
-  const [search, setSearch] = useState('');
-  const [isOnline, setIsOnline] = useState<boolean>(authDriver?.status === 'available');
-  const [showFilters, setShowFilters] = useState(false);
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'cod' | 'upi'>('all');
-  const [rejectingId, setRejectingId] = useState<string | null>(null);
-  const [rejectReason, setRejectReason] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [markingOutForDeliveryId, setMarkingOutForDeliveryId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [search, setSearch] = useState('');
+  const [isOnline, setIsOnline] = useState<boolean>(authDriver?.status === 'available');
 
- const {
-  data: deliveriesResponse,
-  isLoading,
-  isFetching,
-  refetch: refetchDeliveries,
-} = useListMyDeliveries(
-  { limit: 50 },
-  { query: { enabled: !!driverId } }
-);
+
+  const {
+    data: deliveriesResponse,
+    isLoading,
+    isFetching,
+    refetch: refetchDeliveries,
+  } = useListMyDeliveries(
+    { limit: 50 },
+    { query: { enabled: !!driverId } }
+  );
   const { data: notificationsData } = useListNotifications(
     { driver_id: driverId, limit: 8 },
     { query: { enabled: !!driverId && isWideWeb } }
@@ -1449,20 +1452,95 @@ const DriverOrdersScreen: React.FC = () => {
   const todayLabel = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
   const updateDriver = useUpdateDriver();
   const callCustomer = useCallDeliveryCustomer();
+
+  // ── Summary items ──────────────────────────────────────────────────────
+  const summaryItems = useMemo(() => {
+    return [
+      {
+        key: 'all',
+        label: 'All Orders',
+        count: allOrders.length,
+        icon: 'cube-outline' as const,
+        color: COLORS.primary,
+        bgColor: COLORS.primaryLight,
+      },
+      {
+        key: 'pending',
+        label: 'New',
+        count: counts.pending || 0,
+        icon: 'time-outline' as const,
+        color: COLORS.amber,
+        bgColor: COLORS.amberLight,
+      },
+      {
+        key: 'picked_up',
+        label: 'Active',
+        count: counts.picked_up || 0,
+        icon: 'bicycle-outline' as const,
+        color: '#7C3AED',
+        bgColor: '#EDE9FE',
+      },
+      {
+        key: 'delivered',
+        label: 'Completed',
+        count: counts.delivered || 0,
+        icon: 'checkmark-circle-outline' as const,
+        color: COLORS.secondary,
+        bgColor: COLORS.secondaryLight,
+      },
+      {
+        key: 'cancelled',
+        label: 'Cancelled',
+        count: counts.cancelled || 0,
+        icon: 'close-circle-outline' as const,
+        color: COLORS.danger,
+        bgColor: COLORS.dangerLight,
+      },
+    ];
+  }, [allOrders, counts]);
+
   // ── Handlers ─────────────────────────────────────────────────────────
- const handleCall = (order: OrderCardData) => {
-  if (!order.phone) {
-    showAlert('No phone number', 'This customer has no phone number on file.');
-    return;
-  }
-  callCustomer.mutate(
-    { id: Number(order.id) },
-    {
-      onSuccess: (res: any) => showAlert('Calling…', res?.data?.message ?? 'Your phone will ring shortly.'),
-      onError: (err: any) => showAlert('Could not call', err?.response?.data?.error ?? 'Please try again.'),
+  // const handleToggleOnline = () => {
+  //   setIsOnline(!isOnline);
+  // };
+
+  // const runStatusUpdate = async (id: string, status: string) => {
+  //   setUpdatingId(id);
+  //   try {
+  //     const token = await getDriverToken();
+  //     const res = await fetch(`${API_BASE}/deliveries/${id}/status`, {
+  //       method: 'PUT',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //         Authorization: `Bearer ${token}`,
+  //       },
+  //       body: JSON.stringify({ status }),
+  //     });
+  //     if (!res.ok) {
+  //       const err = await res.json().catch(() => ({}));
+  //       throw new Error(err?.error || 'Failed to update status');
+  //     }
+  //     refetchDeliveries();
+  //   } catch (err: any) {
+  //     Alert.alert('Error', err?.message || 'Could not update status. Please try again.');
+  //   } finally {
+  //     setUpdatingId(null);
+  //   }
+  // };
+
+  const handleCall = (order: OrderCardData) => {
+    if (!order.phone) {
+      showAlert('No phone number', 'This customer has no phone number on file.');
+      return;
     }
-  );
-};
+    callCustomer.mutate(
+      { id: Number(order.id) },
+      {
+        onSuccess: (res: any) => showAlert('Calling…', res?.data?.message ?? 'Your phone will ring shortly.'),
+        onError: (err: any) => showAlert('Could not call', err?.response?.data?.error ?? 'Please try again.'),
+      }
+    );
+  };
 
   const handleNavigate = (order: OrderCardData) => {
     const query = encodeURIComponent(order.dropAddress);
@@ -1570,6 +1648,10 @@ const DriverOrdersScreen: React.FC = () => {
 
   const handleMarkDelivered = (id: string) => runStatusUpdate(id, 'delivered');
   const handleUnableToDeliver = (id: string) => runStatusUpdate(id, 'cancelled');
+
+  const handleNavigateLegacy = (order: OrderCardData) => {
+    Alert.alert('Navigate', order.dropAddress);
+  };
 
   const handleTabPress = (tab: DriverShellTab) => {
     if (tab.key === 'orders') return;
@@ -1727,6 +1809,149 @@ const DriverOrdersScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
+
+
+      {isWideWeb && (
+        <View style={styles.webTopBar}>
+          <View style={styles.webTopBarInner}>
+            <Text style={styles.webBrand}>Khata-Pro · Driver</Text>
+            <View style={styles.webTopBarTabs}>
+              {bottomTabs.map((tab) => {
+                const active = tab.key === ACTIVE_TAB;
+                return (
+                  <TouchableOpacity
+                    key={tab.key}
+                    style={[styles.webTopBarTab, webNoOutlineStyle]}
+                    onPress={() => handleTabPress(tab)}
+                  >
+                    <Ionicons name={tab.icon as keyof typeof Ionicons.glyphMap} size={17} color={active ? COLORS.primary : COLORS.slate} />
+                    <Text style={[styles.webTopBarTabLabel, active && { color: COLORS.primary, fontWeight: '700' }]}>{tab.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+      )}
+
+      <TypedFlatList
+        data={filteredOrders}
+        keyExtractor={(item: OrderCardData) => item.id}
+        numColumns={1}
+        key="cols-1"
+        contentContainerStyle={[styles.listContent, !isWideWeb && { paddingBottom: 90 }]}
+        refreshControl={
+          <RefreshControl refreshing={!isLoading && isFetching} onRefresh={refetchDeliveries} tintColor={COLORS.primary} />
+        }
+        ListHeaderComponent={
+          <View style={[styles.webContainer, isWideWeb && styles.webContainerWide]}>
+            {/* Header */}
+            {!isWideWeb ? (
+              <View style={styles.mobileHeader}>
+                <View>
+                  <Text style={styles.headerTitle}>My Orders</Text>
+                  <Text style={styles.headerDate}>{todayLabel}</Text>
+                </View>
+                <TouchableOpacity style={[styles.refreshBtn, webNoOutlineStyle]} onPress={() => refetchDeliveries()} hitSlop={8}>
+                  <Ionicons name="refresh-outline" size={20} color={COLORS.ink} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.webHeader}>
+                <View>
+                  <Text style={styles.headerTitle}>My Orders</Text>
+                  <Text style={styles.headerDate}>{todayLabel}</Text>
+                </View>
+                <TouchableOpacity style={[styles.refreshBtn, webNoOutlineStyle]} onPress={() => refetchDeliveries()}>
+                  <Ionicons name="refresh-outline" size={16} color={COLORS.ink} />
+                  <Text style={styles.refreshBtnText}>Refresh</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Summary */}
+            <View style={styles.section}>
+              <View style={styles.summaryGrid}>
+                {summaryItems.map((item) => (
+                  <View key={item.key} style={styles.summaryGridItem}>
+                    <OrderSummaryCard item={item} active={activeFilter === item.key} onPress={() => setActiveFilter(item.key as OrderFilterKey)} />
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Search */}
+            <View style={styles.section}>
+              <View style={styles.searchBar}>
+                <Ionicons name="search-outline" size={16} color={COLORS.slate} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search by Order ID, customer name or phone"
+                  placeholderTextColor={COLORS.slateLight}
+                  value={search}
+                  onChangeText={setSearch}
+                />
+                {search.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
+                    <Ionicons name="close-circle" size={18} color={COLORS.slateLight} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* Filter tabs */}
+            <View style={[styles.section, { marginBottom: 4 }]}>
+              <OrderFilterTabs active={activeFilter} onChange={setActiveFilter} />
+            </View>
+          </View>
+        }
+        renderItem={({ item }: { item: OrderCardData }) => (
+          <View style={[styles.cardWrapper, isWideWeb && styles.cardWrapperWide]}>
+            <OrderCard
+              order={item}
+              updating={updatingId === item.id || markingOutForDeliveryId === item.id}
+              onNavigate={() => handleNavigate(item)}
+              onCall={() => handleCall(item)}
+              onMarkPickedUp={() => handleMarkPickedUp(item.id)}
+              onStartDelivery={() => handleStartDelivery(item.id)}
+              onMarkDelivered={() => handleMarkDelivered(item.id)}
+              onUnableToDeliver={() => handleUnableToDeliver(item.id)}
+            />
+          </View>
+        )}
+        ListEmptyComponent={
+          isLoading ? (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+            </View>
+          ) : (
+            <View style={[styles.webContainer, isWideWeb && styles.webContainerWide]}>
+              <EmptyOrdersState
+                message={activeFilter === 'all' ? 'No deliveries assigned yet.' : 'No orders found'}
+              />
+            </View>
+          )
+        }
+      />
+
+      {!isWideWeb && (
+        <View style={styles.bottomNav}>
+          {bottomTabs.map((tab) => {
+            const active = tab.key === ACTIVE_TAB;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.bottomNavItem, webNoOutlineStyle]}
+                activeOpacity={0.7}
+                onPress={() => handleTabPress(tab)}
+              >
+                <Ionicons name={tab.icon as keyof typeof Ionicons.glyphMap} size={22} color={active ? COLORS.primary : COLORS.slateLight} />
+                <Text style={[styles.bottomNavLabel, { color: active ? COLORS.primary : COLORS.slateLight }]}>{tab.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
       {listBody}
       <View style={styles.bottomNav}>
         {bottomTabs.map((tab) => {
@@ -1858,6 +2083,20 @@ const styles = StyleSheet.create({
   emptyTitle: { fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '700', color: COLORS.ink, marginTop: 10 },
   emptyText: { fontFamily: FONT_FAMILY, fontSize: 12, color: COLORS.slate, marginTop: 4, textAlign: 'center' },
   loadingWrap: { paddingVertical: 60, alignItems: 'center' },
+
+  // ── Additional styles ──────────────────────────────────────────────
+  columnWrapper: { gap: 12 },
+  webContainer: { paddingHorizontal: 20 },
+  webContainerWide: { paddingHorizontal: 0 },
+  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  summaryGridItem: { flex: 1, minWidth: 80 },
+  cardWrapperWide: { paddingHorizontal: 0, marginTop: 14 },
+  webTopBar: { backgroundColor: COLORS.card, borderBottomWidth: 1, borderBottomColor: COLORS.border, paddingVertical: 12 },
+  webTopBarInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, maxWidth: 1200, alignSelf: 'center', width: '100%' },
+  webBrand: { fontFamily: FONT_FAMILY, fontSize: 16, fontWeight: '700', color: COLORS.ink },
+  webTopBarTabs: { flexDirection: 'row', gap: 24 },
+  webTopBarTab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 },
+  webTopBarTabLabel: { fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '600', color: COLORS.slate },
 
   bottomNav: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', backgroundColor: COLORS.card, borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 8, paddingBottom: 20 },
   bottomNavItem: { flex: 1, alignItems: 'center', gap: 3 },

@@ -6,9 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from './DriverHomeComponents';
 import { OrderCardData, OrderFilterKey, OrderStatus, OrderSummaryItem } from '../../types/driverOrders.types';
 
-// Kept identical to DriverHomeComponents' internal constant on purpose — if
-// you centralize FONT_FAMILY into a shared constants file later, both this
-// file and DriverHomeComponents.tsx should import from there instead.
+
 const FONT_FAMILY = Platform.select({
   web: '"Times New Roman", Times, serif',
   default: 'Times New Roman',

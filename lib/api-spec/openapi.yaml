@@ -3443,8 +3443,7 @@ components:
           type: integer
         limit:
           type: integer
-    # ── Promotion ─────────────────────────────────────────────────────────────
-
+  
     Promotion:
       type: object
       required: [id, business_id, name, promotion_type, apply_to, start_date, end_date, status, created_at]
@@ -3472,6 +3471,14 @@ components:
           enum: [active, inactive]
         discount_percentage:
           type: ["number", "null"]
+        description:
+          type: ["string", "null"]
+        promo_code:
+          type: ["string", "null"]
+        min_order_amount:
+          type: ["number", "null"]
+        banner_image:
+          type: ["string", "null"]
         product_ids:
           type: array
           items:
@@ -3511,6 +3518,14 @@ components:
           default: active
         discount_percentage:
           type: number
+        description:
+          type: string
+        promo_code:
+          type: string
+        min_order_amount:
+          type: number
+        banner_image:
+          type: string
         product_ids:
           type: array
           items:
@@ -3533,11 +3548,18 @@ components:
         status:
           type: string
           enum: [active, inactive]
+        description:
+          type: string
+        promo_code:
+          type: string
+        min_order_amount:
+          type: number
+        banner_image:
+          type: string
         product_ids:
           type: array
           items:
             type: integer
-
     PromotionStatusUpdate:
       type: object
       required: [status]

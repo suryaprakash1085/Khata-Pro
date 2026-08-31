@@ -13,6 +13,7 @@ import {
   Modal,
   ActivityIndicator,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { ordersApi, CustomerOrder, CustomerTrackingStatus } from '../../api/orders';
@@ -20,7 +21,19 @@ import notificationService, { Notification } from '../../services/notificationSe
 import { AuthContext } from '../../context/AuthContext';
 import { SelectedBusinessContext } from '../../context/SelectedBusinessContext';
 
+// ✅ Theme color — matched to Cart / Address / Payment screens' purple/indigo
+const THEME_COLOR = '#6C5CE7';
+const THEME_COLOR_LIGHT = '#F1EFFE'; // light tint for badges/backgrounds
+
+// ✅ Same constants used by the other redesigned screens (Cart/Profile) —
+// kept in sync so this screen matches the same desktop-web behaviour.
+const WEB_NAV_HEIGHT = 64;
+const DESKTOP_BREAKPOINT = 768;
+
 const OrdersScreen: React.FC = ({ navigation }: any) => {
+  const { width: windowWidth } = useWindowDimensions();
+  const isDesktopWeb = Platform.OS === 'web' && windowWidth >= DESKTOP_BREAKPOINT;
+
   const [activeTab, setActiveTab] = useState<'current' | 'past' | 'cancelled'>('current');
   const [refreshing, setRefreshing] = useState(false);
   const [ordersList, setOrdersList] = useState<CustomerOrder[]>([]);
@@ -56,7 +69,7 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
     fetchOrders(false);
   }, [fetchOrders]);
 
-  // ── Notifications (unchanged — already wired to real backend) ──
+  // ── Notifications ──────────────────────────────────────────────
   const fetchNotifications = async () => {
     if (!driverId && !businessId) {
       console.error('❌ No driver_id or business_id found for user');
@@ -147,10 +160,9 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
     let title = 'Order Update';
     let bodyText = 'Your order status has been updated.';
     let deliveryLocation = 'Preparing...';
-    // let orderId = `Order #${String(id)}`;
     const orderIdMatch = rawMessage?.match(/order\s*#\s*(\d+)/i);
-let orderId = orderIdMatch ? `Order #${orderIdMatch[1]}` : `Order #${String(id)}`;
-const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
+    let orderId = orderIdMatch ? `Order #${orderIdMatch[1]}` : `Order #${String(id)}`;
+    const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
     let buttonText = 'View order details';
     let isUnread = !isRead;
 
@@ -182,18 +194,12 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
   };
 
   const renderNotification = ({ item }: { item: Notification }) => {
-    // const { title, bodyText, deliveryLocation, orderId, buttonText, isUnread } = parseAmazonRealUI(
-    //   item.type,
-    //   item.message,
-    //   item.id,
-    //   item.is_read,
-    // );
     const { title, bodyText, deliveryLocation, orderId, numericOrderId, buttonText, isUnread } = parseAmazonRealUI(
-  item.type,
-  item.message,
-  item.id,
-  item.is_read,
-);
+      item.type,
+      item.message,
+      item.id,
+      item.is_read,
+    );
     return (
       <View style={styles.amazonCard}>
         <View style={styles.amazonCardHeader}>
@@ -222,23 +228,16 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
           </View>
           <View style={styles.amazonProductImagePlaceholder} />
         </View>
-        {/* <TouchableOpacity
+        <TouchableOpacity
           style={styles.amazonActionButton}
           onPress={() => {
             handleMarkAsRead(item.id);
             setShowNotifications(false);
+            if (numericOrderId) {
+              navigation.navigate('OrderTracking', { orderId: numericOrderId });
+            }
           }}
-        > */}
-        <TouchableOpacity
-  style={styles.amazonActionButton}
-  onPress={() => {
-    handleMarkAsRead(item.id);
-    setShowNotifications(false);
-    if (numericOrderId) {
-      navigation.navigate('OrderTracking', { orderId: numericOrderId });   // ✅ ADD THIS — navigate to the exact order
-    }
-  }}
->
+        >
           <Text style={styles.amazonActionButtonText}>{buttonText}</Text>
         </TouchableOpacity>
       </View>
@@ -251,7 +250,7 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
     ORDER_CONFIRMED: { label: 'Confirmed', color: '#17a2b8', icon: 'checkmark-circle' },
     DRIVER_ASSIGNED: { label: 'Driver Assigned', color: '#17a2b8', icon: 'person' },
     PICKED_UP: { label: 'Picked Up', color: '#7C3AED', icon: 'cube' },
-    OUT_FOR_DELIVERY: { label: 'On the way', color: '#fc8019', icon: 'bicycle' },
+    OUT_FOR_DELIVERY: { label: 'On the way', color: THEME_COLOR, icon: 'bicycle' },
     DELIVERED: { label: 'Delivered', color: '#28a745', icon: 'checkmark-circle' },
     CANCELLED: { label: 'Cancelled', color: '#dc3545', icon: 'close-circle' },
   };
@@ -280,25 +279,32 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
     }
   };
 
-  // ── Cancel order: real backend call ─────────────────────────
-  // PUT /customers/me/orders/:id/cancel — only allowed while the order is
-  // still "pending" on the server. On success we patch tracking_status
-  // locally so the card moves to the Cancelled tab immediately.
-  //
-  // ⚠️ Alert.alert's multi-button confirm dialog does not render on
-  // React Native Web — it silently no-ops. So on web we fall back to
-  // window.confirm / window.alert; on native (iOS/Android) we keep the
-  // normal Alert.alert flow.
+  // ── Cancel order ─────────────────────────────────────────────
   const doCancelOrder = async (item: CustomerOrder) => {
     try {
-      const updatedOrder = await ordersApi.cancelOrder(item.id);
-      // ✅ backend confirmed cancellation — update local state
-      // so the card moves to the Cancelled tab immediately
+      const response = await ordersApi.cancelOrder(item.id);
+      let updatedStatus: CustomerTrackingStatus = 'CANCELLED';
+
+      if (response && typeof response === 'object') {
+        if ('tracking_status' in response) {
+          updatedStatus = (response as any).tracking_status;
+        } else if ('data' in response && response.data && typeof response.data === 'object' && 'tracking_status' in response.data) {
+          updatedStatus = (response.data as any).tracking_status;
+        } else if ('status' in response) {
+          updatedStatus = (response as any).status as CustomerTrackingStatus;
+        } else if ('data' in response && response.data && typeof response.data === 'object' && 'status' in response.data) {
+          updatedStatus = (response.data as any).status as CustomerTrackingStatus;
+        }
+      }
+
       setOrdersList((prev) =>
         prev.map((o) =>
-          o.id === item.id ? { ...o, tracking_status: updatedOrder.tracking_status } : o,
+          o.id === item.id
+            ? { ...o, tracking_status: updatedStatus }
+            : o,
         ),
       );
+
       const successMsg = `Order #${item.id} has been cancelled.`;
       if (Platform.OS === 'web') {
         window.alert(successMsg);
@@ -314,24 +320,17 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
       } else {
         Alert.alert('Unable to cancel', errorMsg);
       }
-      // ✅ resync from server in case status already changed there
       fetchOrders(true);
     }
   };
 
   const handleCancelOrder = (item: CustomerOrder) => {
-    console.log('🔴 1. handleCancelOrder called for order', item.id);
-    console.log('🔴 2. Platform.OS is:', Platform.OS);
-
     if (Platform.OS === 'web') {
-      console.log('🔴 3a. Taking WEB branch — calling window.confirm');
       const confirmed = window.confirm(`Are you sure you want to cancel Order #${item.id}?`);
-      console.log('🔴 4a. window.confirm returned:', confirmed);
       if (confirmed) doCancelOrder(item);
       return;
     }
 
-    console.log('🔴 3b. Taking NATIVE branch — calling Alert.alert');
     Alert.alert(
       'Cancel Order',
       `Are you sure you want to cancel Order #${item.id}?`,
@@ -340,7 +339,6 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
         { text: 'Yes, Cancel', style: 'destructive', onPress: () => doCancelOrder(item) },
       ],
     );
-    console.log('🔴 4b. Alert.alert call finished (this logs even if dialog is not visible)');
   };
 
   const handleViewOrder = (item: CustomerOrder) => {
@@ -363,25 +361,41 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
     const isPast = activeTab === 'past';
     const meta = STATUS_META[item.tracking_status] ?? STATUS_META.ORDER_PLACED;
     const showCancelButton = isCurrent && item.tracking_status === 'ORDER_PLACED';
-    const showViewButton = true;
+    const showViewButton = !isPast;
 
     return (
-      <TouchableOpacity style={[styles.orderCard, isCancelled && styles.cancelledCard]} onPress={() => handleViewOrder(item)} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={[styles.orderCard, isCancelled && styles.cancelledCard]}
+        onPress={() => {
+          if (isPast) return;
+          handleViewOrder(item);
+        }}
+        activeOpacity={isPast ? 1 : 0.7}
+      >
         <View style={styles.orderHeader}>
+          <View style={styles.orderIdBadge}>
+            <Icon name="bag-handle-outline" size={15} color={THEME_COLOR} />
+          </View>
           <View style={styles.orderLeft}>
             <Text style={styles.orderRestaurant}>Order #{item.id}</Text>
             <Text style={styles.orderDetails}>₹{item.amount}</Text>
             {item.delivery?.driver_name && (
-              <Text style={styles.orderId}>Driver: {item.delivery.driver_name}</Text>
+              <View style={styles.driverChip}>
+                <Icon name="bicycle-outline" size={11} color="#7e808c" />
+                <Text style={styles.orderId}>{item.delivery.driver_name}</Text>
+              </View>
             )}
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: meta.color + '20' }]}>
-            <Icon name={meta.icon as any} size={14} color={meta.color} />
+          <View style={[styles.statusBadge, { backgroundColor: meta.color + '18' }]}>
+            <Icon name={meta.icon as any} size={13} color={meta.color} />
             <Text style={[styles.statusText, { color: meta.color }]}>{meta.label}</Text>
           </View>
         </View>
         <View style={styles.orderFooter}>
-          <Text style={styles.orderTime}>{formatDate(item.entry_date)}</Text>
+          <View style={styles.orderTimeRow}>
+            <Icon name="time-outline" size={12} color="#a2a4b0" />
+            <Text style={styles.orderTime}>{formatDate(item.entry_date)}</Text>
+          </View>
           <View style={styles.footerButtons}>
             {showCancelButton && (
               <TouchableOpacity
@@ -405,7 +419,7 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
                 }}
                 activeOpacity={0.8}
               >
-                <Icon name="eye-outline" size={14} color="#fc8019" />
+                <Icon name="eye-outline" size={14} color={THEME_COLOR} />
                 <Text style={styles.viewButtonText}>Track</Text>
               </TouchableOpacity>
             )}
@@ -415,41 +429,85 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
     );
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-back" size={24} color="#282c3f" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Orders</Text>
-        <TouchableOpacity style={styles.headerRight} onPress={() => setShowNotifications(true)}>
-          <Icon name="notifications-outline" size={24} color="#fc8019" />
-          {unreadCount > 0 && (
-            <View style={styles.notificationBadge}>
-              <Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
+  const TABS: { key: 'current' | 'past' | 'cancelled'; label: string }[] = [
+    { key: 'current', label: 'Current' },
+    { key: 'past', label: 'Past' },
+    { key: 'cancelled', label: 'Cancelled' },
+  ];
 
-      <View style={styles.tabsContainer}>
-        {['current', 'past', 'cancelled'].map((tab) => (
-          <TouchableOpacity key={tab} style={[styles.tab, activeTab === tab && styles.activeTab]} onPress={() => setActiveTab(tab as any)} activeOpacity={0.7}>
-            <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab.charAt(0).toUpperCase() + tab.slice(1)}</Text>
-            {getTabCount(tab as any) > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{getTabCount(tab as any)}</Text>
+  return (
+    <SafeAreaView style={[styles.container, isDesktopWeb && { paddingTop: WEB_NAV_HEIGHT }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+
+      {/* Header — full-bleed toolbar, same on mobile & web */}
+      <View style={styles.header}>
+        <View style={[styles.headerInner, isDesktopWeb && styles.headerInnerDesktop]}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Icon name="arrow-back" size={24} color="#282c3f" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>My Orders</Text>
+          <TouchableOpacity style={styles.headerRight} onPress={() => setShowNotifications(true)}>
+            <Icon name="notifications-outline" size={24} color={THEME_COLOR} />
+            {unreadCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
               </View>
             )}
-            {activeTab === tab && <View style={styles.tabIndicator} />}
           </TouchableOpacity>
-        ))}
+        </View>
       </View>
+
+      {/* Tabs */}
+      {isDesktopWeb ? (
+        // ── Desktop web: fixed-width segmented control, each segment is an
+        // equal flex:1 slot inside one rounded track — no CSS `gap` and no
+        // overlapping absolutely-positioned pieces, so it can't collide.
+        <View style={styles.segmentedOuter}>
+          <View style={styles.segmentedTrack}>
+            {TABS.map(({ key, label }) => {
+              const active = activeTab === key;
+              const count = getTabCount(key);
+              return (
+                <TouchableOpacity
+                  key={key}
+                  style={[styles.segment, active && styles.segmentActive]}
+                  onPress={() => setActiveTab(key)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.segmentLabel, active && styles.segmentLabelActive]}>{label}</Text>
+                  {count > 0 && (
+                    <View style={[styles.segmentBadge, active && styles.segmentBadgeActive]}>
+                      <Text style={[styles.segmentBadgeText, active && styles.segmentBadgeTextActive]}>{count}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      ) : (
+        // ── Mobile / narrow web: original underline-tab row, unchanged
+        <View style={styles.tabsContainer}>
+          {TABS.map(({ key, label }) => {
+            const active = activeTab === key;
+            return (
+              <TouchableOpacity key={key} style={styles.tab} onPress={() => setActiveTab(key)} activeOpacity={0.7}>
+                <Text style={[styles.tabText, active && styles.activeTabText]}>{label}</Text>
+                {getTabCount(key) > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{getTabCount(key)}</Text>
+                  </View>
+                )}
+                {active && <View style={styles.tabIndicator} />}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
 
       {ordersLoading ? (
         <View style={styles.emptyContainer}>
-          <ActivityIndicator size="large" color="#fc8019" />
+          <ActivityIndicator size="large" color={THEME_COLOR} />
         </View>
       ) : ordersError ? (
         <View style={styles.emptyContainer}>
@@ -465,7 +523,7 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
           data={filteredOrders}
           renderItem={renderOrder}
           keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={styles.ordersList}
+          contentContainerStyle={[styles.ordersList, isDesktopWeb && styles.ordersListDesktop]}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
@@ -486,7 +544,7 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
         />
       )}
 
-      {/* NOTIFICATION MODAL — unchanged */}
+      {/* NOTIFICATION MODAL */}
       <Modal visible={showNotifications} animationType="slide" transparent={false} onRequestClose={() => setShowNotifications(false)}>
         <SafeAreaView style={styles.amazonModalContainer}>
           <View style={styles.amazonModalHeader}>
@@ -533,49 +591,99 @@ const numericOrderId = orderIdMatch ? parseInt(orderIdMatch[1], 10) : null;
   );
 };
 
-// styles unchanged from original — keep exactly as-is
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#f0f0f0', elevation: 2 },
+
+  // Header (full-bleed toolbar; inner content constrained on desktop)
+  header: { backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#f0f0f0', elevation: 2 },
+  headerInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
+  headerInnerDesktop: { width: '100%', maxWidth: 880, alignSelf: 'center', paddingHorizontal: 8 },
   backButton: { padding: 4 },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: '#282c3f', textAlign: 'center' },
   headerRight: { padding: 4, position: 'relative' },
   notificationBadge: { position: 'absolute', top: -4, right: -4, backgroundColor: '#dc3545', borderRadius: 10, minWidth: 18, height: 18, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
   notificationBadgeText: { color: '#ffffff', fontSize: 10, fontWeight: '600' },
+
+  // Mobile tabs (unchanged underline style)
   tabsContainer: { flexDirection: 'row', backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
   tab: { flex: 1, paddingVertical: 14, alignItems: 'center', position: 'relative', flexDirection: 'row', justifyContent: 'center' },
-  activeTab: {},
   tabText: { fontSize: 14, color: '#7e808c', fontWeight: '500' },
-  activeTabText: { color: '#fc8019', fontWeight: '600' },
-  badge: { backgroundColor: '#fc8019', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 6, minWidth: 20, alignItems: 'center' },
+  activeTabText: { color: THEME_COLOR, fontWeight: '600' },
+  badge: { backgroundColor: THEME_COLOR, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 6, minWidth: 20, alignItems: 'center' },
   badgeText: { color: '#ffffff', fontSize: 10, fontWeight: '600' },
-  tabIndicator: { position: 'absolute', bottom: 0, left: '25%', right: '25%', height: 3, backgroundColor: '#fc8019', borderRadius: 2 },
+  tabIndicator: { position: 'absolute', bottom: 0, left: '25%', right: '25%', height: 3, backgroundColor: THEME_COLOR, borderRadius: 2 },
+
+  // Desktop segmented control — fixed track width, 3 equal flex:1 slots.
+  segmentedOuter: { backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#f0f0f0', alignItems: 'center', paddingVertical: 14 },
+  segmentedTrack: {
+    flexDirection: 'row',
+    width: 420,
+    maxWidth: '100%',
+    backgroundColor: '#f1f1f5',
+    borderRadius: 12,
+    padding: 4,
+  },
+  segment: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    borderRadius: 9,
+  },
+  segmentActive: {
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  segmentLabel: { fontSize: 13.5, fontWeight: '600', color: '#7e808c' },
+  segmentLabelActive: { color: THEME_COLOR },
+  segmentBadge: {
+    marginLeft: 6,
+    minWidth: 19,
+    height: 19,
+    borderRadius: 9.5,
+    paddingHorizontal: 5,
+    backgroundColor: '#e2e2ea',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentBadgeActive: { backgroundColor: THEME_COLOR },
+  segmentBadgeText: { fontSize: 10, fontWeight: '700', color: '#7e808c' },
+  segmentBadgeTextActive: { color: '#ffffff' },
+
+  // Orders list — constrained + centered on desktop so cards don't stretch
+  // edge-to-edge on wide screens.
   ordersList: { padding: 16, paddingBottom: 80 },
-  orderCard: { backgroundColor: '#ffffff', borderRadius: 12, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: '#e8e8e8', elevation: 1 },
+  ordersListDesktop: { width: '100%', maxWidth: 880, alignSelf: 'center', paddingTop: 20 },
+
+  orderCard: { backgroundColor: '#ffffff', borderRadius: 16, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: '#eeeef4', shadowColor: '#6C5CE7', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1 },
   cancelledCard: { opacity: 0.7, borderColor: '#dc3545' },
-  orderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  orderHeader: { flexDirection: 'row', alignItems: 'flex-start' },
+  orderIdBadge: { width: 34, height: 34, borderRadius: 10, backgroundColor: THEME_COLOR_LIGHT, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   orderLeft: { flex: 1 },
-  orderRestaurant: { fontSize: 16, fontWeight: '600', color: '#282c3f', marginBottom: 2 },
+  orderRestaurant: { fontSize: 16, fontWeight: '700', color: '#282c3f', marginBottom: 2 },
   orderDetails: { fontSize: 13, color: '#7e808c', marginTop: 2 },
-  orderId: { fontSize: 11, color: '#999', marginTop: 2 },
-  statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginLeft: 8 },
-  statusText: { fontSize: 12, fontWeight: '500', marginLeft: 4 },
-  productsContainer: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
-  productItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
-  productName: { flex: 1, fontSize: 13, color: '#282c3f' },
-  productQuantity: { fontSize: 13, color: '#7e808c', marginHorizontal: 8 },
-  productPrice: { fontSize: 13, fontWeight: '500', color: '#282c3f' },
-  moreProducts: { fontSize: 12, color: '#fc8019', marginTop: 4, fontWeight: '500' },
-  orderFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
-  orderTime: { fontSize: 12, color: '#7e808c' },
+  driverChip: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5 },
+  orderId: { fontSize: 11.5, color: '#9a9ca8' },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, marginLeft: 8 },
+  statusText: { fontSize: 12, fontWeight: '600', marginLeft: 4 },
+  orderFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f4f4f8' },
+  orderTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  orderTime: { fontSize: 12, color: '#a2a4b0' },
   footerButtons: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  cancelButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffebee', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: '#dc3545' },
-  cancelButtonText: { color: '#dc3545', fontSize: 12, fontWeight: '500', marginLeft: 4 },
-  viewButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff3e0', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 6, borderWidth: 1, borderColor: '#fc8019' },
-  viewButtonText: { color: '#fc8019', fontSize: 12, fontWeight: '500', marginLeft: 4 },
+  cancelButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF2F2', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 9, borderWidth: 1, borderColor: '#FCDCDC' },
+  cancelButtonText: { color: '#dc3545', fontSize: 12, fontWeight: '600', marginLeft: 4 },
+  viewButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: THEME_COLOR_LIGHT, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 9, borderWidth: 1, borderColor: '#E3DEFB' },
+  viewButtonText: { color: THEME_COLOR, fontSize: 12, fontWeight: '600', marginLeft: 4 },
+
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80 },
   emptyText: { fontSize: 18, fontWeight: '500', color: '#282c3f', marginTop: 16 },
   emptySubText: { fontSize: 14, color: '#7e808c', marginTop: 8, marginBottom: 24 },
+
   amazonModalContainer: { flex: 1, backgroundColor: '#f5f5f5' },
   amazonModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
   amazonModalBackButton: { padding: 4 },
@@ -586,12 +694,12 @@ const styles = StyleSheet.create({
   amazonCard: { backgroundColor: '#ffffff', padding: 16, marginBottom: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e8e8e8', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
   amazonCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
   amazonTitleRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  amazonIconCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#ff9900', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  amazonIconCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: THEME_COLOR, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
   amazonTitleColumn: { flex: 1 },
   amazonTitleText: { fontSize: 16, fontWeight: '700', color: '#000000' },
   amazonTimeText: { fontSize: 12, color: '#565959' },
   amazonHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  amazonUnreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ff9900' },
+  amazonUnreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: THEME_COLOR },
   amazonBodyText: { fontSize: 14, color: '#0f1111', lineHeight: 20, marginBottom: 4 },
   amazonOrderIdText: { fontSize: 12, color: '#565959', marginBottom: 12 },
   amazonDeliveryCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f7f8fa', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e8e8e8', marginBottom: 14 },
@@ -599,12 +707,12 @@ const styles = StyleSheet.create({
   amazonDeliveryTitle: { fontSize: 13, color: '#0f1111' },
   amazonDeliveryDate: { fontSize: 15, fontWeight: '700', color: '#067d62' },
   amazonProductImagePlaceholder: { width: 48, height: 48, borderRadius: 8, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#f0f0f0' },
-  amazonActionButton: { backgroundColor: '#ffd814', paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#fcd200' },
-  amazonActionButtonText: { fontSize: 14, fontWeight: '600', color: '#0f1111' },
+  amazonActionButton: { backgroundColor: THEME_COLOR, paddingVertical: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: THEME_COLOR },
+  amazonActionButtonText: { fontSize: 14, fontWeight: '600', color: '#ffffff' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   errorText: { color: '#dc3545', fontSize: 16, marginTop: 10, marginBottom: 20 },
-  retryButton: { backgroundColor: '#fc8019', paddingHorizontal: 30, paddingVertical: 10, borderRadius: 8 },
+  retryButton: { backgroundColor: THEME_COLOR, paddingHorizontal: 30, paddingVertical: 10, borderRadius: 8 },
   retryButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '500' },
   emptyNotifications: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
   emptyNotificationsText: { fontSize: 18, fontWeight: '500', color: '#282c3f', marginTop: 16 },
