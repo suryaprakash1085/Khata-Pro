@@ -3,16 +3,25 @@
     "version": ">= 21.7.0",
     "appVersionSource": "remote"
   },
-  "build": {
+"build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EAS_BUILD_PACKAGE_MANAGER": "pnpm"
+      }
     },
-    "preview": {
-      "distribution": "internal"
+     "preview": {
+      "distribution": "internal",
+      "env": {
+        "EAS_BUILD_PACKAGE_MANAGER": "pnpm"
+      }
     },
-    "production": {
-      "autoIncrement": true
+     "production": {
+      "autoIncrement": true,
+      "env": {
+        "EAS_BUILD_PACKAGE_MANAGER": "pnpm"
+      }
     }
   },
   "submit": {
