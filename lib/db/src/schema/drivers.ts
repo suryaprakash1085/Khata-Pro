@@ -41,6 +41,15 @@ export const driversTable = pgTable("drivers", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
+
+export const driverSessionsTable = pgTable("driver_sessions", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  driverId: bigint("driver_id", { mode: "number" }).notNull().references(() => driversTable.id),
+  businessId: bigint("business_id", { mode: "number" }).notNull(),
+  wentOnlineAt: timestamp("went_online_at", { withTimezone: true }).notNull().defaultNow(),
+  wentOfflineAt: timestamp("went_offline_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
  
 export const insertDriverSchema = createInsertSchema(driversTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertDriver = z.infer<typeof insertDriverSchema>;

@@ -17,7 +17,13 @@ export interface PromotionInput {
   start_date: Date;
   end_date: Date;
   status?: PromotionInputStatus;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @exclusiveMinimum
+     */
   discount_percentage?: number;
+  category?: string;
   description?: string;
   promo_code?: string;
   min_order_amount?: number;

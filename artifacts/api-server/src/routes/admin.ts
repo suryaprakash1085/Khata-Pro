@@ -285,6 +285,7 @@ router.get("/admin/businesses", requireAdmin, async (req, res): Promise<void> =>
     id: Number(row.b.id),
     business_name: row.b.businessName,
     business_type: row.b.businessType,
+    phone: row.b.phone ?? "",
     owner_name: row.ownerName ?? "",
     owner_phone: row.ownerPhone ?? "",
     plan: subMap.get(Number(row.b.id)) ?? "free",

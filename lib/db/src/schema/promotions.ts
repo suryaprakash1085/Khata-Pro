@@ -14,6 +14,7 @@ export const promotionsTable = pgTable("promotions", {
   name: varchar("name", { length: 255 }).notNull(),
   promotionType: promotionTypeEnum("promotion_type").notNull(),
   applyTo: promotionApplyToEnum("apply_to").notNull().default("selected"),
+  category: text("category"),
   startDate: date("start_date", { mode: "string" }).notNull(),
   endDate: date("end_date", { mode: "string" }).notNull(),
   status: promotionStatusEnum("status").notNull().default("active"),

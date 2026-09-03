@@ -12,4 +12,5 @@ export type PromotionUpdateApplyTo = typeof PromotionUpdateApplyTo[keyof typeof 
 export const PromotionUpdateApplyTo = {
   all: 'all',
   selected: 'selected',
+  category: 'category',
 } as const;

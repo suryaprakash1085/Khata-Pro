@@ -12,4 +12,5 @@ export type PromotionApplyTo = typeof PromotionApplyTo[keyof typeof PromotionApp
 export const PromotionApplyTo = {
   all: 'all',
   selected: 'selected',
+  category: 'category',
 } as const;

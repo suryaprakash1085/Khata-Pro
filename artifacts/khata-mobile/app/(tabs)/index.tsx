@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { router } from 'expo-router';
@@ -46,13 +47,59 @@ const ACTIONS = [
 
 ] as const;
 
-// 2x2 grid — order matters (fills top-left, top-right, bottom-left, bottom-right)
+// Sales Activity — 3x2 grid on desktop (order matters: fills left-to-right, top-to-bottom)
+// "direct_*" cards come from POS/Admin billing (existing business-stats calculation).
+// "online_*" cards come from Customer/Delivery App orders (sales_orders with channel === 'online').
 const SALES_ACTIVITY_CARDS = [
-  { label: 'To be Collected', unit: 'Amount', field: 'total_to_collect', color: '#2563EB', icon: 'arrow-down-circle' },
-  { label: 'To be Paid', unit: 'Amount', field: 'total_to_pay', color: '#F97316', icon: 'arrow-up-circle' },
-  { label: "Today's Sales", unit: 'Amount', field: 'today_sales', color: '#16A34A', icon: 'trending-up' },
-  { label: 'Orders', unit: 'Count', field: 'transaction_count', color: '#8B5CF6', icon: 'shopping-bag' },
-];
+  {
+    label: 'To be Collected',
+    description: 'COD & pending',
+    unit: 'Amount',
+    field: 'total_to_collect',
+    color: '#2563EB',
+    icon: 'inbox',
+  },
+  {
+    label: 'To be Paid',
+    description: 'Pending payments',
+    unit: 'Amount',
+    field: 'total_to_pay',
+    color: '#F97316',
+    icon: 'credit-card',
+  },
+  {
+    label: 'Direct Sales',
+    description: 'Sales from POS / Admin',
+    unit: 'Amount',
+    field: 'direct_sales',
+    color: '#16A34A',
+    icon: 'shopping-bag',
+  },
+  {
+    label: 'Online Sales',
+    description: 'Sales from Customer App',
+    unit: 'Amount',
+    field: 'online_sales',
+    color: '#7C3AED',
+    icon: 'smartphone',
+  },
+  {
+    label: 'Direct Transactions',
+    description: 'Transactions from POS / Admin',
+    unit: 'Count',
+    field: 'direct_transactions',
+    color: '#8B5CF6',
+    icon: 'file-text',
+  },
+  {
+    label: 'Online Orders',
+    description: 'Orders from Customer App',
+    unit: 'Count',
+    field: 'online_orders',
+    color: '#0EA5E9',
+    icon: 'package',
+  },
+] as const;
 
 // This month's date range, as YYYY-MM-DD strings (matches entry_date filters on the API)
 function getMonthRange() {
@@ -88,6 +135,18 @@ function getProductImage(p: any): string | null {
 function getProductUnit(p: any): string {
   return p?.unit ?? 'pcs';
 }
+
+// Defensive readers for sales_orders (Customer/Delivery App orders).
+// NOTE: field name for the order amount is not confirmed against the live schema —
+// this tries the common candidates. If your sales_orders rows use a different
+// column, narrow this to just that one field.
+function getOrderAmount(so: any): number {
+  return Number(so?.amount ?? so?.total_amount ?? so?.order_amount ?? so?.grand_total ?? 0) || 0;
+}
+function isOnlineChannelOrder(so: any): boolean {
+  return so?.channel === 'online';
+}
+
 function useVendorPendingTotal(businessId?: number, enabled?: boolean) {
   return useQuery<{ total_pending: number }>({
     queryKey: ['purchases', 'pending-total', businessId],
@@ -101,8 +160,12 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { business } = useBusiness();
   const { user } = useAuth();
+  const { width } = useWindowDimensions();
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+
+  // Sales Activity grid columns — 3 on wide/desktop screens, 2 on tablet, 1 on narrow mobile.
+  const salesActivityColumns = width >= 700 ? 3 : width >= 420 ? 2 : 1;
 
   const { data: stats } = useGetBusinessStats(business?.id as number, {
     query: { enabled: !!business?.id, queryKey: getGetBusinessStatsQueryKey(business?.id as number) },
@@ -167,6 +230,15 @@ export default function HomeScreen() {
   });
   const salesOrders: any[] = salesOrdersQuery.data?.data ?? [];
   const salesOrdersLoading = salesOrdersQuery.isLoading;
+
+  // Online Sales / Online Orders — sourced from the same sales_orders data used by the
+  // Sales Order table below, filtered to channel === 'online' (Customer/Delivery App).
+  // This is live query data, so it stays in sync as new online orders come in — nothing hardcoded.
+  const onlineOrderMetrics = useMemo(() => {
+    const onlineOrders = salesOrders.filter(isOnlineChannelOrder);
+    const totalAmount = onlineOrders.reduce((sum, so) => sum + getOrderAmount(so), 0);
+    return { count: onlineOrders.length, totalAmount };
+  }, [salesOrders]);
 
   const salesOrderMatrix = useMemo(() => {
     return SO_CHANNELS.map((channel) => {
@@ -286,19 +358,39 @@ export default function HomeScreen() {
         <CardSection title="Sales Activity" colors={colors}>
           <View style={styles.statGrid}>
             {SALES_ACTIVITY_CARDS.map((item, i) => {
-              const value =
-              item.field === 'transaction_count'
-              ? String(stats?.transaction_count ?? 0)
-              : item.field === 'total_to_pay'
-              ? formatCurrency(vendorPending?.total_pending ?? 0, business?.currency)
-              : formatCurrency((stats as any)?.[item.field] ?? 0, business?.currency);
-              const isRightCol = i % 2 === 1;
-              const isTopRow = i < 2;
+              let value: string;
+              switch (item.field) {
+                case 'total_to_pay':
+                  value = formatCurrency(vendorPending?.total_pending ?? 0, business?.currency);
+                  break;
+                case 'direct_sales':
+                  value = formatCurrency((stats as any)?.today_sales ?? 0, business?.currency);
+                  break;
+                case 'online_sales':
+                  value = formatCurrency(onlineOrderMetrics.totalAmount, business?.currency);
+                  break;
+                case 'direct_transactions':
+                  value = String(stats?.transaction_count ?? 0);
+                  break;
+                case 'online_orders':
+                  value = String(onlineOrderMetrics.count);
+                  break;
+                case 'total_to_collect':
+                default:
+                  value = formatCurrency((stats as any)?.[item.field] ?? 0, business?.currency);
+                  break;
+              }
+
+              const col = i % salesActivityColumns;
+              const isRightCol = col === salesActivityColumns - 1;
+              const isTopRow = i < salesActivityColumns;
+
               return (
                 <View
                   key={item.label}
                   style={[
                     styles.statCell,
+                    { flexBasis: `${100 / salesActivityColumns}%` },
                     !isRightCol && { borderRightWidth: 1, borderRightColor: colors.border },
                     isTopRow && { borderBottomWidth: 1, borderBottomColor: colors.border },
                   ]}
@@ -313,6 +405,11 @@ export default function HomeScreen() {
                       {item.label}
                     </Text>
                   </View>
+                  {item.description && (
+                    <Text style={[styles.statDescription, { color: colors.mutedForeground }]} numberOfLines={1}>
+                      {item.description}
+                    </Text>
+                  )}
                 </View>
               );
             })}
@@ -668,13 +765,14 @@ const styles = StyleSheet.create({
   chip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   chipText: { fontSize: 11.5, fontFamily: 'Inter_500Medium' },
 
-  /* 2x2 stat grid with plus-shaped dividers, like the reference "Sales Activity" card */
+  /* Sales Activity stat grid — columns are set inline (flexBasis) based on screen width */
   statGrid: { flexDirection: 'row', flexWrap: 'wrap', margin: -14 },
-  statCell: { flexBasis: '50%', paddingVertical: 16, paddingHorizontal: 14 },
+  statCell: { paddingVertical: 16, paddingHorizontal: 14 },
   statValue: { fontSize: 19, fontFamily: 'Inter_700Bold', marginBottom: 2 },
   statUnit: { fontSize: 10.5, fontFamily: 'Inter_500Medium', marginBottom: 6 },
   statCaption: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   statCaptionText: { fontSize: 11, fontFamily: 'Inter_500Medium' },
+  statDescription: { fontSize: 9.5, fontFamily: 'Inter_500Medium', marginTop: 2 },
 
   labelValueRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12 },
   labelValueLabel: { fontSize: 12.5, fontFamily: 'Inter_500Medium' },

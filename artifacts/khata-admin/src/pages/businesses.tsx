@@ -184,8 +184,8 @@ export default function Businesses() {
                     <TableCell>
                       <div className="flex flex-col">
                         <span className="font-medium text-sm">{business.owner_name}</span>
-                        {business.owner_phone && (
-                          <span className="text-xs text-muted-foreground font-mono">{business.owner_phone}</span>
+                        {business.phone && (
+                          <span className="text-xs text-muted-foreground font-mono">{business.phone}</span>
                         )}
                       </div>
                     </TableCell>

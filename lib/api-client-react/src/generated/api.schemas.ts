@@ -187,6 +187,7 @@ export interface AdminBusiness {
   id: number;
   business_name: string;
   business_type: string;
+  phone?: string;
   owner_name: string;
   owner_phone?: string;
   plan: AdminBusinessPlan;
@@ -535,6 +536,7 @@ export type PromotionApplyTo = typeof PromotionApplyTo[keyof typeof PromotionApp
 export const PromotionApplyTo = {
   all: 'all',
   selected: 'selected',
+  category: 'category',
 } as const;
 
 export type PromotionStatus = typeof PromotionStatus[keyof typeof PromotionStatus];
@@ -556,6 +558,8 @@ export interface Promotion {
   status: PromotionStatus;
   /** @nullable */
   discount_percentage?: number | null;
+  /** @nullable */
+  category?: string | null;
   /** @nullable */
   description?: string | null;
   /** @nullable */
@@ -583,6 +587,7 @@ export type PromotionInputApplyTo = typeof PromotionInputApplyTo[keyof typeof Pr
 export const PromotionInputApplyTo = {
   all: 'all',
   selected: 'selected',
+  category: 'category',
 } as const;
 
 export type PromotionInputStatus = typeof PromotionInputStatus[keyof typeof PromotionInputStatus];
@@ -601,7 +606,13 @@ export interface PromotionInput {
   start_date: string;
   end_date: string;
   status?: PromotionInputStatus;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @exclusiveMinimum
+     */
   discount_percentage?: number;
+  category?: string;
   description?: string;
   promo_code?: string;
   min_order_amount?: number;
@@ -615,6 +626,7 @@ export type PromotionUpdateApplyTo = typeof PromotionUpdateApplyTo[keyof typeof 
 export const PromotionUpdateApplyTo = {
   all: 'all',
   selected: 'selected',
+  category: 'category',
 } as const;
 
 export type PromotionUpdateStatus = typeof PromotionUpdateStatus[keyof typeof PromotionUpdateStatus];
@@ -631,6 +643,13 @@ export interface PromotionUpdate {
   start_date?: string;
   end_date?: string;
   status?: PromotionUpdateStatus;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @exclusiveMinimum
+     */
+  discount_percentage?: number;
+  category?: string;
   description?: string;
   promo_code?: string;
   min_order_amount?: number;

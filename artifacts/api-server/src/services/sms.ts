@@ -1,26 +1,22 @@
 /**
- * sms.ts
+ * twoFactor.ts
  * -----------------------------------------------------------------------
- * OTP SMS sending via MSG91.
+ * OTP SMS sending + verification via 2Factor.in.
  *
  * SETUP:
- *   1. Sign up at https://msg91.com, get your Auth Key from the dashboard.
+ *   1. Sign up at https://2factor.in, get your API key from the dashboard.
  *   2. Add to api-server's .env:
- *        MSG91_AUTH_KEY=your_auth_key_here
- *        MSG91_SENDER_ID=your_6_char_sender_id   (MSG91 assigns/lets you pick one)
- *        MSG91_OTP_TEMPLATE_ID=your_dlt_template_id  (created in MSG91 dashboard,
- *                                                      required for India DLT compliance)
- *   3. Your OTP template text on MSG91's dashboard should contain a `##OTP##`
- *      placeholder, e.g.: "Your Green Cart driver login OTP is ##OTP##. Valid for 5 min."
+ *        TWO_FACTOR_API_KEY=your_api_key_here
  *
- * If you switch providers later (Fast2SMS, Twilio, etc.), only this file
- * needs to change — callers just use `sendOtpSms(phone, otp)`.
+ * Unlike MSG91, 2Factor GENERATES the OTP for you and manages verification
+ * server-side. You get back a `session_id` from AUTOGEN, and pass that +
+ * the user's entered code to VERIFY. There's no OTP value to store/compare
+ * on our side anymore — just the session_id, temporarily, between send and verify.
  * -----------------------------------------------------------------------
  */
 
-const MSG91_AUTH_KEY = process.env.MSG91_AUTH_KEY ?? "";
-const MSG91_SENDER_ID = process.env.MSG91_SENDER_ID ?? "";
-const MSG91_OTP_TEMPLATE_ID = process.env.MSG91_OTP_TEMPLATE_ID ?? "";
+const TWO_FACTOR_API_KEY = process.env.TWO_FACTOR_API_KEY ?? "";
+const TWO_FACTOR_BASE_URL = "https://2factor.in/API/V1";
 
 export class SmsError extends Error {
   constructor(message: string) {
@@ -29,39 +25,84 @@ export class SmsError extends Error {
   }
 }
 
+// Temporary in-memory store: normalizedPhone -> { sessionId, expiresAt }
+// NOTE: this resets on server restart and won't work across multiple
+// instances. Fine for now since there was no persistence before either,
+// but move this to a DB table (or Redis) before scaling horizontally.
+const otpSessions = new Map<string, { sessionId: string; expiresAt: number }>();
+
+const OTP_SESSION_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 /**
- * Sends a 6-digit OTP to an Indian phone number via MSG91.
- * `phone` should be the 10-digit number (no country code) — we prefix 91.
+ * Triggers 2Factor to generate + send an OTP to a 10-digit Indian phone number.
+ * Stores the returned session_id against the phone for later verification.
  */
-export async function sendOtpSms(phone: string, otp: string): Promise<void> {
-  if (!MSG91_AUTH_KEY) {
-    // Dev fallback so local testing doesn't require a real MSG91 account yet.
-    console.warn(`[sms] MSG91_AUTH_KEY not set — would have sent OTP ${otp} to ${phone}`);
+export async function sendOtpSms(phone: string): Promise<void> {
+  if (!TWO_FACTOR_API_KEY) {
+    // Dev fallback so local testing doesn't require a real 2Factor account yet.
+    console.warn(`[sms] TWO_FACTOR_API_KEY not set — would have sent OTP to ${phone}`);
+    otpSessions.set(phone, { sessionId: "DEV-SESSION", expiresAt: Date.now() + OTP_SESSION_TTL_MS });
     return;
   }
 
-  const url = "https://control.msg91.com/api/v5/otp";
-  const params = new URLSearchParams({
-    authkey: MSG91_AUTH_KEY,
-    mobile: `91${phone}`,
-    otp,
-    sender: MSG91_SENDER_ID,
-    template_id: MSG91_OTP_TEMPLATE_ID,
-  });
+  const url = `${TWO_FACTOR_BASE_URL}/${TWO_FACTOR_API_KEY}/SMS/+91${phone}/AUTOGEN`;
+  const res = await fetch(url, { method: "GET" });
+  const body = (await res.json().catch(() => ({}))) as { Status?: string; Details?: string };
 
-  const res = await fetch(`${url}?${params.toString()}`, { method: "POST" });
-  const body = await res.json().catch(() => ({}));
-
-  if (!res.ok || (body as any).type === "error") {
-    throw new SmsError(`MSG91 send failed: ${JSON.stringify(body)}`);
+  if (!res.ok || body.Status !== "Success" || !body.Details) {
+    throw new SmsError(`2Factor send failed: ${JSON.stringify(body)}`);
   }
+
+  otpSessions.set(phone, { sessionId: body.Details, expiresAt: Date.now() + OTP_SESSION_TTL_MS });
 }
 
-export function generateOtp(): string {
-  // !! TESTING ONLY — fixed OTP so you can test the login flow without
-  // waiting for real SMS / MSG91 setup. Every driver login will accept "12345".
-  // Before going live, delete this line and uncomment the real one below.
-  return "12345";
+/**
+ * Verifies the OTP entered by the user against the stored session for that phone.
+ * Returns true if matched, false otherwise (invalid, expired, or no session found).
+ */
+export async function verifyOtpSms(phone: string, otp: string): Promise<boolean> {
+  const session = otpSessions.get(phone);
+  if (!session) return false;
 
-  // return Math.floor(100000 + Math.random() * 900000).toString();
+  if (Date.now() > session.expiresAt) {
+    otpSessions.delete(phone);
+    return false;
+  }
+
+  if (!TWO_FACTOR_API_KEY) {
+    // Dev fallback — accept a fixed code when no real API key is configured.
+    const ok = otp === "123456";
+    if (ok) otpSessions.delete(phone);
+    return ok;
+  }
+
+  const url = `${TWO_FACTOR_BASE_URL}/${TWO_FACTOR_API_KEY}/SMS/VERIFY/${session.sessionId}/${otp}`;
+  const res = await fetch(url, { method: "GET" });
+  const body = (await res.json().catch(() => ({}))) as { Status?: string; Details?: string };
+
+  const ok = res.ok && body.Status === "Success";
+  if (ok) otpSessions.delete(phone); // one-time use
+  return ok;
+}
+
+/**
+ * Sends a PRE-GENERATED OTP via 2Factor SMS — used when the caller (not
+ * 2Factor) owns the OTP value, hashing, expiry and verification logic.
+ * E.g. delivery confirmation OTPs, where we bcrypt-hash and store our own
+ * code in the DB. Unlike sendOtpSms()/verifyOtpSms() (2Factor's AUTOGEN +
+ * session_id flow, used for driver login), this is fire-and-forget delivery only.
+ */
+export async function sendCustomOtpSms(phone: string, otp: string): Promise<void> {
+  if (!TWO_FACTOR_API_KEY) {
+    console.warn(`[sms] TWO_FACTOR_API_KEY not set — would have sent OTP ${otp} to ${phone}`);
+    return;
+  }
+
+  const url = `${TWO_FACTOR_BASE_URL}/${TWO_FACTOR_API_KEY}/SMS/${phone}/${otp}`;
+  const res = await fetch(url, { method: "GET" });
+  const body = (await res.json().catch(() => ({}))) as { Status?: string };
+
+  if (!res.ok || body.Status !== "Success") {
+    throw new SmsError(`2Factor custom OTP send failed: ${JSON.stringify(body)}`);
+  }
 }
