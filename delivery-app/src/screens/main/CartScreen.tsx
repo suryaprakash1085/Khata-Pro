@@ -113,23 +113,50 @@ const PaymentSuccessModal = ({ visible, onClose, orderDetails, onViewOrders, onC
 const OrderSummaryModal = ({ visible, onClose, subtotal, deliveryFee, tax, total, distanceInfo, isCalculating, cartItems, discount }: any) => {
   if (!visible) return null;
 
-  const getGSTBreakdown = () => {
-    if (!cartItems || cartItems.length === 0) return null;
+  // const getGSTBreakdown = () => {
+  //   if (!cartItems || cartItems.length === 0) return null;
 
-    const gstRates = new Map();
-    cartItems.forEach((item: any) => {
-      const rate = item.gst_rate || 0;
-      const itemTotal = (item.price || 0) * (item.quantity || 1);
-      const gstAmount = itemTotal * (rate / 100);
-      gstRates.set(rate, (gstRates.get(rate) || 0) + gstAmount);
-    });
+  //   const gstRates = new Map();
+  //   // cartItems.forEach((item: any) => {
+  //   //   const rate = item.gst_rate || 0;
+  //   //   const itemTotal = (item.price || 0) * (item.quantity || 1);
+  //   //   const gstAmount = itemTotal * (rate / 100);
+  //   cartItems.forEach((item) => {
+  // const rate = item.gst_rate || 0;
+  // const itemTotal = (item.price || 0) * (item.quantity || 1);   // 👈 discount apply pannாம direct price
+  // const gstAmount = itemTotal * (rate / 100);
+  //     gstRates.set(rate, (gstRates.get(rate) || 0) + gstAmount);
+  //   });
 
-    return Array.from(gstRates.entries()).map(([rate, amount]) => ({
-      rate,
-      amount: Math.round(amount as number),
-    }));
-  };
+  //   return Array.from(gstRates.entries()).map(([rate, amount]) => ({
+  //     rate,
+  //     amount: Math.round(amount as number),
+  //   }));
+  // };
+const getGSTBreakdown = () => {
+  if (!cartItems || cartItems.length === 0) return null;
 
+  // 👇 calculateTotal() la irukra maadhiri discount ratio calculate pannunga
+  const rawSubtotal = cartItems.reduce(
+    (sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1),
+    0
+  );
+  const discountRatio = rawSubtotal > 0 ? discount / rawSubtotal : 0;
+
+  const gstRates = new Map();
+  cartItems.forEach((item: any) => {
+    const rate = item.gst_rate || 0;
+    const itemTotal = (item.price || 0) * (item.quantity || 1);
+    const discountedItemTotal = itemTotal - itemTotal * discountRatio; // 👈 discount apply pannunga
+    const gstAmount = discountedItemTotal * (rate / 100);
+    gstRates.set(rate, (gstRates.get(rate) || 0) + gstAmount);
+  });
+
+  return Array.from(gstRates.entries()).map(([rate, amount]) => ({
+    rate,
+    amount: Math.round(amount as number),
+  }));
+};
   const gstBreakdown = getGSTBreakdown();
 
   return (
@@ -494,16 +521,23 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
     const { discount } = calculateDiscount(subtotal);
 
     // 👇 GST calculate pannுறதுக்கு munnadி, item level la discount proportionally apply pannுறோம்
+    // const discountRatio = subtotal > 0 ? discount / subtotal : 0;
+
+    // const totalGST = storeCartItems.reduce((sum: number, item: any) => {
+    //   const itemTotal = (item.price || 0) * (item.quantity || 1);
+    //   const discountedItemTotal = itemTotal - itemTotal * discountRatio;
+    //   const gstRate = item.gst_rate || 0;
+    //   const gstAmount = discountedItemTotal * (gstRate / 100);
+    //   return sum + gstAmount;
+    // }, 0);
     const discountRatio = subtotal > 0 ? discount / subtotal : 0;
 
-    const totalGST = storeCartItems.reduce((sum: number, item: any) => {
-      const itemTotal = (item.price || 0) * (item.quantity || 1);
-      const discountedItemTotal = itemTotal - itemTotal * discountRatio;
-      const gstRate = item.gst_rate || 0;
-      const gstAmount = discountedItemTotal * (gstRate / 100);
-      return sum + gstAmount;
-    }, 0);
-
+const totalGST = storeCartItems.reduce((sum, item) => {
+  const itemTotal = (item.price || 0) * (item.quantity || 1);
+  const discountedItemTotal = itemTotal - itemTotal * discountRatio;   // 👈 discount apply pannitu
+  const gstRate = item.gst_rate || 0;
+  return sum + discountedItemTotal * (gstRate / 100);
+}, 0);
     const roundedGST = Math.round(totalGST);
     const deliveryFee = 30;
     const total = subtotal - discount + roundedGST + deliveryFee;
