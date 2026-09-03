@@ -2,7 +2,7 @@
 import { getToken, removeToken, removeUser, setToken, setUser } from '../utils/storage';
 import { registerForPushNotificationsAsync, savePushTokenToServer } from './pushNotifications';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || ' /api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
