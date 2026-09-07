@@ -23,13 +23,6 @@ import * as Location from 'expo-location';
 
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000') + '/api';
 
-<<<<<<< HEAD
-=======
-const CompatibleFlatList: any = FlatList;
-
-// ✅ Uses EXPO_PUBLIC_API_BASE_URL from .env in production/cloud builds.
-// Falls back to localhost only for local development if the env var isn't set.
->>>>>>> 69bde541ad12bcacf300a9ab549bd92ef9ee05cb
 let authToken: string | null = null;
 
 // ✅ Theme color — matched to Cart screen's purple/indigo (#6C5CE7)

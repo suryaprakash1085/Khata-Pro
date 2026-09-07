@@ -1,18 +1,7 @@
 
 import axios from 'axios';
 
-<<<<<<< HEAD
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000') + '/api';
-=======
-
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000') + '/api';
-
-// ✅ Uses EXPO_PUBLIC_API_BASE_URL from .env (works in cloud/production
-// builds). Falls back to localhost only for local development if the
-// env var isn't set.
-
-
->>>>>>> 69bde541ad12bcacf300a9ab549bd92ef9ee05cb
 
 export interface Notification {
   id: number;

@@ -4,19 +4,12 @@ import React, { createContext, useState, ReactNode, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '@env';
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 69bde541ad12bcacf300a9ab549bd92ef9ee05cb
 // TODO: replace with your api-server's actual base URL
 // const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000') + '/api';
 
 
-<<<<<<< HEAD
 // const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || API_URL || 'http://localhost:3000/api').replace(/\/$/, '');
-=======
->>>>>>> 69bde541ad12bcacf300a9ab549bd92ef9ee05cb
 
 
 interface User {
