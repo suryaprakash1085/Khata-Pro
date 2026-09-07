@@ -3,11 +3,7 @@ import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { getToken, removeToken, removeUser } from '../utils/storage';
 import { API_URL } from '@env';
 
-<<<<<<< HEAD
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
-=======
-const BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || API_URL || 'http://localhost:3000/api').replace(/\/$/, '');
->>>>>>> dd520935df100fa787865484198a4572cead7812
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: BASE_URL,

@@ -118,14 +118,7 @@
 // export default new NotificationService();
 import axios from 'axios';
 
-<<<<<<< HEAD
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000') + '/api';
-=======
-// ✅ Uses EXPO_PUBLIC_API_BASE_URL from .env (works in cloud/production
-// builds). Falls back to localhost only for local development if the
-// env var isn't set.
-const API_BASE_URL = `${process.env.EXPO_PUBLIC_API_BASE_URL || ' '}/api`;
->>>>>>> dd520935df100fa787865484198a4572cead7812
 
 export interface Notification {
   id: number;

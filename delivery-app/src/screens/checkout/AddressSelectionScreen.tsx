@@ -21,16 +21,8 @@ import { AuthContext } from '../../context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 
-<<<<<<< HEAD
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000') + '/api';
 
-=======
-const CompatibleFlatList: any = FlatList;
-
-// ✅ Uses EXPO_PUBLIC_API_BASE_URL from .env in production/cloud builds.
-// Falls back to localhost only for local development if the env var isn't set.
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || ' ';
->>>>>>> dd520935df100fa787865484198a4572cead7812
 let authToken: string | null = null;
 
 // ✅ Theme color — matched to Cart screen's purple/indigo (#6C5CE7)

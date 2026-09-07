@@ -1,7 +1,3 @@
-
-
-
- 
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -323,11 +319,7 @@ const handleConfirmOrderSubmit = () => {
         const customerId = activeDelivery?.customer_id;
 
         if (salesOrder.id && businessId && customerId) {
-<<<<<<< HEAD
-          fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/notifications/order-confirmed`, {
-=======
           fetch('https://khata-pro.onrender.com/api/notifications/order-confirmed', {
->>>>>>> dd520935df100fa787865484198a4572cead7812
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
