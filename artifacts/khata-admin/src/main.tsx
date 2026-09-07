@@ -12,6 +12,6 @@ import App from './App';
 
 import './index.css';
 
-setBaseUrl('http://localhost:3000');
+setBaseUrl('https://khata-pro.onrender.com');
 
 createRoot(document.getElementById('root')!).render(<App />);

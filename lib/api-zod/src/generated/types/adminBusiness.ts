@@ -11,6 +11,7 @@ export interface AdminBusiness {
   id: number;
   business_name: string;
   business_type: string;
+  phone?: string;
   owner_name: string;
   owner_phone?: string;
   plan: AdminBusinessPlan;

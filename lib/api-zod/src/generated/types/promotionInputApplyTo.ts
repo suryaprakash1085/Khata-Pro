@@ -12,4 +12,5 @@ export type PromotionInputApplyTo = typeof PromotionInputApplyTo[keyof typeof Pr
 export const PromotionInputApplyTo = {
   all: 'all',
   selected: 'selected',
+  category: 'category',
 } as const;

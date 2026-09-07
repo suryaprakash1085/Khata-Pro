@@ -40,9 +40,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
   const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
 
-  // ============================================================
-  // LOGOUT - EXACT FUNCTIONALITY FROM FIRST CODE (NOT CHANGED)
-  // ============================================================
+  
 
   const resetToLogin = () => {
     let nav = navigation;
@@ -91,9 +89,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     }
   };
 
-  // ============================================================
-  // MENU ITEMS — grouped like a real app's Account settings page
-  // ============================================================
+ 
 
   const accountItems = [
     {
@@ -136,9 +132,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     </TouchableOpacity>
   );
 
-  // ============================================================
-  // SCREEN
-  // ============================================================
+  
 
   const initial = user?.name ? user.name.charAt(0).toUpperCase() : 'U';
 
@@ -207,9 +201,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   );
 };
 
-// ============================================================
-// STYLES
-// ============================================================
+
 
 const styles = StyleSheet.create({
   container: {

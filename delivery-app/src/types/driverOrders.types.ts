@@ -28,6 +28,7 @@ export interface OrderCardData {
   notes?: string | null;
   assignedAt?: string | null;
   pickedUpAt?: string | null;
+  outForDeliveryAt?: string | null;
   deliveredAt?: string | null;
   cancelledAt?: string | null;
 }

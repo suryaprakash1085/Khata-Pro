@@ -1,15 +1,15 @@
 import { Router, type IRouter } from "express";
-import { db, driversTable, deliveriesTable, customersTable } from "@workspace/db";
-import { eq, and, or, ilike, count, desc, gte, sum,sql } from "drizzle-orm";
+import { db, driversTable, deliveriesTable, customersTable, driverSessionsTable } from "@workspace/db";
+import { eq, and, or, ilike, count, desc, gte, sum, sql, isNull } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import { requireDriverAuth } from "../middlewares/driverAuth";
 import { signDriverToken } from "../middlewares/driverAuth";
-import { generateOtp, sendOtpSms } from "../services/sms";
+import { verifyOtpSms , sendOtpSms } from "../services/sms";
 import { CreateDriverBody, UpdateDriverBody } from "@workspace/api-zod";
 import { z } from "zod/v4";
- 
+
 const router: IRouter = Router();
- 
+
 function formatDriver(d: any) {
   return {
     id: Number(d.id),
@@ -32,11 +32,11 @@ function formatDriver(d: any) {
     created_at: d.createdAt,
   };
 }
- 
+
 // ============================================================
 // EXISTING ADMIN ROUTES (unchanged — used by khata-mobile POS)
 // ============================================================
- 
+
 // GET /drivers
 router.get("/drivers", requireAuth, async (req, res): Promise<void> => {
   const businessId = parseInt(req.query.business_id as string, 10);
@@ -49,18 +49,18 @@ router.get("/drivers", requireAuth, async (req, res): Promise<void> => {
   const offset = (page - 1) * limit;
   const search = req.query.search as string | undefined;
   const status = req.query.status as string | undefined;
- 
+
   const conditions: any[] = [eq(driversTable.businessId, businessId), eq(driversTable.isDeleted, false)];
   if (search) {
     conditions.push(or(ilike(driversTable.name, `%${search}%`), ilike(driversTable.phone, `%${search}%`)));
   }
   if (status) conditions.push(eq(driversTable.status, status as any));
- 
+
   const [drivers, totalResult] = await Promise.all([
     db.select().from(driversTable).where(and(...conditions)).limit(limit).offset(offset).orderBy(desc(driversTable.createdAt)),
     db.select({ count: count() }).from(driversTable).where(and(...conditions)),
   ]);
- 
+
   res.json({
     data: drivers.map(formatDriver),
     total: Number(totalResult[0].count),
@@ -68,7 +68,7 @@ router.get("/drivers", requireAuth, async (req, res): Promise<void> => {
     limit,
   });
 });
- 
+
 // POST /drivers
 router.post("/drivers", requireAuth, async (req, res): Promise<void> => {
   const parsed = CreateDriverBody.safeParse(req.body);
@@ -87,7 +87,7 @@ router.post("/drivers", requireAuth, async (req, res): Promise<void> => {
   }).returning();
   res.status(201).json(formatDriver(driver));
 });
- 
+
 // GET /drivers/:id
 router.get("/drivers/:id", requireAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
@@ -100,7 +100,7 @@ router.get("/drivers/:id", requireAuth, async (req, res): Promise<void> => {
   }
   res.json(formatDriver(driver));
 });
- 
+
 // PUT /drivers/:id
 router.put("/drivers/:id", requireAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
@@ -110,7 +110,16 @@ router.put("/drivers/:id", requireAuth, async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-const d = parsed.data;
+  const d = parsed.data;
+
+  // Look up current status BEFORE updating, so we can detect the transition
+  const [currentDriver] = await db.select().from(driversTable)
+    .where(and(eq(driversTable.id, id), eq(driversTable.isDeleted, false)));
+  if (!currentDriver) {
+    res.status(404).json({ error: "Driver not found" });
+    return;
+  }
+
   const updates: any = {};
   if (d.name !== undefined) updates.name = d.name;
   if (d.phone !== undefined) updates.phone = d.phone;
@@ -127,16 +136,35 @@ const d = parsed.data;
   if (d.emergency_contact_name !== undefined) updates.emergencyContactName = d.emergency_contact_name;
   if (d.emergency_contact_relation !== undefined) updates.emergencyContactRelation = d.emergency_contact_relation;
   if (d.emergency_contact_phone !== undefined) updates.emergencyContactPhone = d.emergency_contact_phone;
- 
+
   const [driver] = await db.update(driversTable).set(updates)
     .where(and(eq(driversTable.id, id), eq(driversTable.isDeleted, false))).returning();
   if (!driver) {
     res.status(404).json({ error: "Driver not found" });
     return;
   }
+
+  // ── NEW: track online/offline sessions for Working Hours ──
+  if (d.status !== undefined && d.status !== currentDriver.status) {
+    if (d.status === "available") {
+      const [openSession] = await db.select().from(driverSessionsTable)
+        .where(and(eq(driverSessionsTable.driverId, id), isNull(driverSessionsTable.wentOfflineAt)));
+      if (!openSession) {
+        await db.insert(driverSessionsTable).values({
+          driverId: id,
+          businessId: Number(currentDriver.businessId),
+        });
+      }
+    } else if (d.status === "offline") {
+      await db.update(driverSessionsTable)
+        .set({ wentOfflineAt: new Date() })
+        .where(and(eq(driverSessionsTable.driverId, id), isNull(driverSessionsTable.wentOfflineAt)));
+    }
+  }
+
   res.json(formatDriver(driver));
 });
- 
+
 // DELETE /drivers/:id
 router.delete("/drivers/:id", requireAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
@@ -149,20 +177,70 @@ router.delete("/drivers/:id", requireAuth, async (req, res): Promise<void> => {
   }
   res.json({ message: "Driver deleted" });
 });
- 
+
 // ============================================================
 // NEW: driver-app (delivery-app) login + push token routes
 // ============================================================
- 
+
 const RequestOtpBody = z.object({
   phone: z.string().min(10).max(20),
   // business_id is intentionally NOT accepted from the client anymore —
   // the delivery-app is shared across businesses (Zomato-style), so the
   // driver's business is resolved server-side from their phone number.
 });
- 
+
 // POST /drivers/login/request-otp
 // delivery-app calls this first — sends a 6-digit OTP to the driver's phone.
+// router.post("/drivers/login/request-otp", async (req, res): Promise<void> => {
+//   const parsed = RequestOtpBody.safeParse(req.body);
+//   if (!parsed.success) {
+//     res.status(400).json({ error: parsed.error.message });
+//     return;
+//   }
+//   const { phone } = parsed.data;
+
+//   const matches = await db.select().from(driversTable).where(
+//     and(
+//       eq(driversTable.phone, phone),
+//       eq(driversTable.isDeleted, false)
+//     )
+//   );
+
+//   if (matches.length === 0) {
+//     // Don't reveal whether the phone exists — generic message either way.
+//     res.status(404).json({ error: "No driver found with this phone number" });
+//     return;
+//   }
+//   if (matches.length > 1) {
+//     // Phone number is expected to be unique across all drivers/businesses.
+//     // If it isn't (e.g. legacy duplicate data), fail loudly instead of
+//     // silently picking one business — this needs a data fix, not a guess.
+//     console.error(`[drivers] Phone ${phone} matches ${matches.length} driver records — expected unique.`);
+//     res.status(409).json({ error: "This phone number is linked to multiple accounts. Please contact support." });
+//     return;
+//   }
+
+//   const driver = matches[0];
+
+//   const otp = generateOtp();
+//   const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min
+
+//   await db.update(driversTable)
+//     .set({ otpCode: otp, otpExpiresAt: expiresAt })
+//     .where(eq(driversTable.id, driver.id));
+
+//   try {
+//     await sendOtpSms(phone, otp);
+//   } catch (err) {
+//     console.error("[drivers] Failed to send OTP SMS:", err);
+//     res.status(502).json({ error: "Failed to send OTP. Please try again." });
+//     return;
+//   }
+
+//   res.json({ message: "OTP sent" });
+// });
+// POST /drivers/login/request-otp
+// delivery-app calls this first — triggers 2Factor to generate + send an OTP.
 router.post("/drivers/login/request-otp", async (req, res): Promise<void> => {
   const parsed = RequestOtpBody.safeParse(req.body);
   if (!parsed.success) {
@@ -170,57 +248,98 @@ router.post("/drivers/login/request-otp", async (req, res): Promise<void> => {
     return;
   }
   const { phone } = parsed.data;
- 
+
   const matches = await db.select().from(driversTable).where(
     and(
       eq(driversTable.phone, phone),
       eq(driversTable.isDeleted, false)
     )
   );
- 
+
   if (matches.length === 0) {
-    // Don't reveal whether the phone exists — generic message either way.
     res.status(404).json({ error: "No driver found with this phone number" });
     return;
   }
   if (matches.length > 1) {
-    // Phone number is expected to be unique across all drivers/businesses.
-    // If it isn't (e.g. legacy duplicate data), fail loudly instead of
-    // silently picking one business — this needs a data fix, not a guess.
     console.error(`[drivers] Phone ${phone} matches ${matches.length} driver records — expected unique.`);
     res.status(409).json({ error: "This phone number is linked to multiple accounts. Please contact support." });
     return;
   }
- 
-  const driver = matches[0];
- 
-  const otp = generateOtp();
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 min
- 
-  await db.update(driversTable)
-    .set({ otpCode: otp, otpExpiresAt: expiresAt })
-    .where(eq(driversTable.id, driver.id));
- 
+
   try {
-    await sendOtpSms(phone, otp);
+    await sendOtpSms(phone);
   } catch (err) {
     console.error("[drivers] Failed to send OTP SMS:", err);
     res.status(502).json({ error: "Failed to send OTP. Please try again." });
     return;
   }
- 
+
   res.json({ message: "OTP sent" });
 });
- 
+// const VerifyOtpBody = z.object({
+//   phone: z.string().min(10).max(20),
+//   otp: z.string().length(6).or(z.string().length(5)), // 5 while using the "12345" test OTP
+// });
+
+// // POST /drivers/login/verify-otp
+// // delivery-app calls this with the OTP the driver typed in. Returns a driver JWT
+// // plus the driver record — the client reads business_id from `driver.business_id`
+// // dynamically instead of sending/assuming one.
+// router.post("/drivers/login/verify-otp", async (req, res): Promise<void> => {
+//   const parsed = VerifyOtpBody.safeParse(req.body);
+//   if (!parsed.success) {
+//     res.status(400).json({ error: parsed.error.message });
+//     return;
+//   }
+//   const { phone, otp } = parsed.data;
+
+//   const matches = await db.select().from(driversTable).where(
+//     and(
+//       eq(driversTable.phone, phone),
+//       eq(driversTable.isDeleted, false)
+//     )
+//   );
+
+//   if (matches.length === 0) {
+//     res.status(404).json({ error: "Driver not found" });
+//     return;
+//   }
+//   if (matches.length > 1) {
+//     console.error(`[drivers] Phone ${phone} matches ${matches.length} driver records — expected unique.`);
+//     res.status(409).json({ error: "This phone number is linked to multiple accounts. Please contact support." });
+//     return;
+//   }
+
+//   const driver = matches[0];
+
+//   if (!driver.otpCode || driver.otpCode !== otp) {
+//     res.status(401).json({ error: "Invalid OTP" });
+//     return;
+//   }
+//   if (!driver.otpExpiresAt || new Date(driver.otpExpiresAt) < new Date()) {
+//     res.status(401).json({ error: "OTP expired, please request a new one" });
+//     return;
+//   }
+
+//   // OTP consumed — clear it so it can't be reused
+//   await db.update(driversTable)
+//     .set({ otpCode: null, otpExpiresAt: null })
+//     .where(eq(driversTable.id, driver.id));
+
+//   const token = signDriverToken({
+//     driverId: Number(driver.id),
+//     businessId: Number(driver.businessId),
+//     role: "driver",
+//   });
+
+//   res.json({ token, driver: formatDriver(driver) });
+// });
 const VerifyOtpBody = z.object({
   phone: z.string().min(10).max(20),
-  otp: z.string().length(6).or(z.string().length(5)), // 5 while using the "12345" test OTP
+  otp: z.string().min(4).max(6), // 2Factor OTPs are typically 4 or 6 digits
 });
- 
+
 // POST /drivers/login/verify-otp
-// delivery-app calls this with the OTP the driver typed in. Returns a driver JWT
-// plus the driver record — the client reads business_id from `driver.business_id`
-// dynamically instead of sending/assuming one.
 router.post("/drivers/login/verify-otp", async (req, res): Promise<void> => {
   const parsed = VerifyOtpBody.safeParse(req.body);
   if (!parsed.success) {
@@ -228,14 +347,14 @@ router.post("/drivers/login/verify-otp", async (req, res): Promise<void> => {
     return;
   }
   const { phone, otp } = parsed.data;
- 
+
   const matches = await db.select().from(driversTable).where(
     and(
       eq(driversTable.phone, phone),
       eq(driversTable.isDeleted, false)
     )
   );
- 
+
   if (matches.length === 0) {
     res.status(404).json({ error: "Driver not found" });
     return;
@@ -245,36 +364,27 @@ router.post("/drivers/login/verify-otp", async (req, res): Promise<void> => {
     res.status(409).json({ error: "This phone number is linked to multiple accounts. Please contact support." });
     return;
   }
- 
+
   const driver = matches[0];
- 
-  if (!driver.otpCode || driver.otpCode !== otp) {
-    res.status(401).json({ error: "Invalid OTP" });
+
+  const isValid = await verifyOtpSms(phone, otp);
+  if (!isValid) {
+    res.status(401).json({ error: "Invalid or expired OTP" });
     return;
   }
-  if (!driver.otpExpiresAt || new Date(driver.otpExpiresAt) < new Date()) {
-    res.status(401).json({ error: "OTP expired, please request a new one" });
-    return;
-  }
- 
-  // OTP consumed — clear it so it can't be reused
-  await db.update(driversTable)
-    .set({ otpCode: null, otpExpiresAt: null })
-    .where(eq(driversTable.id, driver.id));
- 
+
   const token = signDriverToken({
     driverId: Number(driver.id),
     businessId: Number(driver.businessId),
     role: "driver",
   });
- 
+
   res.json({ token, driver: formatDriver(driver) });
 });
- 
 const RegisterPushTokenBody = z.object({
   push_token: z.string().min(1),
 });
- 
+
 // POST /drivers/push-token
 // delivery-app calls this after login (and again if the token ever refreshes)
 // to register where push notifications should be sent.
@@ -285,14 +395,14 @@ router.post("/drivers/push-token", requireDriverAuth, async (req, res): Promise<
     return;
   }
   const { driverId } = (req as any).driver;
- 
+
   await db.update(driversTable)
     .set({ pushToken: parsed.data.push_token })
     .where(eq(driversTable.id, driverId));
- 
+
   res.json({ message: "Push token registered" });
 });
- 
+
 // GET /drivers/me
 // delivery-app calls this to get the logged-in driver's own record.
 router.get("/drivers/me", requireDriverAuth, async (req, res): Promise<void> => {
@@ -305,42 +415,42 @@ router.get("/drivers/me", requireDriverAuth, async (req, res): Promise<void> => 
   }
   res.json(formatDriver(driver));
 });
- 
+
 // ============================================================
 // NEW: driver home-screen stats + earnings
 // (these were missing entirely — the frontend was calling routes that
 // didn't exist yet, hence the 404s)
 // ============================================================
- 
+
 // GET /drivers/:id/stats
 // delivery-app's home screen — delivery counts by status for this driver.
 router.get("/drivers/:id/stats", requireDriverAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   const { driverId } = (req as any).driver;
- 
+
   // A driver can only see their own stats.
   if (id !== driverId) {
     res.status(403).json({ error: "Not authorized to view this driver's stats" });
     return;
   }
- 
+
   const rows = await db
     .select({ status: deliveriesTable.status, count: count() })
     .from(deliveriesTable)
     .where(eq(deliveriesTable.driverId, driverId))
     .groupBy(deliveriesTable.status);
- 
+
   const byStatus: Record<string, number> = {};
   for (const r of rows) byStatus[r.status as string] = Number(r.count);
- 
+
   const total = Object.values(byStatus).reduce((sum, n) => sum + n, 0);
- 
+
   // "Today" = deliveries assigned to this driver whose deliveredAt falls
   // on the current calendar date.
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
- 
+
   const [todayResult] = await db
     .select({ count: count() })
     .from(deliveriesTable)
@@ -351,9 +461,36 @@ router.get("/drivers/:id/stats", requireDriverAuth, async (req, res): Promise<vo
         gte(deliveriesTable.deliveredAt, startOfToday),
       ),
     );
- 
+
+  const [todayAssignedResult] = await db
+    .select({ count: count() })
+    .from(deliveriesTable)
+    .where(
+      and(
+        eq(deliveriesTable.driverId, driverId),
+        gte(deliveriesTable.assignedAt, startOfToday),
+      ),
+    );
+
+  // Sum today's online→offline stretches, clipping any still-open
+  // session (offline_at IS NULL) to "now".
+  const todaySessions = await db.select().from(driverSessionsTable)
+    .where(and(
+      eq(driverSessionsTable.driverId, driverId),
+      gte(driverSessionsTable.wentOnlineAt, startOfToday),
+    ));
+
+  const totalOnlineMs = todaySessions.reduce((sum, s) => {
+    const end = s.wentOfflineAt ? new Date(s.wentOfflineAt) : new Date();
+    return sum + (end.getTime() - new Date(s.wentOnlineAt).getTime());
+  }, 0);
+
+  const today_working_hours = +(totalOnlineMs / 3600000).toFixed(1);
+
   res.json({
     total_deliveries: total,
+    today_assigned_deliveries: Number(todayAssignedResult.count),
+    today_working_hours,
     pending_deliveries: byStatus["pending"] ?? 0,
     assigned_deliveries: byStatus["assigned"] ?? 0,
     picked_up_deliveries: byStatus["picked_up"] ?? 0,
@@ -363,7 +500,7 @@ router.get("/drivers/:id/stats", requireDriverAuth, async (req, res): Promise<vo
     today_completed_deliveries: Number(todayResult.count),
   });
 });
- 
+
 // ============================================================
 // GET /drivers/:id/earnings  (EXTENDED — Option A)
 //
@@ -538,6 +675,5 @@ router.get("/drivers/:id/earnings", requireDriverAuth, async (req, res): Promise
     },
   });
 });
- 
+
 export default router;
- 

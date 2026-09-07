@@ -3022,6 +3022,8 @@ components:
           type: string
         business_type:
           type: string
+        phone:
+          type: string
         owner_name:
           type: string
         owner_phone:
@@ -3459,7 +3461,7 @@ components:
           enum: [bogo, percentage]
         apply_to:
           type: string
-          enum: [all, selected]
+          enum: [all, selected, category]
         start_date:
           type: string
           format: date
@@ -3471,6 +3473,8 @@ components:
           enum: [active, inactive]
         discount_percentage:
           type: ["number", "null"]
+        category:
+          type:  ["string", "null"]
         description:
           type: ["string", "null"]
         promo_code:
@@ -3504,7 +3508,7 @@ components:
           enum: [bogo, percentage]
         apply_to:
           type: string
-          enum: [all, selected]
+          enum: [all, selected, category]
           default: selected
         start_date:
           type: string
@@ -3518,6 +3522,11 @@ components:
           default: active
         discount_percentage:
           type: number
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 100
+        category:
+          type: string
         description:
           type: string
         promo_code:
@@ -3538,7 +3547,7 @@ components:
           type: string
         apply_to:
           type: string
-          enum: [all, selected]
+          enum: [all, selected, category]
         start_date:
           type: string
           format: date
@@ -3548,6 +3557,13 @@ components:
         status:
           type: string
           enum: [active, inactive]
+        discount_percentage:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 100
+        category:
+          type: string
         description:
           type: string
         promo_code:

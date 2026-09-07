@@ -924,11 +924,12 @@ export const ListPromotionsResponse = zod.object({
   "business_id": zod.number(),
   "name": zod.string(),
   "promotion_type": zod.enum(['bogo', 'percentage']),
-  "apply_to": zod.enum(['all', 'selected']),
+  "apply_to": zod.enum(['all', 'selected', 'category']),
   "start_date": zod.coerce.date(),
   "end_date": zod.coerce.date(),
   "status": zod.enum(['active', 'inactive']),
   "discount_percentage": zod.number().nullish(),
+  "category": zod.string().nullish(),
   "description": zod.string().nullish(),
   "promo_code": zod.string().nullish(),
   "min_order_amount": zod.number().nullish(),
@@ -948,16 +949,21 @@ export const ListPromotionsResponse = zod.object({
  */
 export const createPromotionBodyApplyToDefault = `selected`;
 export const createPromotionBodyStatusDefault = `active`;
+export const createPromotionBodyDiscountPercentageExclusiveMin = 0;
+export const createPromotionBodyDiscountPercentageMax = 100;
+
+
 
 export const CreatePromotionBody = zod.object({
   "business_id": zod.number(),
   "name": zod.string(),
   "promotion_type": zod.enum(['bogo', 'percentage']),
-  "apply_to": zod.enum(['all', 'selected']).default(createPromotionBodyApplyToDefault),
+  "apply_to": zod.enum(['all', 'selected', 'category']).default(createPromotionBodyApplyToDefault),
   "start_date": zod.coerce.date(),
   "end_date": zod.coerce.date(),
   "status": zod.enum(['active', 'inactive']).default(createPromotionBodyStatusDefault),
-  "discount_percentage": zod.number().optional(),
+  "discount_percentage": zod.number().gt(createPromotionBodyDiscountPercentageExclusiveMin).max(createPromotionBodyDiscountPercentageMax).optional(),
+  "category": zod.string().optional(),
   "description": zod.string().optional(),
   "promo_code": zod.string().optional(),
   "min_order_amount": zod.number().optional(),
@@ -970,11 +976,12 @@ export const CreatePromotionResponse = zod.object({
   "business_id": zod.number(),
   "name": zod.string(),
   "promotion_type": zod.enum(['bogo', 'percentage']),
-  "apply_to": zod.enum(['all', 'selected']),
+  "apply_to": zod.enum(['all', 'selected', 'category']),
   "start_date": zod.coerce.date(),
   "end_date": zod.coerce.date(),
   "status": zod.enum(['active', 'inactive']),
   "discount_percentage": zod.number().nullish(),
+  "category": zod.string().nullish(),
   "description": zod.string().nullish(),
   "promo_code": zod.string().nullish(),
   "min_order_amount": zod.number().nullish(),
@@ -997,11 +1004,12 @@ export const ListActivePromotionsResponseItem = zod.object({
   "business_id": zod.number(),
   "name": zod.string(),
   "promotion_type": zod.enum(['bogo', 'percentage']),
-  "apply_to": zod.enum(['all', 'selected']),
+  "apply_to": zod.enum(['all', 'selected', 'category']),
   "start_date": zod.coerce.date(),
   "end_date": zod.coerce.date(),
   "status": zod.enum(['active', 'inactive']),
   "discount_percentage": zod.number().nullish(),
+  "category": zod.string().nullish(),
   "description": zod.string().nullish(),
   "promo_code": zod.string().nullish(),
   "min_order_amount": zod.number().nullish(),
@@ -1025,11 +1033,12 @@ export const GetPromotionResponse = zod.object({
   "business_id": zod.number(),
   "name": zod.string(),
   "promotion_type": zod.enum(['bogo', 'percentage']),
-  "apply_to": zod.enum(['all', 'selected']),
+  "apply_to": zod.enum(['all', 'selected', 'category']),
   "start_date": zod.coerce.date(),
   "end_date": zod.coerce.date(),
   "status": zod.enum(['active', 'inactive']),
   "discount_percentage": zod.number().nullish(),
+  "category": zod.string().nullish(),
   "description": zod.string().nullish(),
   "promo_code": zod.string().nullish(),
   "min_order_amount": zod.number().nullish(),
@@ -1047,12 +1056,19 @@ export const UpdatePromotionParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const updatePromotionBodyDiscountPercentageExclusiveMin = 0;
+export const updatePromotionBodyDiscountPercentageMax = 100;
+
+
+
 export const UpdatePromotionBody = zod.object({
   "name": zod.string().optional(),
-  "apply_to": zod.enum(['all', 'selected']).optional(),
+  "apply_to": zod.enum(['all', 'selected', 'category']).optional(),
   "start_date": zod.coerce.date().optional(),
   "end_date": zod.coerce.date().optional(),
   "status": zod.enum(['active', 'inactive']).optional(),
+  "discount_percentage": zod.number().gt(updatePromotionBodyDiscountPercentageExclusiveMin).max(updatePromotionBodyDiscountPercentageMax).optional(),
+  "category": zod.string().optional(),
   "description": zod.string().optional(),
   "promo_code": zod.string().optional(),
   "min_order_amount": zod.number().optional(),
@@ -1065,11 +1081,12 @@ export const UpdatePromotionResponse = zod.object({
   "business_id": zod.number(),
   "name": zod.string(),
   "promotion_type": zod.enum(['bogo', 'percentage']),
-  "apply_to": zod.enum(['all', 'selected']),
+  "apply_to": zod.enum(['all', 'selected', 'category']),
   "start_date": zod.coerce.date(),
   "end_date": zod.coerce.date(),
   "status": zod.enum(['active', 'inactive']),
   "discount_percentage": zod.number().nullish(),
+  "category": zod.string().nullish(),
   "description": zod.string().nullish(),
   "promo_code": zod.string().nullish(),
   "min_order_amount": zod.number().nullish(),
@@ -1108,11 +1125,12 @@ export const UpdatePromotionStatusResponse = zod.object({
   "business_id": zod.number(),
   "name": zod.string(),
   "promotion_type": zod.enum(['bogo', 'percentage']),
-  "apply_to": zod.enum(['all', 'selected']),
+  "apply_to": zod.enum(['all', 'selected', 'category']),
   "start_date": zod.coerce.date(),
   "end_date": zod.coerce.date(),
   "status": zod.enum(['active', 'inactive']),
   "discount_percentage": zod.number().nullish(),
+  "category": zod.string().nullish(),
   "description": zod.string().nullish(),
   "promo_code": zod.string().nullish(),
   "min_order_amount": zod.number().nullish(),
@@ -3398,6 +3416,7 @@ export const ListAdminBusinessesResponse = zod.object({
   "id": zod.number(),
   "business_name": zod.string(),
   "business_type": zod.string(),
+  "phone": zod.string().optional(),
   "owner_name": zod.string(),
   "owner_phone": zod.string().optional(),
   "plan": zod.enum(['free', 'pro', 'premium']),

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View, TextInput, TouchableOpacity, Modal, Platform, Alert, ScrollView } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View, TextInput, TouchableOpacity, Modal, Platform, Alert, ScrollView,Image,
+ } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
@@ -203,7 +204,7 @@ export default function AddProductScreen() {
   const [description, setDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(!isEditMode);
-
+const [image, setImage] = useState('');
   // ---- Barcode section ----
   const [barcodeType, setBarcodeType] = useState<'auto' | 'manual'>('manual');
   const [barcodeLocked, setBarcodeLocked] = useState(false);
@@ -295,6 +296,7 @@ export default function AddProductScreen() {
       setLowStockAlert(String((existingProduct as any)?.low_stock_alert ?? 5));
       setBrand((existingProduct as any)?.brand ?? '');
       setDescription((existingProduct as any)?.description ?? '');
+      setImage((existingProduct as any)?.image ?? '');
       setBarcodeType('manual');
       setBarcodeLocked(!!existingProduct.barcode);
       setHydrated(true);
@@ -456,6 +458,7 @@ export default function AddProductScreen() {
       category: category.trim() || undefined,
       brand: brand.trim() || undefined,
       description: description.trim() || undefined,
+      image: image.trim() || undefined,  
       unit: (unit || 'pcs') as any,
       gst_rate: gstRate ? parseFloat(gstRate) : 0,
       cost_price: parsedCost,
@@ -560,6 +563,7 @@ export default function AddProductScreen() {
     setLowStockAlert('5');
     setBrand('');
     setDescription('');
+    setImage('');
     setError(null);
     setBarcodeType('manual');
     setBarcodeCheck('idle');
@@ -676,6 +680,36 @@ export default function AddProductScreen() {
               <Text style={styles.charCount}>{description.length} / 250</Text>
             </FieldCol>
           </FieldRow>
+          <FieldRow z={52}>
+  <FieldCol>
+    <Text style={styles.fieldLabel}>Product Image URL</Text>
+    <TextInput
+      placeholder="https://example.com/product.jpg"
+      placeholderTextColor={THEME.placeholder}
+      value={image}
+      onChangeText={setImage}
+      autoCapitalize="none"
+      style={styles.textInput}
+    />
+  </FieldCol>
+  <FieldCol>
+    <Text style={styles.fieldLabel}>Preview</Text>
+    <View style={styles.previewCard}>
+      {image.trim().length > 0 ? (
+        <Image
+          source={{ uri: image.trim() }}
+          style={{ width: 100, height: 100, borderRadius: 8 }}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={styles.previewEmpty}>
+          <Feather name="image" size={22} color={THEME.placeholder} />
+          <Text style={styles.previewEmptyText}>Paste an image URL to preview</Text>
+        </View>
+      )}
+    </View>
+  </FieldCol>
+</FieldRow>
         </SectionCard>
 
         {/* ============================ CARD 2 — BARCODE & IDENTIFICATION ============================ */}

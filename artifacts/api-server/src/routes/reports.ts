@@ -6,32 +6,32 @@ import { eq, and, gte, count, desc, sql, inArray } from "drizzle-orm";
 const router: IRouter = Router();
 
 
-router.get("/reports/summary", requireAuth, async (req, res): Promise<void> => {
-  const businessId = parseInt(req.query.business_id as string, 10);
-  if (isNaN(businessId)) {
-    res.status(400).json({ error: "business_id is required" });
-    return;
-  }
+// router.get("/reports/summary", requireAuth, async (req, res): Promise<void> => {
+//   const businessId = parseInt(req.query.business_id as string, 10);
+//   if (isNaN(businessId)) {
+//     res.status(400).json({ error: "business_id is required" });
+//     return;
+//   }
 
-  const customerBalances = await db
-    .select({ currentBalance: customersTable.currentBalance })
-    .from(customersTable)
-    .where(and(eq(customersTable.businessId, businessId), eq(customersTable.isDeleted, false)));
+//   const customerBalances = await db
+//     .select({ currentBalance: customersTable.currentBalance })
+//     .from(customersTable)
+//     .where(and(eq(customersTable.businessId, businessId), eq(customersTable.isDeleted, false)));
 
-  let totalToCollect = 0;
-  let totalToPay = 0;
-  for (const row of customerBalances) {
-    const bal = parseFloat(row.currentBalance ?? "0");
-    if (bal > 0) totalToCollect += bal;
-    if (bal < 0) totalToPay += Math.abs(bal);
-  }
+//   let totalToCollect = 0;
+//   let totalToPay = 0;
+//   for (const row of customerBalances) {
+//     const bal = parseFloat(row.currentBalance ?? "0");
+//     if (bal > 0) totalToCollect += bal;
+//     if (bal < 0) totalToPay += Math.abs(bal);
+//   }
 
-  res.json({
-    total_to_collect: totalToCollect,
-    total_to_pay: totalToPay,
-    net_balance: totalToCollect - totalToPay,
-  });
-});
+//   res.json({
+//     total_to_collect: totalToCollect,
+//     total_to_pay: totalToPay,
+//     net_balance: totalToCollect - totalToPay,
+//   });
+// });
 // GET /reports/summary
 // router.get("/reports/tax-summary", requireAuth, async (req, res): Promise<void> => {
 //   const businessId = parseInt(req.query.business_id as string, 10);
@@ -64,6 +64,52 @@ router.get("/reports/summary", requireAuth, async (req, res): Promise<void> => {
 //     total_invoices: Number(totals?.totalInvoices ?? 0),
 //   });
 // });
+
+router.get("/reports/summary", requireAuth, async (req, res): Promise<void> => {
+  const businessId = parseInt(req.query.business_id as string, 10);
+  if (isNaN(businessId)) {
+    res.status(400).json({ error: "business_id is required" });
+    return;
+  }
+
+  // ---- Customer side (receivables / payables to customers) ----
+  const customerBalances = await db
+    .select({ currentBalance: customersTable.currentBalance })
+    .from(customersTable)
+    .where(and(eq(customersTable.businessId, businessId), eq(customersTable.isDeleted, false)));
+
+  let totalToCollect = 0;
+  let totalToPay = 0;
+  for (const row of customerBalances) {
+    const bal = parseFloat(row.currentBalance ?? "0");
+    if (bal > 0) totalToCollect += bal;
+    if (bal < 0) totalToPay += Math.abs(bal);
+  }
+
+  // ---- Vendor side (what you owe vendors) ----
+  const purchases = await db
+    .select({ amount: purchasesTable.amount, amountPaid: purchasesTable.amountPaid })
+    .from(purchasesTable)
+    .where(and(eq(purchasesTable.businessId, businessId), eq(purchasesTable.isDeleted, false)));
+
+  let totalVendorDue = 0;
+  for (const row of purchases) {
+    const due = parseFloat(row.amount ?? "0") - parseFloat(row.amountPaid ?? "0");
+    if (due > 0) totalVendorDue += due;
+  }
+
+  const netCustomerBalance = totalToCollect - totalToPay;
+  const netBalance = netCustomerBalance - totalVendorDue; // subtract what you owe vendors
+
+  res.json({
+    total_to_collect: totalToCollect,
+    total_to_pay: totalToPay,
+    total_vendor_due: totalVendorDue,
+    net_customer_balance: netCustomerBalance,
+    net_balance: netBalance,
+  });
+});
+
 router.get("/reports/tax-summary", requireAuth, async (req, res): Promise<void> => {
   const businessId = parseInt(req.query.business_id as string, 10);
   if (isNaN(businessId)) { res.status(400).json({ error: "business_id is required" }); return; }

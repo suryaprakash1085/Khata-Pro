@@ -942,7 +942,7 @@ const DriverOrdersScreen: React.FC = () => {
               <View style={styles.summaryGrid}>
                 {summaryItems.map((item) => (
                   <View key={item.key} style={styles.summaryGridItem}>
-                    <OrderSummaryCard item={item} active={activeFilter === item.key} onPress={() => setActiveFilter(item.key as OrderFilterKey)} />
+                    <OrderSummaryCard item={item as any} active={activeFilter === item.key} onPress={() => setActiveFilter(item.key as OrderFilterKey)} />
                   </View>
                 ))}
               </View>

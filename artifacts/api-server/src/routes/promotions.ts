@@ -1,3 +1,4 @@
+
 import { Router, type IRouter } from "express";
 import { db, promotionsTable, promotionProductsTable, productsTable } from "@workspace/db";
 import { eq, and, gte, lte, desc, count, inArray } from "drizzle-orm";
@@ -17,6 +18,7 @@ function formatPromotion(p: any, productIds?: number[], productNames?: string[])
     end_date: p.endDate,
     status: p.status,
     discount_percentage: p.discountPercentage !== null && p.discountPercentage !== undefined ? parseFloat(p.discountPercentage) : null,
+    category: p.category ?? null,
       description: p.description ?? null,
        promo_code: p.promoCode ?? null,
     min_order_amount: p.minOrderAmount !== null && p.minOrderAmount !== undefined ? parseFloat(p.minOrderAmount) : null,
@@ -46,7 +48,7 @@ async function attachProducts(promos: any[]) {
   return map;
 }
 
-// GET /promotions
+
 router.get("/promotions", requireAuth, async (req, res): Promise<void> => {
   const businessId = parseInt(req.query.business_id as string, 10);
   if (isNaN(businessId)) { res.status(400).json({ error: "business_id is required" }); return; }
@@ -59,22 +61,27 @@ router.get("/promotions", requireAuth, async (req, res): Promise<void> => {
   const conditions: any[] = [eq(promotionsTable.businessId, businessId), eq(promotionsTable.isDeleted, false)];
   if (status === "active" || status === "inactive") conditions.push(eq(promotionsTable.status, status));
 
-  const [promos, totalResult] = await Promise.all([
-    db.select().from(promotionsTable).where(and(...conditions)).limit(limit).offset(offset).orderBy(desc(promotionsTable.createdAt)),
-    db.select({ count: count() }).from(promotionsTable).where(and(...conditions)),
-  ]);
+  try {
+    const [promos, totalResult] = await Promise.all([
+      db.select().from(promotionsTable).where(and(...conditions)).limit(limit).offset(offset).orderBy(desc(promotionsTable.createdAt)),
+      db.select({ count: count() }).from(promotionsTable).where(and(...conditions)),
+    ]);
 
-  const productMap = await attachProducts(promos);
+    const productMap = await attachProducts(promos);
 
-  res.json({
-    data: promos.map((p: any) => {
-      const pm = productMap.get(Number(p.id));
-      return formatPromotion(p, pm?.ids, pm?.names);
-    }),
-    total: Number(totalResult[0].count),
-    page,
-    limit,
-  });
+    res.json({
+      data: promos.map((p: any) => {
+        const pm = productMap.get(Number(p.id));
+        return formatPromotion(p, pm?.ids, pm?.names);
+      }),
+      total: Number(totalResult[0].count),
+      page,
+      limit,
+    });
+  } catch (err: any) {
+    console.error("PROMOTION LIST FAILED:", err?.cause?.message ?? err?.message, err?.cause ?? err);
+    res.status(500).json({ error: err?.cause?.message ?? err?.message ?? "Could not list promotions" });
+  }
 });
 
 // GET /promotions/active — Billing calls this
@@ -100,7 +107,7 @@ router.get("/promotions/active", async (req, res): Promise<void> => {
   }));
 });
 
-// GET /promotions/:id
+
 router.get("/promotions/:id", requireAuth, async (req, res): Promise<void> => {
   const id = parseInt(req.params.id as string, 10);
   const [promo] = await db.select().from(promotionsTable)
@@ -112,51 +119,85 @@ router.get("/promotions/:id", requireAuth, async (req, res): Promise<void> => {
   res.json(formatPromotion(promo, pm?.ids, pm?.names));
 });
 
-// POST /promotions
+
 router.post("/promotions", requireAuth, async (req, res): Promise<void> => {
   const parsed = CreatePromotionBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const d: any = parsed.data;
 
-  // ── Manual business-rule validation (not expressible in the generated
-  // structural Zod schema — see spec §18) ──
   if (d.end_date < d.start_date) {
     res.status(400).json({ error: "End date cannot be before start date" });
     return;
   }
   const applyTo = d.apply_to ?? "selected";
-  if (applyTo === "selected" && (!d.product_ids || d.product_ids.length === 0)) {
-    res.status(400).json({ error: "Select at least one product for this promotion" });
-    return;
-  }
-  // Percentage promotions are always exactly 10% (spec §6/§18) — server
-  // ignores any other value the client might send rather than trusting it.
-  const discountPercentage = d.promotion_type === "percentage" ? "10" : null;
 
-  const [promo] = await db.insert(promotionsTable).values({
-    businessId: d.business_id,
-    name: d.name,
-    promotionType: d.promotion_type,
-    applyTo,
-    startDate: d.start_date,
-    endDate: d.end_date,
-    status: d.status ?? "active",
-    discountPercentage,
-    description: d.description ?? null,
-promoCode: d.promo_code ?? null,
-minOrderAmount: d.min_order_amount !== undefined ? String(d.min_order_amount) : null,
-bannerImage: d.banner_image ?? null,
-  }).returning();
-
-  if (applyTo === "selected" && d.product_ids?.length > 0) {
-    await db.insert(promotionProductsTable).values(
-      d.product_ids.map((productId: number) => ({ promotionId: promo.id, productId })),
-    );
+  if (d.promotion_type === "bogo") {
+    if (applyTo === "category") {
+      res.status(400).json({ error: "Category-wise apply_to is only valid for percentage promotions" });
+      return;
+    }
+    if (applyTo === "selected" && (!d.product_ids || d.product_ids.length === 0)) {
+      res.status(400).json({ error: "Select at least one product for this promotion" });
+      return;
+    }
   }
 
-  const productMap = await attachProducts([promo]);
-  const pm = productMap.get(Number(promo.id));
-  res.status(201).json(formatPromotion(promo, pm?.ids, pm?.names));
+  let discountPercentage: string | null = null;
+  if (d.promotion_type === "percentage") {
+    const pct = Number(d.discount_percentage);
+    if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
+      res.status(400).json({ error: "Enter a discount percentage between 1 and 100" });
+      return;
+    }
+    discountPercentage = String(pct);
+
+    if (applyTo === "category" && !d.category) {
+      res.status(400).json({ error: "Please select a category" });
+      return;
+    }
+  }
+
+  // Normalize optional string/number fields — empty string ('') must become
+  // null, not be sent as-is, or Postgres numeric/varchar columns can reject
+  // it (e.g. min_order_amount numeric column + '' => "invalid input syntax").
+  const toNullIfEmpty = (v: any) => (v === "" || v === undefined ? null : v);
+  const minOrderAmount =
+    d.min_order_amount !== undefined && d.min_order_amount !== null && d.min_order_amount !== ""
+      ? String(d.min_order_amount)
+      : null;
+
+  try {
+    const [promo] = await db.insert(promotionsTable).values({
+      businessId: d.business_id,
+      name: d.name,
+      promotionType: d.promotion_type,
+      applyTo,
+      startDate: d.start_date,
+      endDate: d.end_date,
+      status: d.status ?? "active",
+      discountPercentage,
+      category: d.promotion_type === "percentage" && applyTo === "category" ? d.category : null,
+      description: toNullIfEmpty(d.description),
+      promoCode: toNullIfEmpty(d.promo_code),
+      minOrderAmount,
+      bannerImage: toNullIfEmpty(d.banner_image),
+    }).returning();
+
+    if (d.promotion_type === "bogo" && applyTo === "selected" && d.product_ids?.length > 0) {
+      await db.insert(promotionProductsTable).values(
+        d.product_ids.map((productId: number) => ({ promotionId: promo.id, productId })),
+      );
+    }
+
+    const productMap = await attachProducts([promo]);
+    const pm = productMap.get(Number(promo.id));
+    res.status(201).json(formatPromotion(promo, pm?.ids, pm?.names));
+  } catch (err: any) {
+    // Log the real Postgres reason instead of letting it get swallowed by
+    // the generic "Failed query" wrapper.
+    console.error("PROMOTION CREATE FAILED:", err?.cause?.message ?? err?.message, err?.cause ?? err);
+    res.status(500).json({ error: err?.cause?.message ?? err?.message ?? "Could not create promotion" });
+  }
 });
 
 // PUT /promotions/:id
@@ -176,10 +217,39 @@ router.put("/promotions/:id", requireAuth, async (req, res): Promise<void> => {
     res.status(400).json({ error: "End date cannot be before start date" });
     return;
   }
+
   const effectiveApplyTo = d.apply_to ?? existing.applyTo;
-  if (effectiveApplyTo === "selected" && d.product_ids !== undefined && d.product_ids.length === 0) {
-    res.status(400).json({ error: "Select at least one product for this promotion" });
-    return;
+
+  if (existing.promotionType === "bogo") {
+    if (effectiveApplyTo === "category") {
+      res.status(400).json({ error: "Category-wise apply_to is only valid for percentage promotions" });
+      return;
+    }
+    if (effectiveApplyTo === "selected" && d.product_ids !== undefined && d.product_ids.length === 0) {
+      res.status(400).json({ error: "Select at least one product for this promotion" });
+      return;
+    }
+  }
+
+  // discount_percentage: CHANGED — was previously blocked from ever being
+  // updated ("stays fixed at 10"). Now editable for percentage promotions,
+  // with the same 1–100 validation as create.
+  let discountPercentage: string | undefined;
+  if (existing.promotionType === "percentage" && d.discount_percentage !== undefined) {
+    const pct = Number(d.discount_percentage);
+    if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
+      res.status(400).json({ error: "Enter a discount percentage between 1 and 100" });
+      return;
+    }
+    discountPercentage = String(pct);
+  }
+
+  if (existing.promotionType === "percentage" && effectiveApplyTo === "category") {
+    const effectiveCategory = d.category !== undefined ? d.category : existing.category;
+    if (!effectiveCategory) {
+      res.status(400).json({ error: "Please select a category" });
+      return;
+    }
   }
 
   const updates: any = {};
@@ -188,17 +258,19 @@ router.put("/promotions/:id", requireAuth, async (req, res): Promise<void> => {
   if (d.start_date !== undefined) updates.startDate = d.start_date;
   if (d.end_date !== undefined) updates.endDate = d.end_date;
   if (d.status !== undefined) updates.status = d.status;
+  if (discountPercentage !== undefined) updates.discountPercentage = discountPercentage;
+  if (existing.promotionType === "percentage" && d.category !== undefined) {
+    updates.category = effectiveApplyTo === "category" ? d.category : null;
+  }
   if (d.description !== undefined) updates.description = d.description;
 if (d.promo_code !== undefined) updates.promoCode = d.promo_code;
 if (d.min_order_amount !== undefined) updates.minOrderAmount = String(d.min_order_amount);
 if (d.banner_image !== undefined) updates.bannerImage = d.banner_image;
-  // discount_percentage is intentionally never editable here — stays fixed
-  // at 10 for percentage promotions, null for bogo (spec §19).
 
   const [promo] = await db.update(promotionsTable).set(updates)
     .where(and(eq(promotionsTable.id, id), eq(promotionsTable.isDeleted, false))).returning();
 
-  if (d.product_ids !== undefined) {
+  if (existing.promotionType === "bogo" && d.product_ids !== undefined) {
     await db.delete(promotionProductsTable).where(eq(promotionProductsTable.promotionId, id));
     if (d.product_ids.length > 0) {
       await db.insert(promotionProductsTable).values(

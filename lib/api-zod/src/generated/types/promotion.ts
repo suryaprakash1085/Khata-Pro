@@ -21,6 +21,8 @@ export interface Promotion {
   /** @nullable */
   discount_percentage?: number | null;
   /** @nullable */
+  category?: string | null;
+  /** @nullable */
   description?: string | null;
   /** @nullable */
   promo_code?: string | null;
