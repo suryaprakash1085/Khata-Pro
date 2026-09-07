@@ -22,6 +22,7 @@ import promotionsRouter from "./promotions";
 import serviceHighlightsRouter from "./service-highlights";
 import deliveryfeesRouter from "./delivery-fees.routes";
 import driverNotificationsRouter from "./driverNotifications";
+import purchaseOrderRouter from "./purchase-orders";
 import { requireDriverAuth } from "../middlewares/driverAuth";
 
 
@@ -51,5 +52,6 @@ router.use("/notifications", notificationsRouter);
 router.use("/driver/notifications", requireDriverAuth, driverNotificationsRouter);
 router.use(serviceHighlightsRouter);
 router.use(deliveryfeesRouter);
+router.use(purchaseOrderRouter);
 
 export default router;

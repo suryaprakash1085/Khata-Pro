@@ -12,6 +12,6 @@ import App from './App';
 
 import './index.css';
 
-setBaseUrl('http://localhost:3000');
+setBaseUrl(import.meta.env.VITE_API_URL || 'http://localhost:3000');
 
 createRoot(document.getElementById('root')!).render(<App />);

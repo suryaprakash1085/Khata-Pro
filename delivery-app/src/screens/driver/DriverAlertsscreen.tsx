@@ -8,6 +8,9 @@ import {
   ActivityIndicator,
   Platform,
   RefreshControl,
+  SafeAreaView,
+  StatusBar,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -23,6 +26,7 @@ import {
   useGetDriverUnreadNotificationCount,
   useMarkDriverNotificationRead,
   useMarkAllDriverNotificationsRead,
+  useUpdateDriver,
 } from '@workspace/api-client-react';
 
 const FONT_FAMILY = Platform.select({
@@ -31,6 +35,8 @@ const FONT_FAMILY = Platform.select({
 });
 const webNoOutlineStyle = (Platform.OS === 'web' ? { outlineStyle: 'none' } : {}) as any;
 const TypedFlatList = FlatList as unknown as React.ComponentType<any>;
+
+const ACTIVE_TAB = 'notifications';
 
 type FilterTab = 'ALL' | 'UNREAD' | 'DELIVERIES' | 'EARNINGS' | 'SYSTEM';
 
@@ -68,9 +74,9 @@ function formatWhen(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   const now = new Date();
-  const isToday = d.toDateString() === now.toDateString();
+  const isTodayDate = d.toDateString() === now.toDateString();
   const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  if (isToday) return `Today, ${time}`;
+  if (isTodayDate) return `Today, ${time}`;
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
   if (d.toDateString() === yesterday.toDateString()) return `Yesterday, ${time}`;
@@ -97,19 +103,17 @@ interface ApiNotification {
 
 const DriverAlertsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
-  const { driver: authDriver } = useContext(DriverAuthContext) as any;
+  const { driver: authDriver, driverLogout } = useContext(DriverAuthContext) as any;
+
+  const { width } = useWindowDimensions();
+  const isWideWeb = Platform.OS === 'web' && width >= 1000;
 
   const [activeFilter, setActiveFilter] = useState<FilterTab>('ALL');
   const [page, setPage] = useState(1);
   const [accumulated, setAccumulated] = useState<ApiNotification[]>([]);
+  const [isOnline, setIsOnline] = useState<boolean>(authDriver?.status === 'available');
 
-  // NOTE: online/offline + greeting props below assume the same
-  // DriverAuthContext/online-toggle pattern DriverHomeScreen uses.
-  // If DriverHomeScreen wires isOnline/onToggleOnline from a different
-  // hook (e.g. a dedicated useDriverStatus hook), swap these two lines
-  // for that hook instead — everything else in this file is independent
-  // of that detail.
-  const isOnline = !!authDriver?.status && authDriver.status !== 'offline';
+  const updateDriver = useUpdateDriver();
 
   const queryParams = useMemo(() => {
     const params: Record<string, any> = { page, limit: 20 };
@@ -194,8 +198,22 @@ const DriverAlertsScreen: React.FC = () => {
     [markOneRead, navigation, refetch, refetchUnreadCount]
   );
 
+  const handleToggleOnline = (value: boolean) => {
+    setIsOnline(value);
+    if (!authDriver?.id) return;
+    updateDriver.mutate({ id: authDriver.id, data: { status: value ? 'available' : 'offline' } });
+  };
+
+  const bottomTabs: DriverShellTab[] = [
+    { key: 'home', label: 'Home', icon: 'home-outline', screen: 'DriverHome' },
+    { key: 'orders', label: 'Orders', icon: 'cube-outline', screen: 'DriverOrders' },
+    { key: 'earnings', label: 'Earnings', icon: 'wallet-outline', screen: 'DriverEarnings' },
+    { key: 'notifications', label: 'Alerts', icon: 'notifications', screen: 'DriverAlerts' },
+    { key: 'profile', label: 'Profile', icon: 'person-outline', screen: 'DriverProfile' },
+  ];
+
   const handleTabPress = (tab: DriverShellTab) => {
-    if (tab.key === 'notifications') return;
+    if (tab.key === ACTIVE_TAB) return;
     if (tab.screen) navigation.navigate(tab.screen);
   };
 
@@ -226,114 +244,183 @@ const DriverAlertsScreen: React.FC = () => {
     );
   };
 
-  return (
-    <DriverWebShell
-      activeTabKey="notifications"
-      driverName={authDriver?.name}
-      driverPhone={authDriver?.phone}
-      isOnline={isOnline}
-      onToggleOnline={() => {
-        /* mirror DriverHomeScreen's toggle handler here */
-      }}
-      notificationsCount={unreadCount}
-      greetingTitle="Notifications"
-      greetingSubtitle="Stay updated with your deliveries and account activity."
-      onTabPress={handleTabPress}
-      onNotificationsPress={() => {}}
-    >
-      <View style={styles.page}>
-        {/* Header row: title/subtitle handled by DriverWebShell's greeting; add the action button here */}
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={[styles.markAllBtn, webNoOutlineStyle, unreadCount === 0 && styles.markAllBtnDisabled]}
-            onPress={handleMarkAllRead}
-            disabled={unreadCount === 0 || markAllRead.isPending}
-          >
-            <Ionicons name="checkmark-done-outline" size={14} color={unreadCount === 0 ? COLORS.slateLight : COLORS.primary} />
-            <Text style={[styles.markAllBtnText, unreadCount === 0 && { color: COLORS.slateLight }]}>Mark all as read</Text>
+  const listStates = (
+    <>
+      {isError ? (
+        <View style={styles.centerWrap}>
+          <Text style={styles.errorText}>Unable to load notifications.</Text>
+          <TouchableOpacity style={[styles.retryBtn, webNoOutlineStyle]} onPress={handleRefresh}>
+            <Text style={styles.retryBtnText}>Try Again</Text>
           </TouchableOpacity>
         </View>
-
-        {/* Summary cards */}
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryValue}>{totalCount}</Text>
-            <Text style={styles.summaryLabel}>Total Notifications</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={[styles.summaryValue, { color: COLORS.primary }]}>{unreadCount}</Text>
-            <Text style={styles.summaryLabel}>Unread</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryValue}>{todayCount}</Text>
-            <Text style={styles.summaryLabel}>Today</Text>
-          </View>
+      ) : isLoading && page === 1 ? (
+        <View style={styles.centerWrap}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
-
-        {/* Filter tabs */}
-        <View style={styles.filterRow}>
-          {FILTER_TABS.map((tab) => {
-            const active = tab.key === activeFilter;
-            return (
-              <TouchableOpacity
-                key={tab.key}
-                style={[styles.filterTab, active && styles.filterTabActive, webNoOutlineStyle]}
-                onPress={() => handleFilterChange(tab.key)}
-              >
-                <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>{tab.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
+      ) : notifications.length === 0 ? (
+        <View style={styles.centerWrap}>
+          <View style={styles.emptyIconWrap}>
+            <Ionicons name="notifications-outline" size={26} color={COLORS.slateLight} />
+          </View>
+          <Text style={styles.emptyTitle}>No notifications yet</Text>
+          <Text style={styles.emptySub}>
+            When you receive delivery updates or important account notifications, they'll appear here.
+          </Text>
         </View>
+      ) : (
+        <TypedFlatList
+          data={notifications}
+          keyExtractor={(item: ApiNotification) => String(item.id)}
+          renderItem={renderRow}
+          contentContainerStyle={!isWideWeb && { paddingBottom: 90 }}
+          refreshControl={
+            <RefreshControl refreshing={!isLoading && isFetching && page === 1} onRefresh={handleRefresh} tintColor={COLORS.primary} />
+          }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            isFetching && page > 1 ? (
+              <View style={{ paddingVertical: 16 }}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+              </View>
+            ) : null
+          }
+        />
+      )}
+    </>
+  );
 
-        {/* List / states */}
-        {isError ? (
-          <View style={styles.centerWrap}>
-            <Text style={styles.errorText}>Unable to load notifications.</Text>
-            <TouchableOpacity style={[styles.retryBtn, webNoOutlineStyle]} onPress={handleRefresh}>
-              <Text style={styles.retryBtnText}>Try Again</Text>
-            </TouchableOpacity>
-          </View>
-        ) : isLoading && page === 1 ? (
-          <View style={styles.centerWrap}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-          </View>
-        ) : notifications.length === 0 ? (
-          <View style={styles.centerWrap}>
-            <View style={styles.emptyIconWrap}>
-              <Ionicons name="notifications-outline" size={26} color={COLORS.slateLight} />
-            </View>
-            <Text style={styles.emptyTitle}>No notifications yet</Text>
-            <Text style={styles.emptySub}>
-              When you receive delivery updates or important account notifications, they'll appear here.
-            </Text>
-          </View>
-        ) : (
-          <TypedFlatList
-            data={notifications}
-            keyExtractor={(item: ApiNotification) => String(item.id)}
-            renderItem={renderRow}
-            refreshControl={
-              <RefreshControl refreshing={!isLoading && isFetching && page === 1} onRefresh={handleRefresh} tintColor={COLORS.primary} />
-            }
-            onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.4}
-            ListFooterComponent={
-              isFetching && page > 1 ? (
-                <View style={{ paddingVertical: 16 }}>
-                  <ActivityIndicator size="small" color={COLORS.primary} />
-                </View>
-              ) : null
-            }
-          />
-        )}
+  // Everything above the list — shared between mobile and wide-web layouts.
+  const controlsBlock = (
+    <>
+      <View style={styles.headerActions}>
+        <TouchableOpacity
+          style={[styles.markAllBtn, webNoOutlineStyle, unreadCount === 0 && styles.markAllBtnDisabled]}
+          onPress={handleMarkAllRead}
+          disabled={unreadCount === 0 || markAllRead.isPending}
+        >
+          <Ionicons name="checkmark-done-outline" size={14} color={unreadCount === 0 ? COLORS.slateLight : COLORS.primary} />
+          <Text style={[styles.markAllBtnText, unreadCount === 0 && { color: COLORS.slateLight }]}>Mark all as read</Text>
+        </TouchableOpacity>
       </View>
-    </DriverWebShell>
+
+      {/* Summary cards */}
+      <View style={styles.summaryRow}>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryValue}>{totalCount}</Text>
+          <Text style={styles.summaryLabel}>Total Notifications</Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={[styles.summaryValue, { color: COLORS.primary }]}>{unreadCount}</Text>
+          <Text style={styles.summaryLabel}>Unread</Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryValue}>{todayCount}</Text>
+          <Text style={styles.summaryLabel}>Today</Text>
+        </View>
+      </View>
+
+      {/* Filter tabs */}
+      <TypedFlatList
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        data={FILTER_TABS}
+        keyExtractor={(t: (typeof FILTER_TABS)[number]) => t.key}
+        style={styles.filterList}
+        contentContainerStyle={styles.filterRow}
+        renderItem={({ item: tab }: { item: (typeof FILTER_TABS)[number] }) => {
+          const active = tab.key === activeFilter;
+          return (
+            <TouchableOpacity
+              style={[styles.filterTab, active && styles.filterTabActive, webNoOutlineStyle]}
+              onPress={() => handleFilterChange(tab.key)}
+            >
+              <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>{tab.label}</Text>
+            </TouchableOpacity>
+          );
+        }}
+      />
+    </>
+  );
+
+  // ── Wide web: sidebar + top bar shell (unchanged) ─────────────────────
+  if (isWideWeb) {
+    return (
+      <DriverWebShell
+        activeTabKey="notifications"
+        driverName={authDriver?.name}
+        driverPhone={authDriver?.phone}
+        isOnline={isOnline}
+        onToggleOnline={handleToggleOnline}
+        notificationsCount={unreadCount}
+        greetingTitle="Notifications"
+        greetingSubtitle="Stay updated with your deliveries and account activity."
+        onTabPress={handleTabPress}
+        onNotificationsPress={() => {}}
+        onProfilePress={driverLogout}
+      >
+        <View style={styles.page}>
+          {controlsBlock}
+          <View style={{ flex: 1 }}>{listStates}</View>
+        </View>
+      </DriverWebShell>
+    );
+  }
+
+  // ── Mobile / narrow web: own header + bottom tab bar, no sidebar ─────
+  return (
+    <SafeAreaView style={styles.safe}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
+
+      <View style={styles.mobileHeader}>
+        <View>
+          <Text style={styles.mobileHeaderTitle}>Notifications</Text>
+          <Text style={styles.mobileHeaderSubtitle}>Stay updated with your activity</Text>
+        </View>
+        <TouchableOpacity style={[styles.refreshBtn, webNoOutlineStyle]} onPress={handleRefresh} hitSlop={8}>
+          <Ionicons name="refresh-outline" size={20} color={COLORS.ink} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={[styles.page, styles.pageMobile]}>
+        {controlsBlock}
+        <View style={{ flex: 1 }}>{listStates}</View>
+      </View>
+
+      <View style={styles.bottomNav}>
+        {bottomTabs.map((tab) => {
+          const active = tab.key === ACTIVE_TAB;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              style={[styles.bottomNavItem, webNoOutlineStyle]}
+              activeOpacity={0.7}
+              onPress={() => handleTabPress(tab)}
+            >
+              <Ionicons name={tab.icon as keyof typeof Ionicons.glyphMap} size={22} color={active ? COLORS.primary : COLORS.slateLight} />
+              <Text style={[styles.bottomNavLabel, { color: active ? COLORS.primary : COLORS.slateLight }]}>{tab.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: COLORS.bg },
+
   page: { flex: 1, paddingHorizontal: 32, paddingTop: 20 },
+  pageMobile: { paddingHorizontal: 16, paddingTop: 16 },
+
+  mobileHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12,
+    backgroundColor: COLORS.card, borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  mobileHeaderTitle: { fontFamily: FONT_FAMILY, fontSize: 19, fontWeight: '700', color: COLORS.ink },
+  mobileHeaderSubtitle: { fontFamily: FONT_FAMILY, fontSize: 12, color: COLORS.slate, marginTop: 2 },
+  refreshBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: COLORS.bg, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center', justifyContent: 'center' },
 
   headerActions: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 16 },
   markAllBtn: {
@@ -352,7 +439,8 @@ const styles = StyleSheet.create({
   summaryValue: { fontFamily: FONT_FAMILY, fontSize: 22, fontWeight: '700', color: COLORS.ink },
   summaryLabel: { fontFamily: FONT_FAMILY, fontSize: 12, color: COLORS.slate, marginTop: 4 },
 
-  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
+  filterList: { flexGrow: 0, flexShrink: 0, height: 44, marginBottom: 16 },
+  filterRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8 },
   filterTab: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
     backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
@@ -385,6 +473,14 @@ const styles = StyleSheet.create({
   errorText: { fontFamily: FONT_FAMILY, fontSize: 13.5, color: COLORS.slate, marginBottom: 12 },
   retryBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, backgroundColor: COLORS.primaryLight },
   retryBtnText: { fontFamily: FONT_FAMILY, fontSize: 12.5, fontWeight: '700', color: COLORS.primary },
+
+  bottomNav: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row',
+    backgroundColor: COLORS.card, borderTopWidth: 1, borderTopColor: COLORS.border,
+    paddingTop: 8, paddingBottom: 20,
+  },
+  bottomNavItem: { flex: 1, alignItems: 'center', gap: 3 },
+  bottomNavLabel: { fontFamily: FONT_FAMILY, fontSize: 10.5, fontWeight: '600' },
 });
 
 export default DriverAlertsScreen;

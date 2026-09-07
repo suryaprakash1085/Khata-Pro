@@ -323,7 +323,7 @@ const handleConfirmOrderSubmit = () => {
         const customerId = activeDelivery?.customer_id;
 
         if (salesOrder.id && businessId && customerId) {
-          fetch('http://localhost:3000/api/notifications/order-confirmed', {
+          fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/notifications/order-confirmed`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

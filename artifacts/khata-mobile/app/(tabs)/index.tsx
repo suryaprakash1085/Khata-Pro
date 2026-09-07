@@ -42,7 +42,7 @@ const ACTIONS = [
   { icon: 'shopping-cart', label: 'New Billing', route: '/billing', color: '#2563EB' },
   { icon: 'box', label: 'Add Product', route: '/add-product', color: '#14B8A6' },
   { icon: 'user-plus', label: 'Add Customer', route: '/add-customer', color: '#8B5CF6' },
-  { icon: 'file-text', label: 'Create Order', route: '/add-transaction', color: '#F59E0B' },
+  { icon: 'file-text', label: 'Create Order', route: '/create-purchase-order', color: '#F59E0B' },
   { icon: 'trending-down', label: 'Add Expense', route: '/add-expense', color: '#E4664B' },
 
 ] as const;

@@ -21,14 +21,26 @@ import { DriverWebShell, DriverShellTab } from '../../components/driver/DriverWe
 import { NotificationEntry, NotificationType } from '../../types/driverHome.types';
 
 // ── Orval-generated hooks (run codegen after updating openapi.yaml) ────────
+// import {
+//   useGetDriver,
+//   useGetDriverStats,
+//   useGetDriverEarnings,
+//   useListDeliveries,
+//   useListNotifications,
+//   useUpdateDriver,
+//   useUpdateDeliveryStatus,
+//   useGetDriverUnreadNotificationCount,
+  
+// } from '@workspace/api-client-react';
 import {
   useGetDriver,
   useGetDriverStats,
   useGetDriverEarnings,
-  useListDeliveries,
+  useListMyDeliveries,
   useListNotifications,
   useUpdateDriver,
   useUpdateDeliveryStatus,
+  useGetDriverUnreadNotificationCount,
 } from '@workspace/api-client-react';
 
 const FONT_FAMILY = Platform.select({
@@ -230,14 +242,16 @@ const DriverHomeScreen: React.FC = () => {
   const { data: driver, isLoading: driverLoading } = useGetDriver(driverId, { query: { enabled: !!driverId } });
   const { data: stats, isLoading: statsLoading } = useGetDriverStats(driverId, { query: { enabled: !!driverId } });
   const { data: earnings } = useGetDriverEarnings(driverId, { query: { enabled: !!driverId } });
-  const { data: deliveriesResponse, isLoading: deliveriesLoading, refetch: refetchDeliveries } = useListDeliveries(
-    { driver_id: driverId, business_id: businessId },
-    { query: { enabled: !!driverId && !!businessId } }
+  const { data: deliveriesResponse, isLoading: deliveriesLoading, refetch: refetchDeliveries } = useListMyDeliveries(
+  { limit: 50},
+  { query: { enabled: !!driverId } }
   );
   const { data: notificationsData } = useListNotifications(
     { driver_id: driverId, limit: 8 },
     { query: { enabled: !!driverId } }
   );
+  const { data: unreadCountResponse } = useGetDriverUnreadNotificationCount();
+  const unreadNotifCount = unreadCountResponse?.count ?? 0;
 
   const updateDriver = useUpdateDriver();
   const updateDeliveryStatus = useUpdateDeliveryStatus();
@@ -337,11 +351,8 @@ const DriverHomeScreen: React.FC = () => {
         {!isWideWeb && (
           <View style={styles.headerRow}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <TouchableOpacity style={[styles.iconBtn, webNoOutlineStyle]} hitSlop={8} onPress={() => showAlert('Menu', 'Open menu')}>
-                <Ionicons name="menu" size={22} color={COLORS.ink} />
-              </TouchableOpacity>
               <View>
-                <Text style={styles.greetingText}>Good Morning, {driver?.name?.split(' ')[0] ?? 'Driver'}! 👋</Text>
+                <Text style={styles.greetingText}>Good Morning, {driver?.name?.split(' ')[0] ?? 'Driver'}</Text>
                 <Text style={styles.greetingSub}>Stay safe and deliver happiness.</Text>
               </View>
             </View>
@@ -367,7 +378,7 @@ const DriverHomeScreen: React.FC = () => {
                 <Ionicons name="notifications-outline" size={20} color={COLORS.ink} />
                 {notifications.length > 0 && (
                   <View style={styles.notifBadge}>
-                    <Text style={styles.notifBadgeText}>{Math.min(notifications.length, 9)}</Text>
+                    <Text style={styles.notifBadgeText}>{Math.min(unreadNotifCount, 9)}</Text>
                   </View>
                 )}
               </TouchableOpacity>
@@ -556,7 +567,7 @@ const DriverHomeScreen: React.FC = () => {
               <View style={styles.emptyCard}>
                 <Ionicons name="checkmark-circle-outline" size={26} color={COLORS.slateLight} />
                 <Text style={styles.emptyTitle}>No New Deliveries</Text>
-                <Text style={styles.emptyText}>You're all caught up! 🎉</Text>
+                <Text style={styles.emptyText}>You're all caught up </Text>
               </View>
             )}
           </View>
@@ -564,18 +575,20 @@ const DriverHomeScreen: React.FC = () => {
 
         {/* ── Today's Summary + Recent Activity ─────────────────────────── */}
         <View style={[styles.twoColRow, !isWideWeb && styles.stackedCol]}>
-          <View style={isWideWeb ? styles.twoColLeft : undefined}>
+          <View style={isWideWeb ? { flex: 1 } : undefined}>
             <SectionTitleRow title="Today's Summary" />
+            <View style={styles.summaryBoxCard}>
             <View style={[styles.summaryStrip, !isWideWeb && { flexWrap: 'wrap' }]}>
               <View style={styles.summaryGridItem}>
                 <SummaryStatCard
                   label="Completed Deliveries"
-                  sublabel={(stats?.completed_deliveries ?? 0) > 0 ? 'Good job! 🎉' : undefined}
+                  sublabel={(stats?.completed_deliveries ?? 0) > 0 ? 'Good job' : undefined}
                   value={`${stats?.completed_deliveries ?? 0}`}
                   icon="checkmark-done-outline"
                   iconColor={COLORS.secondary}
                   iconBg={COLORS.secondaryLight}
                 />
+                </View>
               </View>
               <View style={styles.summaryGridItem}>
                 <SummaryStatCard
@@ -610,7 +623,7 @@ const DriverHomeScreen: React.FC = () => {
             </View>
           </View>
 
-          <View style={isWideWeb ? styles.twoColRight : { marginTop: 22 }}>
+          <View style={isWideWeb ? { flex: 1 } : { marginTop: 22 }}>
             <SectionTitleRow title="Recent Activity" onViewAll={() => handleTabPress(bottomTabs.find((t) => t.key === 'notifications')!)} />
             <View style={styles.activityCard}>
               {notifications.length === 0 ? (
@@ -642,7 +655,7 @@ const DriverHomeScreen: React.FC = () => {
           driverPhone={driver?.phone}
           isOnline={isOnline}
           onToggleOnline={handleToggleOnline}
-          notificationsCount={notifications.length}
+          notificationsCount={unreadNotifCount}
           greetingSubtitle="Stay safe and deliver happiness."
           onTabPress={handleTabPress}
           onNotificationsPress={() => handleTabPress(bottomTabs.find((t) => t.key === 'notifications')!)}
@@ -718,7 +731,7 @@ const styles = StyleSheet.create({
   miniInfoValue: { fontFamily: FONT_FAMILY, fontSize: 13.5, fontWeight: '700', color: COLORS.ink, marginTop: 6 },
   miniInfoSub: { fontFamily: FONT_FAMILY, fontSize: 10, color: COLORS.slateLight, marginTop: 2 },
 
-  twoColRow: { flexDirection: 'row', gap: 20, alignItems: 'flex-start', marginTop: 24 },
+  twoColRow: { flexDirection: 'row', gap: 20, alignItems: 'stretch', marginTop: 24 },
   stackedCol: { flexDirection: 'column' },
   twoColLeft: { flex: 1.4 },
   twoColRight: { flex: 1 },
@@ -727,7 +740,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontFamily: FONT_FAMILY, fontSize: 15, fontWeight: '700', color: COLORS.ink },
   viewAllLink: { fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '700', color: COLORS.primary },
 
-  activeCard: { backgroundColor: COLORS.secondaryLight, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: COLORS.secondary + '33' },
+  activeCard: { backgroundColor: COLORS.secondaryLight, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: COLORS.secondary + '33', flex: 1 },
   statusBadge: { alignSelf: 'flex-start', backgroundColor: COLORS.secondary, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 10 },
   statusBadgeText: { fontFamily: FONT_FAMILY, fontSize: 10.5, fontWeight: '700', color: '#FFFFFF', letterSpacing: 0.3 },
   activeMainRow: { flexDirection: 'row', gap: 16, alignItems: 'flex-start' },
@@ -752,7 +765,7 @@ const styles = StyleSheet.create({
   primaryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.secondary, paddingHorizontal: 14, paddingVertical: 11, borderRadius: 12 },
   primaryBtnText: { fontFamily: FONT_FAMILY, color: '#FFFFFF', fontSize: 12.5, fontWeight: '700' },
 
-  assignCard: { backgroundColor: COLORS.amberLight, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: COLORS.amber + '33' },
+  assignCard: { backgroundColor: COLORS.amberLight, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: COLORS.amber + '33', flex: 1 },
   assignHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   assignBadge: { backgroundColor: COLORS.amber, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   assignBadgeText: { fontFamily: FONT_FAMILY, fontSize: 10.5, fontWeight: '700', color: '#FFFFFF', letterSpacing: 0.3 },
@@ -762,7 +775,7 @@ const styles = StyleSheet.create({
   rejectBtn: { borderWidth: 1, borderColor: COLORS.danger, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 11 },
   rejectBtnText: { fontFamily: FONT_FAMILY, fontSize: 12.5, fontWeight: '700', color: COLORS.danger },
 
-  emptyCard: { backgroundColor: COLORS.card, borderRadius: 18, borderWidth: 1, borderColor: COLORS.border, padding: 26, alignItems: 'center' },
+  emptyCard: { backgroundColor: COLORS.card, borderRadius: 18, borderWidth: 1, borderColor: COLORS.border, padding: 26, alignItems: 'center', flex: 1, justifyContent: 'center', minHeight: 120 },
   emptyTitle: { fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '700', color: COLORS.ink, marginTop: 8 },
   emptyText: { fontFamily: FONT_FAMILY, fontSize: 12, color: COLORS.slate, textAlign: 'center', marginTop: 4, lineHeight: 17 },
 
@@ -773,7 +786,8 @@ const styles = StyleSheet.create({
   summaryStatValue: { fontFamily: FONT_FAMILY, fontSize: 22, fontWeight: '700', color: COLORS.ink },
   summaryStatLabel: { fontFamily: FONT_FAMILY, fontSize: 11.5, color: COLORS.slate, marginTop: 3 },
   summaryStatSublabel: { fontFamily: FONT_FAMILY, fontSize: 10.5, color: COLORS.slateLight, marginTop: 2 },
-  activityCard: { backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, padding: 14 },
+  activityCard: { backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, padding: 14, flex: 1 },
+  summaryBoxCard: { backgroundColor: COLORS.card, borderRadius: 16, borderWidth: 1, borderColor: COLORS.border, padding: 14, flex: 1 },
   footerRow: { alignItems: 'center', paddingVertical: 24 },
   footerText: { fontFamily: FONT_FAMILY, fontSize: 11.5, color: COLORS.slateLight },
 

@@ -22,7 +22,8 @@ import { AuthContext } from '../../context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 
-const API_BASE_URL = 'http://localhost:3000'; // Change to your actual API URL (LAN IP for device testing)
+const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000') + '/api';
+
 let authToken: string | null = null;
 
 // ✅ Theme color — matched to Cart screen's purple/indigo (#6C5CE7)

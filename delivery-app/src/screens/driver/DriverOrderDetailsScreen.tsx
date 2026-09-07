@@ -1,5 +1,3 @@
-
-
 import React, { useContext, useState } from 'react';
 import {
   View,
@@ -37,7 +35,7 @@ import {
   useConfirmDeliveryPayment,
   useCompleteDelivery,
   useUpdateDriver,
-  useListNotifications,
+  useGetDriverUnreadNotificationCount,
   useCallDeliveryCustomer,
 } from '@workspace/api-client-react';
 
@@ -118,7 +116,7 @@ const DriverOrderDetailsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteParams>();
   const deliveryId = route.params?.deliveryId;
-  const { driver: authDriver } = useContext(DriverAuthContext) as any;
+  const { driver: authDriver, driverLogout } = useContext(DriverAuthContext) as any;
 
   const { width } = useWindowDimensions();
   const isWideWeb = Platform.OS === 'web' && width >= 1000;
@@ -132,10 +130,12 @@ const DriverOrderDetailsScreen: React.FC = () => {
   const { data, isLoading, refetch } = useGetMyDeliveryDetails(deliveryId, {
     query: { enabled: !!deliveryId },
   });
-  const { data: notificationsData } = useListNotifications(
-    { driver_id: authDriver?.id, limit: 8 },
-    { query: { enabled: !!authDriver?.id && isWideWeb } }
-  );
+
+  // Same source of truth as Home/Orders screens — the *unread* count, not
+  // the length of a capped notifications list (that was showing "8" here
+  // regardless of how many notifications were actually unread).
+  const { data: unreadCountResponse } = useGetDriverUnreadNotificationCount();
+  const notificationsCount = unreadCountResponse?.count ?? 0;
 
     const acceptDelivery = useAcceptDelivery();
   const rejectDelivery = useRejectDelivery();
@@ -160,10 +160,6 @@ const DriverOrderDetailsScreen: React.FC = () => {
     confirmPayment.isPending ||
     completeDelivery.isPending ||
     callCustomer.isPending;
-
-  const notificationsCount = Array.isArray(notificationsData)
-    ? notificationsData.length
-    : ((notificationsData as any)?.data?.length ?? 0);
 
   const handleToggleOnline = (value: boolean) => {
     setIsOnline(value);
@@ -685,7 +681,7 @@ const DriverOrderDetailsScreen: React.FC = () => {
         notificationsCount={notificationsCount}
         onTabPress={handleTabPress}
         onNotificationsPress={() => handleTabPress({ key: 'notifications', label: 'Notifications', icon: 'notifications-outline', screen: 'DriverAlerts' })}
-        onProfilePress={undefined}
+        onProfilePress={driverLogout}
       >
         <ScrollView contentContainerStyle={styles.wideScrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.breadcrumbRow}>

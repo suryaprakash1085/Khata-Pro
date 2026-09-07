@@ -3,8 +3,8 @@ import React, { createContext, useState, ReactNode, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // TODO: replace with your api-server's actual base URL
-const API_BASE_URL = 'http://localhost:3000';
-
+// const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000') + '/api';
 interface User {
   id: number;
   name: string;
