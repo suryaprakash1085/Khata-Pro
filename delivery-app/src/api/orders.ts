@@ -35,6 +35,9 @@ export interface CustomerOrder {
   tracking_status: CustomerTrackingStatus;
   tracking_steps: readonly string[];
   delivery: CustomerOrderDelivery | null;
+  business_name?: string;
+store_name?: string;
+description?: string;
 }
 
 export interface CancelOrderResponse {

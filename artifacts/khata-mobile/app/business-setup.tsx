@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+
+import React, { useState,useRef } from 'react';
 import {
   Image,
   Pressable,
   StyleSheet,
   Text,
   View,
+  Modal,
+  TextInput,
+  ActivityIndicator,
+  Platform,
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,6 +36,59 @@ const INDIAN_STATES = [
 const COUNTRIES = ['India', 'United States', 'United Arab Emirates', 'Singapore', 'United Kingdom'];
 
 const DESKTOP_BREAKPOINT = 820;
+
+// ============================================================
+// 🗺️ Load Google Maps JS API script once (web only)
+// Same pattern as the customer delivery app's AddressSelectionScreen.
+// ============================================================
+let googleMapsLoadPromise: Promise<void> | null = null;
+
+const loadGoogleMapsScript = (): Promise<void> => {
+  if ((window as any).google?.maps) return Promise.resolve();
+  if (googleMapsLoadPromise) return googleMapsLoadPromise;
+
+  googleMapsLoadPromise = new Promise((resolve, reject) => {
+    const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      reject(new Error('Google Maps API key is missing. Add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY to .env'));
+      return;
+    }
+
+    const existingScript = document.getElementById('google-maps-script');
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve());
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.id = 'google-maps-script';
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Failed to load Google Maps script'));
+    document.body.appendChild(script);
+  });
+
+  return googleMapsLoadPromise;
+};
+
+// ============================================================
+// 🗺️ Reverse geocode via OpenStreetMap Nominatim (free, no billing)
+// Same as the delivery app — Google Maps JS is only used for the
+// visual map + draggable pin, address lookup goes through Nominatim.
+// ============================================================
+const reverseGeocodeNominatim = async (lat: number, lng: number): Promise<any> => {
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+    { headers: { Accept: 'application/json' } }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Reverse geocode failed: ${response.status}`);
+  }
+
+  return response.json();
+};
 
 export default function BusinessSetupScreen() {
   const colors = useColors();
@@ -60,6 +118,17 @@ export default function BusinessSetupScreen() {
   const createBusiness = useCreateBusiness();
   const [description, setDescription] = useState('');
 
+  // 📍 Location detection state
+  const [gettingLocation, setGettingLocation] = useState(false);
+
+  // 🗺️ Map picker modal state (web)
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [mapMarkerPos, setMapMarkerPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [confirmingMapLocation, setConfirmingMapLocation] = useState(false);
+  const mapContainerRef = useRef<any>(null);
+  const googleMapRef = useRef<any>(null);
+  const googleMarkerRef = useRef<any>(null);
+
   const handlePickLogo = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) return;
@@ -76,6 +145,208 @@ export default function BusinessSetupScreen() {
       const asset = result.assets[0];
       const dataUri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
       setLogoUri(dataUri);
+    }
+  };
+
+  // ============================================================
+  // 🗺️ Initialize the interactive map with a draggable marker
+  // ============================================================
+  const initMapPicker = async (lat: number, lng: number) => {
+    try {
+      await loadGoogleMapsScript();
+    } catch (err: any) {
+      console.error('❌ Google Maps script load error:', err);
+      setErrors((e) => ({ ...e, location: err?.message || 'Failed to load map.' }));
+      return;
+    }
+
+    const google = (window as any).google;
+    if (!google?.maps || !mapContainerRef.current) return;
+
+    const map = new google.maps.Map(mapContainerRef.current, {
+      center: { lat, lng },
+      zoom: 16,
+      disableDefaultUI: false,
+      zoomControl: true,
+      streetViewControl: false,
+      mapTypeControl: false,
+    });
+
+    const marker = new google.maps.Marker({
+      position: { lat, lng },
+      map,
+      draggable: true,
+    });
+
+    marker.addListener('dragend', () => {
+      const pos = marker.getPosition();
+      if (pos) {
+        setMapMarkerPos({ lat: pos.lat(), lng: pos.lng() });
+      }
+    });
+
+    // Tapping anywhere on the map also moves the pin
+    map.addListener('click', (e: any) => {
+      const lat2 = e.latLng.lat();
+      const lng2 = e.latLng.lng();
+      marker.setPosition({ lat: lat2, lng: lng2 });
+      setMapMarkerPos({ lat: lat2, lng: lng2 });
+    });
+
+    googleMapRef.current = map;
+    googleMarkerRef.current = marker;
+    setMapMarkerPos({ lat, lng });
+  };
+
+  // ============================================================
+  // 🗺️ User confirms the pin position on the map — fills address
+  // fields + lat/lng from the reverse-geocoded pin, no manual entry.
+  // ============================================================
+  const handleConfirmMapLocation = async () => {
+    if (!mapMarkerPos) return;
+
+    setConfirmingMapLocation(true);
+
+    try {
+      const data = await reverseGeocodeNominatim(mapMarkerPos.lat, mapMarkerPos.lng);
+      const addr = data?.address || {};
+
+      const geoCity =
+        addr.city || addr.town || addr.village || addr.suburb || addr.county || '';
+
+      const geoState = addr.state || '';
+      const geoPostal = addr.postcode || '';
+
+      const road = addr.road || '';
+      const suburb = addr.suburb || '';
+
+      setAddressLine1((prev) => prev.trim() ? prev : (road || data?.display_name || ''));
+      setAddressLine2((prev) => prev.trim() ? prev : suburb);
+      setCity(geoCity);
+
+      // Match Nominatim's state name against our picker list (case-insensitive)
+      const matchedState = INDIAN_STATES.find(
+        (s) => s.toLowerCase() === geoState.toLowerCase()
+      );
+      setState(matchedState || geoState);
+
+      setPostalCode(geoPostal);
+      setLatitude(String(mapMarkerPos.lat));
+      setLongitude(String(mapMarkerPos.lng));
+
+      setErrors((e) => ({ ...e, location: '' }));
+      setShowMapPicker(false);
+    } catch (err: any) {
+      console.error('❌ Reverse geocode error:', err);
+
+      // Even if address lookup fails, keep the pin's coordinates
+      setLatitude(String(mapMarkerPos.lat));
+      setLongitude(String(mapMarkerPos.lng));
+      setErrors((e) => ({
+        ...e,
+        location: 'Address lookup failed. Location pin saved — please check the address fields.',
+      }));
+      setShowMapPicker(false);
+    } finally {
+      setConfirmingMapLocation(false);
+    }
+  };
+
+  // ============================================================
+  // 📍 "Use Current Location" — gets a GPS/IP fix then opens the
+  // interactive map so the store owner can drag/tap to confirm the
+  // exact pin before we reverse-geocode it.
+  // ============================================================
+  const handleUseCurrentLocation = async () => {
+    setErrors((e) => ({ ...e, location: '' }));
+    setGettingLocation(true);
+
+    if (Platform.OS === 'web') {
+      if (typeof navigator === 'undefined' || !navigator.geolocation) {
+        setErrors((e) => ({ ...e, location: 'Geolocation is not supported by this browser.' }));
+        setGettingLocation(false);
+        return;
+      }
+
+      const requestWebPosition = (isRetry: boolean) => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude: lat, longitude: lng } = position.coords;
+            setGettingLocation(false);
+            setShowMapPicker(true);
+            // Wait for the modal to render before attaching the map
+            setTimeout(() => initMapPicker(lat, lng), 300);
+          },
+          (error) => {
+            if (error?.code === 3 && !isRetry) {
+              requestWebPosition(true);
+              return;
+            }
+
+            let message = error?.message || 'Unable to get your current location.';
+            if (error?.code === 1) {
+              message = 'Location permission was denied. Please allow location access from your browser settings.';
+            } else if (error?.code === 2) {
+              message = 'Location is currently unavailable.';
+            } else if (error?.code === 3) {
+              message = 'Location request timed out. Please check location services and try again.';
+            }
+
+            setErrors((e) => ({ ...e, location: message }));
+            setGettingLocation(false);
+          },
+          {
+            enableHighAccuracy: false,
+            timeout: isRetry ? 30000 : 20000,
+            maximumAge: 60000,
+          }
+        );
+      };
+
+      requestWebPosition(false);
+      return;
+    }
+
+    // 📱 Native (Android/iOS) — get a GPS fix, then open the same map
+    // modal for confirmation (react-native-maps would be needed to
+    // render the map natively; for now we reverse-geocode the raw fix).
+    try {
+      const Location = await import('expo-location');
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (!perm.granted) {
+        setErrors((e) => ({ ...e, location: 'Location permission denied. Enter address manually.' }));
+        setGettingLocation(false);
+        return;
+      }
+
+      const pos = await Location.getCurrentPositionAsync({});
+      const { latitude: lat, longitude: lng } = pos.coords;
+
+      try {
+        const data = await reverseGeocodeNominatim(lat, lng);
+        const addr = data?.address || {};
+        const geoCity = addr.city || addr.town || addr.village || addr.suburb || addr.county || '';
+        const geoState = addr.state || '';
+        const geoPostal = addr.postcode || '';
+
+        setAddressLine1((prev) => prev.trim() ? prev : (addr.road || data?.display_name || ''));
+        setAddressLine2((prev) => prev.trim() ? prev : (addr.suburb || ''));
+        setCity(geoCity);
+
+        const matchedState = INDIAN_STATES.find((s) => s.toLowerCase() === geoState.toLowerCase());
+        setState(matchedState || geoState);
+        setPostalCode(geoPostal);
+      } catch {
+        // Address lookup failed — coordinates still saved below
+      }
+
+      setLatitude(String(lat));
+      setLongitude(String(lng));
+      setErrors((e) => ({ ...e, location: '' }));
+    } catch {
+      setErrors((e) => ({ ...e, location: 'Could not detect location. Enter manually.' }));
+    } finally {
+      setGettingLocation(false);
     }
   };
 
@@ -141,10 +412,6 @@ export default function BusinessSetupScreen() {
             <Text style={[styles.sidebarBrand, { color: colors.primaryForeground }]}>Khata-Pro POS</Text>
           </View>
 
-          {/* FIX 1: removed flex:1 from stepsWrap — that was the empty
-              gap you saw between "Finish Setup" and the tip card.
-              Now the steps sit right under the brand row, and the tip
-              card follows immediately after with a fixed marginTop. */}
           <View style={styles.stepsWrap}>
             {steps.map((s, i) => (
               <View key={s.n} style={styles.stepRow}>
@@ -289,6 +556,46 @@ export default function BusinessSetupScreen() {
           numberOfLines={3}
         />
 
+        {/* 📍 Use Current Location — now opens the map picker instead of
+            filling raw lat/lng fields. Address fields below get
+            auto-filled once the pin is confirmed. */}
+        <Pressable
+          onPress={handleUseCurrentLocation}
+          disabled={gettingLocation}
+          style={[
+            styles.uploadBox,
+            {
+              borderColor: colors.border,
+              backgroundColor: colors.muted,
+              borderRadius: colors.radius,
+              minHeight: 56,
+              marginBottom: 4,
+              flexDirection: 'row',
+              gap: 8,
+            }
+          ]}
+        >
+          {gettingLocation ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <>
+              <Feather name="crosshair" size={18} color={colors.primary} />
+              <Text style={[styles.uploadTitle, { color: colors.foreground, marginTop: 0 }]}>Use Current Location</Text>
+            </>
+          )}
+        </Pressable>
+
+        {errors.location ? (
+          <Text style={[styles.errorText, { color: colors.destructive, marginBottom: 8 }]}>{errors.location}</Text>
+        ) : null}
+
+        {latitude !== '' && (
+          <View style={[styles.locationDetected, { backgroundColor: colors.primary + '15', borderRadius: colors.radius }]}>
+            <Feather name="check-circle" size={14} color={colors.primary} />
+            <Text style={[styles.locationDetectedText, { color: colors.primary }]}>Location detected ✓</Text>
+          </View>
+        )}
+
         <FormField
           label="Address Line 1"
           required
@@ -350,68 +657,6 @@ export default function BusinessSetupScreen() {
           onChange={setCountry}
         />
 
-        {/* Store Location for Delivery Fee */}
-        <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-          <Feather name="crosshair" size={16} color={colors.primary} />
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Store Location (for delivery fee)</Text>
-        </View>
-
-        <Pressable
-          onPress={async () => {
-            try {
-              const Location = await import('expo-location');
-              const perm = await Location.requestForegroundPermissionsAsync();
-              if (!perm.granted) {
-                setErrors((e) => ({ ...e, location: 'Location permission denied. Enter manually.' }));
-                return;
-              }
-              const pos = await Location.getCurrentPositionAsync({});
-              setLatitude(String(pos.coords.latitude));
-              setLongitude(String(pos.coords.longitude));
-              setErrors((e) => ({ ...e, location: '' }));
-            } catch {
-              setErrors((e) => ({ ...e, location: 'Could not detect location. Enter manually.' }));
-            }
-          }}
-          style={[
-            styles.uploadBox,
-            {
-              borderColor: colors.border,
-              backgroundColor: colors.muted,
-              borderRadius: colors.radius,
-              minHeight: 56,
-              marginBottom: 12
-            }
-          ]}
-        >
-          <Feather name="map-pin" size={18} color={colors.primary} />
-          <Text style={[styles.uploadTitle, { color: colors.foreground }]}>Use Current Location</Text>
-        </Pressable>
-
-        <View style={[styles.grid, isWide && styles.gridRow]}>
-          <View style={isWide ? styles.gridCol : undefined}>
-            <FormField
-              label="Latitude"
-              placeholder="13.0827"
-              keyboardType="numbers-and-punctuation"
-              value={latitude}
-              onChangeText={setLatitude}
-            />
-          </View>
-          <View style={isWide ? styles.gridCol : undefined}>
-            <FormField
-              label="Longitude"
-              placeholder="80.2707"
-              keyboardType="numbers-and-punctuation"
-              value={longitude}
-              onChangeText={setLongitude}
-            />
-          </View>
-        </View>
-        {errors.location ? (
-          <Text style={[styles.errorText, { color: colors.destructive }]}>{errors.location}</Text>
-        ) : null}
-
         {/* Business Logo */}
         <View style={[styles.sectionHeader, { marginTop: 24 }]}>
           <Feather name="image" size={16} color={colors.primary} />
@@ -457,13 +702,6 @@ export default function BusinessSetupScreen() {
 
         {errors.form ? <Text style={[styles.errorText, { color: colors.destructive }]}>{errors.form}</Text> : null}
 
-        {/* FIX 2: Log out + Save & Continue were overlapping in the wide
-            layout. Root cause was footerRowWide only setting
-            justifyContent:'flex-end' with no explicit sizing, so if
-            PrimaryButton's own width shrinks to fit text, the two
-            buttons can collide. Giving each button a guaranteed
-            minWidth + adding flexShrink:0 keeps them as two separate,
-            neatly spaced buttons on every screen size. */}
         <View style={[styles.footerRow, isWide && styles.footerRowWide]}>
           <PrimaryButton
             label="Log out"
@@ -487,6 +725,59 @@ export default function BusinessSetupScreen() {
           />
         </View>
       </KeyboardAwareScrollViewCompat>
+
+      {/* 🗺️ GOOGLE MAP PICKER MODAL (WEB) */}
+      {Platform.OS === 'web' && (
+        <Modal
+          visible={showMapPicker}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowMapPicker(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={[styles.modalContent, { height: '85%', padding: 0 }]}>
+              <View style={[styles.modalHeader, { padding: 16, borderBottomColor: colors.border }]}>
+                <Text style={[styles.modalTitle, { color: colors.foreground }]}>Confirm Store Location</Text>
+                <Pressable onPress={() => setShowMapPicker(false)}>
+                  <Feather name="x" size={22} color={colors.foreground} />
+                </Pressable>
+              </View>
+
+              <Text style={{ paddingHorizontal: 16, paddingBottom: 8, color: colors.mutedForeground, fontSize: 13 }}>
+                Drag the pin or tap the map to set your exact store location
+              </Text>
+
+              {/* Map container — plain View renders as a <div> on web,
+                  Google Maps JS attaches directly to this DOM node */}
+              <View
+                ref={mapContainerRef}
+                // @ts-ignore — web-only DOM styling
+                style={{ flex: 1, marginHorizontal: 16, borderRadius: 12, overflow: 'hidden' }}
+              />
+
+              <View style={{ padding: 16 }}>
+                <Pressable
+                  style={[
+                    styles.confirmMapButton,
+                    { backgroundColor: colors.primary },
+                    confirmingMapLocation && { opacity: 0.6 },
+                  ]}
+                  onPress={handleConfirmMapLocation}
+                  disabled={confirmingMapLocation || !mapMarkerPos}
+                >
+                  {confirmingMapLocation ? (
+                    <ActivityIndicator size="small" color={colors.primaryForeground} />
+                  ) : (
+                    <Text style={[styles.confirmMapButtonText, { color: colors.primaryForeground }]}>
+                      Confirm This Location
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -501,9 +792,6 @@ const styles = StyleSheet.create({
   sidebarBrandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 40 },
   sidebarLogo: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   sidebarBrand: { fontSize: 16, fontFamily: 'Inter_700Bold', fontWeight: '700' },
-  // FIX 1: removed `flex: 1` here — this was stretching the steps list
-  // to fill the whole sidebar height and pushing the tip card way down,
-  // leaving a big empty gap under "Finish Setup".
   stepsWrap: { marginBottom: 24 },
   stepRow: { flexDirection: 'row', gap: 14 },
   stepCol: { alignItems: 'center' },
@@ -553,11 +841,44 @@ const styles = StyleSheet.create({
   previewName: { fontSize: 13, fontFamily: 'Inter_600SemiBold', fontWeight: '600' },
   previewSub: { fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 2 },
 
+  locationDetected: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 12,
+    alignSelf: 'flex-start',
+  },
+  locationDetectedText: { fontSize: 12, fontFamily: 'Inter_500Medium', fontWeight: '500' },
+
   errorText: { fontSize: 13, fontFamily: 'Inter_400Regular' },
-  // FIX 2: increased gap + flexShrink:0 on buttons stops them from
-  // collapsing into each other; footerRowWide now also wraps if the
-  // window gets too narrow so they never sit on top of one another.
   footerRow: { flexDirection: 'row', gap: 12, marginTop: 10, flexWrap: 'wrap' },
   footerRowWide: { justifyContent: 'flex-end' },
   footerButton: { flexShrink: 0 },
+
+  // 🗺️ Map picker modal
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+  },
+  modalTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', fontWeight: '700' },
+  confirmMapButton: {
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  confirmMapButtonText: { fontSize: 16, fontFamily: 'Inter_600SemiBold', fontWeight: '600' },
 });

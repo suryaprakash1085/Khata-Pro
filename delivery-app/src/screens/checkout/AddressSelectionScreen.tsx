@@ -1,4 +1,3 @@
-
 import React, { useState, useContext, useEffect } from 'react';
 import {
   View,
@@ -22,8 +21,16 @@ import { AuthContext } from '../../context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 
+<<<<<<< HEAD
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000') + '/api';
 
+=======
+const CompatibleFlatList: any = FlatList;
+
+// ✅ Uses EXPO_PUBLIC_API_BASE_URL from .env in production/cloud builds.
+// Falls back to localhost only for local development if the env var isn't set.
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || ' ';
+>>>>>>> dd520935df100fa787865484198a4572cead7812
 let authToken: string | null = null;
 
 // ✅ Theme color — matched to Cart screen's purple/indigo (#6C5CE7)
@@ -187,12 +194,81 @@ interface AddressSelectionScreenProps {
   route: any;
 }
 
+// ============================================================
+// ⏱️ Generic fetch wrapper with a hard timeout, so a slow/unresponsive
+// server can never leave the UI stuck on an infinite spinner. If the
+// server doesn't reply within `timeoutMs`, the request is aborted and
+// the caller's existing catch/fallback logic takes over.
+// ============================================================
+const fetchWithTimeout = async (
+  url: string,
+  options: RequestInit = {},
+  timeoutMs: number = 10000
+): Promise<Response> => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    return response;
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+// ============================================================
+// 🗺️ Load Google Maps JS API script once (web only)
+// ============================================================
+let googleMapsLoadPromise: Promise<void> | null = null;
+
+const loadGoogleMapsScript = (): Promise<void> => {
+  if ((window as any).google?.maps) return Promise.resolve();
+  if (googleMapsLoadPromise) return googleMapsLoadPromise;
+
+  googleMapsLoadPromise = new Promise((resolve, reject) => {
+    const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      reject(new Error('Google Maps API key is missing. Add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY to .env'));
+      return;
+    }
+
+    const existingScript = document.getElementById('google-maps-script');
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve());
+      return;
+    }
+
+    // ⏱️ If the script hasn't loaded within 10s (blocked network, slow CDN,
+    // firewall etc.), bail out instead of hanging forever.
+    const timer = setTimeout(() => {
+      googleMapsLoadPromise = null; // allow a retry on next attempt
+      reject(new Error('Google Maps script load timed out. Please check your internet connection.'));
+    }, 10000);
+
+    const script = document.createElement('script');
+    script.id = 'google-maps-script';
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.async = true;
+    script.onload = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    script.onerror = () => {
+      clearTimeout(timer);
+      googleMapsLoadPromise = null;
+      reject(new Error('Failed to load Google Maps script'));
+    };
+    document.body.appendChild(script);
+  });
+
+  return googleMapsLoadPromise;
+};
+
 const AddressSelectionScreen: React.FC<AddressSelectionScreenProps> = ({
   navigation,
   route,
 }) => {
-  // const { totalAmount, restaurantName, cartItems } = route.params || {};
-const { totalAmount, restaurantName, cartItems, discount = 0, promoCode = null, promoId = null } = route.params || {};
+  const { totalAmount, restaurantName, cartItems, discount = 0, promoCode = null, promoId = null } = route.params || {};
   const {
     addresses,
     selectedAddress,
@@ -222,6 +298,14 @@ const { totalAmount, restaurantName, cartItems, discount = 0, promoCode = null, 
   const [isLoading, setIsLoading] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
   const [locationError, setLocationError] = useState<string>('');
+
+  // 👇 Google Map picker modal state (web only)
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [mapMarkerPos, setMapMarkerPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [confirmingMapLocation, setConfirmingMapLocation] = useState(false);
+  const mapContainerRef = React.useRef<any>(null);
+  const googleMapRef = React.useRef<any>(null);
+  const googleMarkerRef = React.useRef<any>(null);
 
   // ✅ Validation error states
   const [phoneError, setPhoneError] = useState<string>('');
@@ -357,20 +441,202 @@ const { totalAmount, restaurantName, cartItems, discount = 0, promoCode = null, 
   };
 
   // ============================================================
+  // 🗺️ Initialize the interactive map with a draggable marker
+  // ============================================================
+  const initMapPicker = async (lat: number, lng: number) => {
+    try {
+      await loadGoogleMapsScript();
+    } catch (err: any) {
+      console.error('❌ Google Maps script load error:', err);
+      Alert.alert('❌ Map Error', err?.message || 'Failed to load Google Maps.');
+      // Script failed/timed out — go back to the form instead of leaving
+      // the user stuck on a blank map screen.
+      setShowMapPicker(false);
+      setShowAddAddressModal(true);
+      return;
+    }
+
+    const google = (window as any).google;
+    if (!google?.maps || !mapContainerRef.current) return;
+
+    const map = new google.maps.Map(mapContainerRef.current, {
+      center: { lat, lng },
+      zoom: 16,
+      disableDefaultUI: false,
+      zoomControl: true,
+      streetViewControl: false,
+      mapTypeControl: false,
+    });
+
+    const marker = new google.maps.Marker({
+      position: { lat, lng },
+      map,
+      draggable: true,
+    });
+
+    marker.addListener('dragend', () => {
+      const pos = marker.getPosition();
+      if (pos) {
+        setMapMarkerPos({ lat: pos.lat(), lng: pos.lng() });
+      }
+    });
+
+    // Also allow tapping anywhere on the map to move the pin
+    map.addListener('click', (e: any) => {
+      const lat2 = e.latLng.lat();
+      const lng2 = e.latLng.lng();
+      marker.setPosition({ lat: lat2, lng: lng2 });
+      setMapMarkerPos({ lat: lat2, lng: lng2 });
+    });
+
+    googleMapRef.current = map;
+    googleMarkerRef.current = marker;
+    setMapMarkerPos({ lat, lng });
+  };
+
+  // ============================================================
+  // 🗺️ Reverse geocode the final pin position using OpenStreetMap
+  // Nominatim (free, no API key / no billing needed). Google Maps
+  // JS API is used only for the visual map + draggable pin above —
+  // the actual address lookup goes through Nominatim so we don't
+  // need Google Cloud billing enabled at all.
+  // ============================================================
+  const reverseGeocodeNominatim = async (lat: number, lng: number): Promise<any> => {
+    const response = await fetchWithTimeout(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+      {
+        headers: {
+          Accept: 'application/json',
+          // ⚠️ Nominatim's usage policy requires a real User-Agent — without
+          // one, requests can be silently throttled/dropped under load.
+          'User-Agent': 'DeliveryApp/1.0 (contact@example.com)',
+        },
+      },
+      8000 // 8s timeout — falls back to raw coordinates if it doesn't respond
+    );
+
+    if (!response.ok) {
+      throw new Error(`Reverse geocode failed: ${response.status}`);
+    }
+
+    return response.json();
+  };
+
+  // ============================================================
+  // 🗺️ User confirms the pin position on the map
+  // ============================================================
+  const handleConfirmMapLocation = async () => {
+    if (!mapMarkerPos) return;
+
+    setConfirmingMapLocation(true);
+
+    try {
+      const data = await reverseGeocodeNominatim(mapMarkerPos.lat, mapMarkerPos.lng);
+
+      const addr = data?.address || {};
+
+      const city =
+        addr.city ||
+        addr.town ||
+        addr.village ||
+        addr.suburb ||
+        addr.county ||
+        '';
+
+      const state = addr.state || '';
+      const pincode = addr.postcode || '';
+
+      let formattedAddress =
+        data?.display_name ||
+        [addr.road, addr.suburb, addr.city].filter(Boolean).join(', ');
+
+      if (!formattedAddress) {
+        formattedAddress = `${mapMarkerPos.lat}, ${mapMarkerPos.lng}`;
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        address: formattedAddress,
+        city,
+        state,
+        pincode,
+        latitude: mapMarkerPos.lat,
+        longitude: mapMarkerPos.lng,
+      }));
+
+      setAddressError('');
+      setCityError('');
+      setPincodeError('');
+
+      applyLiveLocationAsSelected({
+        formattedAddress,
+        city,
+        state,
+        pincode,
+        latitude: mapMarkerPos.lat,
+        longitude: mapMarkerPos.lng,
+      });
+
+      setShowMapPicker(false);
+      // ✅ Automatically bring the Add Address form back up, now pre-filled
+      // with the confirmed live location.
+      setShowAddAddressModal(true);
+      Alert.alert('📍 Location Confirmed!', formattedAddress);
+    } catch (err: any) {
+      console.error('❌ Reverse geocode error:', err);
+
+      // Even if address lookup fails, keep the pin's coordinates so
+      // checkout / delivery-fee calculation still works.
+      setFormData((prev) => ({
+        ...prev,
+        address: `${mapMarkerPos.lat}, ${mapMarkerPos.lng}`,
+        latitude: mapMarkerPos.lat,
+        longitude: mapMarkerPos.lng,
+      }));
+
+      applyLiveLocationAsSelected({
+        formattedAddress: `${mapMarkerPos.lat}, ${mapMarkerPos.lng}`,
+        city: '',
+        state: '',
+        pincode: '',
+        latitude: mapMarkerPos.lat,
+        longitude: mapMarkerPos.lng,
+      });
+
+      setShowMapPicker(false);
+      // ✅ Still bring the form back up so the user can edit the address
+      // manually instead of being left on a closed screen.
+      setShowAddAddressModal(true);
+      Alert.alert('⚠️ Address lookup failed', 'Location saved using coordinates. Please edit the address manually if needed.');
+    } finally {
+      setConfirmingMapLocation(false);
+    }
+  };
+
+  // ============================================================
+  // 🗺️ User cancels/closes the map picker without confirming —
+  // bring the Add Address form back so they aren't left with nothing.
+  // ============================================================
+  const closeMapPickerAndReturnToForm = () => {
+    setShowMapPicker(false);
+    setShowAddAddressModal(true);
+  };
+
+  // ============================================================
   // ✅ GET CURRENT GPS LOCATION
-  // Google Maps API is NOT used here
-  // Works on Android/iOS (expo-location) AND Web (browser Geolocation API)
+  // Works on Android/iOS (expo-location) AND Web (browser Geolocation API
+  // + Google Maps picker modal)
   // ============================================================
   const getCurrentLocation = async () => {
     setLocationError('');
     setGettingLocation(true);
 
     // ============================================================
-    // 🌐 WEB — expo-location's GPS + reverseGeocodeAsync are NOT
-    // supported on web, so we use the browser's native Geolocation
-    // API plus a free reverse-geocoding service (OpenStreetMap
-    // Nominatim, no API key required) instead. Android/iOS flow
-    // below is completely untouched.
+    // 🌐 WEB — expo-location's GPS is NOT supported on web, so we use
+    // the browser's native Geolocation API to get a lat/lng fix, then
+    // open an interactive Google Map modal so the user can drag/tap
+    // to confirm the exact pin before we reverse-geocode it.
+    // Android/iOS flow below is completely untouched.
     // ============================================================
     if (Platform.OS === 'web') {
       if (
@@ -382,6 +648,8 @@ const { totalAmount, restaurantName, cartItems, discount = 0, promoCode = null, 
         setLocationError(message);
         Alert.alert('❌ Location Error', message);
         setGettingLocation(false);
+        // No map to show — bring the form back.
+        setShowAddAddressModal(true);
         return;
       }
 
@@ -392,97 +660,19 @@ const { totalAmount, restaurantName, cartItems, discount = 0, promoCode = null, 
         console.log('Latitude:', latitude);
         console.log('Longitude:', longitude);
 
-        try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-            {
-              headers: {
-                Accept: 'application/json',
-              },
-            }
-          );
+        setGettingLocation(false);
 
-          const data = await response.json();
+        // 👇 Instead of auto-filling via Nominatim, open the interactive
+        // Google Map picker so the user can confirm/adjust the exact pin.
+        // (Add Address modal is already hidden — it's brought back once
+        // the user confirms the pin or cancels.)
+        setShowMapPicker(true);
 
-          console.log('📦 Reverse geocode result (WEB):', data);
-
-          const addr = data?.address || {};
-
-          const city =
-            addr.city ||
-            addr.town ||
-            addr.village ||
-            addr.suburb ||
-            addr.county ||
-            '';
-
-          const state = addr.state || '';
-          const pincode = addr.postcode || '';
-
-          let formattedAddress =
-            data?.display_name ||
-            [addr.road, addr.suburb, addr.city].filter(Boolean).join(', ');
-
-          if (!formattedAddress) {
-            formattedAddress = `${latitude}, ${longitude}`;
-          }
-
-          setFormData((prev) => ({
-            ...prev,
-            address: formattedAddress,
-            city,
-            state,
-            pincode,
-            latitude,
-            longitude,
-          }));
-
-          setAddressError('');
-          setCityError('');
-          setPincodeError('');
-
-          // ✅ Reflect immediately on HomeScreen and anywhere else that
-          // reads selectedAddress — no extra save/select step needed.
-          applyLiveLocationAsSelected({
-            formattedAddress,
-            city,
-            state,
-            pincode,
-            latitude,
-            longitude,
-          });
-
-          Alert.alert(
-            '📍 Location Found!',
-            `Address: ${formattedAddress}\n\nLatitude: ${latitude}\nLongitude: ${longitude}`
-          );
-        } catch (geocodeError) {
-          console.error('❌ Reverse geocoding error (WEB):', geocodeError);
-
-          // GPS worked even if address lookup failed
-          setFormData((prev) => ({
-            ...prev,
-            latitude,
-            longitude,
-          }));
-
-          // ✅ Still reflect on HomeScreen using coordinates as the label
-          applyLiveLocationAsSelected({
-            formattedAddress: `${latitude}, ${longitude}`,
-            city: '',
-            state: '',
-            pincode: '',
-            latitude,
-            longitude,
-          });
-
-          Alert.alert(
-            '📍 GPS Location Found',
-            `Latitude: ${latitude}\nLongitude: ${longitude}\n\nAddress lookup failed. Please enter your address manually.`
-          );
-        } finally {
-          setGettingLocation(false);
-        }
+        // Wait for the modal to render (and mapContainerRef to attach)
+        // before initializing the map.
+        setTimeout(() => {
+          initMapPicker(latitude, longitude);
+        }, 300);
       };
 
       // ✅ Retry once (with an even longer timeout) before giving up —
@@ -517,6 +707,8 @@ const { totalAmount, restaurantName, cartItems, discount = 0, promoCode = null, 
             setLocationError(message);
             Alert.alert('❌ Location Error', message);
             setGettingLocation(false);
+            // Attempt failed and there's no map to show — bring the form back.
+            setShowAddAddressModal(true);
           },
           {
             // ⚠️ Desktop/laptop browsers have no GPS chip — high accuracy
@@ -550,6 +742,7 @@ const { totalAmount, restaurantName, cartItems, discount = 0, promoCode = null, 
         setLocationError(message);
         Alert.alert('Location Permission', message);
         setGettingLocation(false);
+        setShowAddAddressModal(true);
         return;
       }
 
@@ -627,6 +820,9 @@ const { totalAmount, restaurantName, cartItems, discount = 0, promoCode = null, 
             '📍 Location Found!',
             `Address: ${formattedAddress}\n\nLatitude: ${latitude}\nLongitude: ${longitude}`
           );
+
+          // ✅ Bring the Add Address form back up, now pre-filled.
+          setShowAddAddressModal(true);
         } else {
           setFormData(prev => ({
             ...prev,
@@ -648,6 +844,8 @@ const { totalAmount, restaurantName, cartItems, discount = 0, promoCode = null, 
             '📍 GPS Location Found',
             `Latitude: ${latitude}\nLongitude: ${longitude}\n\nPlease enter your address manually.`
           );
+
+          setShowAddAddressModal(true);
         }
       } catch (geocodeError) {
         console.error('❌ Reverse geocoding error:', geocodeError);
@@ -673,6 +871,8 @@ const { totalAmount, restaurantName, cartItems, discount = 0, promoCode = null, 
           '📍 GPS Location Found',
           `Latitude: ${latitude}\nLongitude: ${longitude}\n\nAddress lookup failed. Please enter your address manually.`
         );
+
+        setShowAddAddressModal(true);
       }
     } catch (error: any) {
       console.error('❌ GPS location error:', error);
@@ -685,6 +885,8 @@ const { totalAmount, restaurantName, cartItems, discount = 0, promoCode = null, 
         '❌ Location Error',
         error?.message || 'Unable to get your current location.'
       );
+
+      setShowAddAddressModal(true);
     } finally {
       // VERY IMPORTANT
       setGettingLocation(false);
@@ -693,6 +895,17 @@ const { totalAmount, restaurantName, cartItems, discount = 0, promoCode = null, 
   // ✅ Mobile + Web
   const requestLocationPermission = () => {
     getCurrentLocation();
+  };
+
+  // ============================================================
+  // ✅ Called from the "Use Live Location" button INSIDE the Add
+  // Address modal. Hides the form so the map picker (web) or the
+  // permission/GPS flow (mobile) can run — the form is reopened
+  // automatically once a location is confirmed, fails, or is cancelled.
+  // ============================================================
+  const handleLiveLocationButtonPress = () => {
+    setShowAddAddressModal(false);
+    requestLocationPermission();
   };
 
   const getAddressTypeIcon = (type: string) => {
@@ -721,7 +934,7 @@ const { totalAmount, restaurantName, cartItems, discount = 0, promoCode = null, 
     }
   };
 
-  
+
   const [calculatingFeeForId, setCalculatingFeeForId] = useState<string | null>(null);
 
   // ✅ Real delivery fee — calculated from the ACTUAL selected address's
@@ -742,7 +955,7 @@ const { totalAmount, restaurantName, cartItems, discount = 0, promoCode = null, 
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/delivery-fees/calculate`, {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/api/delivery-fees/calculate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -750,7 +963,7 @@ const { totalAmount, restaurantName, cartItems, discount = 0, promoCode = null, 
           customer_latitude: address.latitude,
           customer_longitude: address.longitude,
         }),
-      });
+      }, 8000);
       const data = await response.json();
       if (!response.ok) {
         console.error('❌ Delivery fee calculate error:', response.status, data);
@@ -796,13 +1009,13 @@ const { totalAmount, restaurantName, cartItems, discount = 0, promoCode = null, 
       tax: roundedGst,
        discount: discount,        // 👈 NEW — forward pannunga
     promoCode: promoCode,      // 👈 NEW
-    promoId: promoId,  
+    promoId: promoId,
       restaurantName: restaurantName,
       cartItems: cartItems,
       orderId: 'ORD-' + Date.now().toString().slice(-6),
     });
   };
-  
+
 const handleAddAddress = async () => {
   console.log('🔵 handleAddAddress CALLED');
 
@@ -1038,39 +1251,27 @@ const handleAddAddress = async () => {
 
         <Text style={styles.headerTitle}>Delivery Address</Text>
 
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setShowAddAddressModal(true)}
-        >
-          <Icon name="add-circle-outline" size={28} color={THEME_COLOR} />
-        </TouchableOpacity>
+        {/* Spacer so the title stays centered now that the + icon is gone */}
+        <View style={styles.headerSpacer} />
       </View>
 
-      {/* CURRENT LOCATION */}
+      {/* ADD NEW ADDRESS — replaces the old + icon; opens the Add Address modal */}
       <TouchableOpacity
         style={styles.locationButton}
-        onPress={requestLocationPermission}
-        disabled={gettingLocation}
+        onPress={() => setShowAddAddressModal(true)}
       >
-        {gettingLocation ? (
-          <ActivityIndicator size="small" color={THEME_COLOR} />
-        ) : (
-          <>
-            <Icon name="locate-outline" size={22} color={THEME_COLOR} />
+        <Icon name="add-circle-outline" size={22} color={THEME_COLOR} />
 
-            <Text style={styles.locationButtonText}>
-              Use Current Location
-            </Text>
-          </>
-        )}
+        <Text style={styles.locationButtonText}>
+          Add New Address
+        </Text>
       </TouchableOpacity>
 
       {/* SAVED ADDRESSES */}
-      <FlatList
+	<CompatibleFlatList
         data={addresses}
         renderItem={renderAddressItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.addressList}
+		keyExtractor={(item: Address) => item.id}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           addresses.length > 0 ? (
@@ -1110,6 +1311,53 @@ const handleAddAddress = async () => {
         </View>
       )}
 
+      {/* 🗺️ GOOGLE MAP PICKER MODAL (WEB ONLY) */}
+      {Platform.OS === 'web' && (
+        <Modal
+          visible={showMapPicker}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={closeMapPickerAndReturnToForm}
+        >
+          <View style={styles.modalContainer}>
+            <View style={[styles.modalContent, { height: '85%', padding: 0 }]}>
+              <View style={[styles.modalHeader, { padding: 16 }]}>
+                <Text style={styles.modalTitle}>Confirm Your Location</Text>
+                <TouchableOpacity onPress={closeMapPickerAndReturnToForm}>
+                  <Icon name="close" size={24} color="#282c3f" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={{ paddingHorizontal: 16, paddingBottom: 8, color: '#7e808c', fontSize: 13 }}>
+                Drag the pin or tap the map to set your exact delivery location
+              </Text>
+
+              {/* Map container — plain View renders as a <div> on web,
+                  Google Maps JS attaches directly to this DOM node */}
+              <View
+                ref={mapContainerRef}
+                // @ts-ignore — web-only DOM styling
+                style={{ flex: 1, marginHorizontal: 16, borderRadius: 12, overflow: 'hidden' }}
+              />
+
+              <View style={{ padding: 16 }}>
+                <TouchableOpacity
+                  style={[styles.submitButton, confirmingMapLocation && styles.submitButtonDisabled]}
+                  onPress={handleConfirmMapLocation}
+                  disabled={confirmingMapLocation || !mapMarkerPos}
+                >
+                  {confirmingMapLocation ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={styles.submitButtonText}>Confirm This Location</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
       {/* ADD ADDRESS MODAL */}
       <Modal
         visible={showAddAddressModal}
@@ -1136,6 +1384,26 @@ const handleAddAddress = async () => {
               showsVerticalScrollIndicator={false}
               nestedScrollEnabled={true}
             >
+              {/* USE LIVE LOCATION — opens the map picker (web) / GPS flow
+                  (mobile) and auto-fills address/city/state/pincode below */}
+              <TouchableOpacity
+                style={[styles.locationButton, { margin: 0, marginBottom: 16 }]}
+                onPress={handleLiveLocationButtonPress}
+                disabled={gettingLocation}
+              >
+                {gettingLocation ? (
+                  <ActivityIndicator size="small" color={THEME_COLOR} />
+                ) : (
+                  <>
+                    <Icon name="locate-outline" size={20} color={THEME_COLOR} />
+
+                    <Text style={styles.locationButtonText}>
+                      Use Live Location
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
               {/* ADDRESS TYPE */}
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Address Type</Text>
@@ -1550,6 +1818,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#282c3f',
     textAlign: 'center',
+  },
+
+  headerSpacer: {
+    width: 32,
   },
 
   addButton: {

@@ -26,7 +26,7 @@ import { WebSidebar, SIDEBAR_WIDTH } from '@/components/WebSidebar';
 SplashScreen.preventAutoHideAsync();
 
 // Set the API base URL - connects mobile app to API server and database
-setBaseUrl(process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000');
+setBaseUrl(process.env.EXPO_PUBLIC_API_URL || 'https://khata-pro.onrender.com');
 
 const queryClient = new QueryClient();
 

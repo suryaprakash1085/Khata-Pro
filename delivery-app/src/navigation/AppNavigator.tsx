@@ -47,10 +47,7 @@ const Tab = createBottomTabNavigator();
 // by the screen padding so content never sits underneath it.
 const WEB_NAV_HEIGHT = 64;
  
-// ✅ Below this window width we're on a phone-sized browser viewport —
-// keep the familiar bottom tab bar there. At or above it (a real desktop
-// browser window) we switch to the top navbar instead. Native apps
-// (Platform.OS !== 'web') never use this — they always get the bottom bar.
+
 const DESKTOP_BREAKPOINT = 768;
  
 const linking: LinkingOptions<any> = {
@@ -84,13 +81,7 @@ const linking: LinkingOptions<any> = {
   },
 };
  
-// =====================================================
-// ✅ WEB TOP NAVBAR — replaces the bottom tab bar ONLY on web.
-// Receives the exact same props React Navigation gives a custom
-// tabBar (state/descriptors/navigation), so tapping a link uses the
-// normal tab navigation events — active-state detection, badge
-// support, etc. all keep working the same way they do on mobile.
-// =====================================================
+
 const WebTopNavBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {
   return (
     <View style={webNavStyles.container}>

@@ -1,9 +1,13 @@
 // import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
-import { getToken } from '../utils/storage';
+import { getToken, removeToken, removeUser } from '../utils/storage';
 import { API_URL } from '@env';
 
+<<<<<<< HEAD
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
+=======
+const BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || API_URL || 'http://localhost:3000/api').replace(/\/$/, '');
+>>>>>>> dd520935df100fa787865484198a4572cead7812
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: BASE_URL,
@@ -34,6 +38,10 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response) {
       console.error('API Error:', error.response.data);
+      if (error.response.status === 401) {
+        void removeToken();
+        void removeUser();
+      }
       return Promise.reject(error.response.data);
     } else if (error.request) {
       console.error('No response from server:', error.request);

@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "delivery-app",
@@ -11,10 +12,21 @@
     "owner": "",
     "android": {
       "useNextNotificationsApi": true,
-      "package": "com.subasri0102.deliveryapp"
+      "package": "com.subasri0102.deliveryapp",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyD3u4E5kVRbD6UR_VXUfjMWVPRtYxKkgT4"
+        }
+      }
+    },
+    "ios": {
+      "config": {
+        "googleMapsApiKey": "AIzaSyD3u4E5kVRbD6UR_VXUfjMWVPRtYxKkgT4"
+      }
     },
     "plugins": [
-      "expo-notifications"
+      "expo-notifications",
+      "react-native-maps"
     ]
   }
 }

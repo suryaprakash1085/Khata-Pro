@@ -24,9 +24,7 @@ import { AddressContext } from '../../context/AddressContext';
 
 const { width } = Dimensions.get('window');
 
-// ✅ Same constants as AppNavigator's WebTopNavBar — kept in sync so this
-// screen always clears the fixed top navbar on desktop web, no matter
-// what padding the navigator itself does or doesn't apply.
+
 const WEB_NAV_HEIGHT = 64;
 const DESKTOP_BREAKPOINT = 768;
 
@@ -44,19 +42,13 @@ export default function HomeScreen({ navigation }: any) {
 
   const { cartItems, addToCart, updateQuantity, removeFromCart } = useContext(CartContext);
 
-  // ✅ Pulls whichever address the user last selected/detected on the
-  // Delivery Address screen (including "Use Current Location"), so the
-  // header always reflects the real delivery location instead of a
-  // hardcoded placeholder.
+  
   const { selectedAddress } = useContext(AddressContext);
 
-  // =====================================================
-  // LOAD BUSINESSES
-  // =====================================================
+ 
   useEffect(() => {
     businessAPI
-      // ✅ limit raised from the backend's default (20) to 500 so every
-      // active store on the platform shows here, not just the latest 20.
+   
       .getBusinesses({ limit: 500 })
       .then((res: any) => {
         let businessesData = [];
@@ -93,9 +85,7 @@ export default function HomeScreen({ navigation }: any) {
       .catch((err) => console.error('Failed to load products:', err));
   }, [selectedBusinessId]);
 
-  // =====================================================
-  // SEARCH
-  // =====================================================
+
   const handleSearch = (text: string) => {
     setSearchText(text);
 
@@ -110,18 +100,11 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  // =====================================================
-  // HEADER — shows the currently selected store (from context, not login)
-  // =====================================================
+ 
   const businessName = selectedBusiness?.name || 'Select a Store';
   const displayName = businessName.length > 20 ? businessName.substring(0, 20) + '...' : businessName;
 
-  // =====================================================
-  // HEADER — delivery location label & line
-  // Comes from AddressContext.selectedAddress (set either by picking a
-  // saved address, or by "Use Current Location" on AddressSelectionScreen).
-  // Falls back to a friendly placeholder when nothing is set yet.
-  // =====================================================
+  
   const locationLabel = selectedAddress?.type || 'Home';
 
   const locationLine = selectedAddress
@@ -130,18 +113,14 @@ export default function HomeScreen({ navigation }: any) {
         .join(', ') || selectedAddress.address
     : 'Set your delivery location';
 
-  // =====================================================
-  // STORE CARD — Amazon-style grid product card.
-  // Same data/behaviour as before (tap syncs context + navigates to
-  // ProductList) — only the card's visual structure changed.
-  // =====================================================
+ 
   const renderStoreCard = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={styles.storeCard}
       onPress={() => {
         console.log('🛒 Clicked store:', item.business_name, 'ID:', item.id);
 
-        // ✅ Sync context so downstream screens (ProductList/Cart/Checkout) use the right store
+       
         setSelectedBusiness({
           id: item.id,
           name: item.business_name,
@@ -266,9 +245,7 @@ export default function HomeScreen({ navigation }: any) {
   );
 }
 
-// =========================================================
-// STYLES
-// =========================================================
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,

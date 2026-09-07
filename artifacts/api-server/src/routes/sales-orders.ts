@@ -26,13 +26,10 @@ import {
 
 const router: IRouter = Router();
 
-// Matches the deliveriesTable.payment_method column's actual enum
-// (Drizzle schema only allows these three values — not 'cash'/'upi'/'cheque').
+
 type DeliveryPaymentMethod = "online" | "cod" | "card";
 
-// Now accepts an optional paymentMode (resolved from the linked
-// deliveries row, since sales_orders itself has no payment column) and
-// includes it in the formatted response as `payment_mode`.
+
 function formatSalesOrder(so: any, customerName?: string, itemCount?: number, paymentMode?: string | null) {
   return {
     id: Number(so.id),
@@ -80,8 +77,7 @@ function formatSalesOrder(so: any, customerName?: string, itemCount?: number, pa
   };
 }
 
-// Shared helper — resolves a business's pickup address for auto-created
-// deliveries. Used by both the admin and public order-creation routes.
+
 async function resolvePickupAddress(businessId: number): Promise<string> {
   const [business] = await db.select().from(businessesTable).where(eq(businessesTable.id, businessId));
   return (
@@ -91,12 +87,7 @@ async function resolvePickupAddress(businessId: number): Promise<string> {
   );
 }
 
-// Shared helper: given the parsed CreateSalesOrderBody (or
-// CreatePublicSalesOrderBody), computes the delivery-fee snapshot to persist
-// on the order. NEVER trusts a client-sent delivery fee — always
-// recalculates server-side from current delivery_fee_settings. Falls back
-// to a zero/null snapshot (never throws) if shipping_address or coordinates
-// are missing, since not every order is a home delivery.
+
 async function resolveDeliveryFee(d: {
   business_id: number;
   customer_latitude?: number;
@@ -257,12 +248,7 @@ router.get("/sales-orders/:id", requireAuth, async (req, res): Promise<void> => 
   });
 });
 
-// ============================================================
-// POST /sales-orders — admin/staff create (authenticated).
-// Does NOT touch stock; order is only "placed" here, not fulfilled.
-// Auto-creates a matching `deliveries` row when a shipping_address
-// is provided (home-delivery order, not in-store pickup).
-// ============================================================
+
 router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
   const parsed = CreateSalesOrderBody.safeParse(req.body);
   if (!parsed.success) {
@@ -342,15 +328,7 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
   res.status(201).json(formatSalesOrder(order, customer.name, d.items.length, paymentMode));
 });
 
-// ============================================================
-// POST /public/sales-orders — customer-facing order placement (no auth).
-// Mirrors the admin route above, including the delivery auto-create,
-// but is unauthenticated since the customer app doesn't hold a staff JWT.
-// `business_id` is taken directly from the request body (d.business_id) —
-// no server-side override, so whatever the client sends is what gets billed.
-// Uses CreatePublicSalesOrderBody (includes payment_method) instead of the
-// admin CreateSalesOrderBody.
-// ============================================================
+
 router.post("/public/sales-orders", async (req, res): Promise<void> => {
   try {
     const parsed = CreatePublicSalesOrderBody.safeParse(req.body);

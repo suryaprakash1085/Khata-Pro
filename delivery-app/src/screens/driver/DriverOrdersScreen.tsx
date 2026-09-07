@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // import React, { useContext, useMemo, useState } from 'react';
 // import {
 //   View,
@@ -1170,6 +1171,9 @@
 // });
 
 // export default DriverOrdersScreen;
+=======
+
+>>>>>>> dd520935df100fa787865484198a4572cead7812
 
 import React, { useContext, useMemo, useState } from 'react';
 import {
@@ -1579,7 +1583,7 @@ const EmptyOrdersState: React.FC<{ message: string }> = ({ message }) => (
 );
 
 // API base — mirrors the same default used elsewhere in the app.
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL  || ' /api';
 
 const DriverOrdersScreen: React.FC = () => {
   const navigation = useNavigation<any>();
@@ -1972,6 +1976,151 @@ const DriverOrdersScreen: React.FC = () => {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
 
+<<<<<<< HEAD
+=======
+
+      {isWideWeb && (
+        <View style={styles.webTopBar}>
+          <View style={styles.webTopBarInner}>
+            <Text style={styles.webBrand}>Khata-Pro · Driver</Text>
+            <View style={styles.webTopBarTabs}>
+              {bottomTabs.map((tab) => {
+                const active = tab.key === ACTIVE_TAB;
+                return (
+                  <TouchableOpacity
+                    key={tab.key}
+                    style={[styles.webTopBarTab, webNoOutlineStyle]}
+                    onPress={() => handleTabPress(tab)}
+                  >
+                    <Ionicons name={tab.icon as keyof typeof Ionicons.glyphMap} size={17} color={active ? COLORS.primary : COLORS.slate} />
+                    <Text style={[styles.webTopBarTabLabel, active && { color: COLORS.primary, fontWeight: '700' }]}>{tab.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+      )}
+
+      <TypedFlatList
+        data={filteredOrders}
+        keyExtractor={(item: OrderCardData) => item.id}
+        numColumns={1}
+        key="cols-1"
+        contentContainerStyle={[styles.listContent, !isWideWeb && { paddingBottom: 90 }]}
+        refreshControl={
+          <RefreshControl refreshing={!isLoading && isFetching} onRefresh={refetchDeliveries} tintColor={COLORS.primary} />
+        }
+        ListHeaderComponent={
+          <View style={[styles.webContainer, isWideWeb && styles.webContainerWide]}>
+            {/* Header */}
+            {!isWideWeb ? (
+              <View style={styles.mobileHeader}>
+                <View>
+                  <Text style={styles.headerTitle}>My Orders</Text>
+                  <Text style={styles.headerDate}>{todayLabel}</Text>
+                </View>
+                <TouchableOpacity style={[styles.refreshBtn, webNoOutlineStyle]} onPress={() => refetchDeliveries()} hitSlop={8}>
+                  <Ionicons name="refresh-outline" size={20} color={COLORS.ink} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.webHeader}>
+                <View>
+                  <Text style={styles.headerTitle}>My Orders</Text>
+                  <Text style={styles.headerDate}>{todayLabel}</Text>
+                </View>
+                <TouchableOpacity style={[styles.refreshBtn, webNoOutlineStyle]} onPress={() => refetchDeliveries()}>
+                  <Ionicons name="refresh-outline" size={16} color={COLORS.ink} />
+                  <Text style={styles.refreshBtnText}>Refresh</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Summary */}
+            <View style={styles.section}>
+              <View style={styles.summaryGrid}>
+                {summaryItems.map((item) => (
+                  <View key={item.key} style={styles.summaryGridItem}>
+                    <OrderSummaryCard item={item as any} active={activeFilter === item.key} onPress={() => setActiveFilter(item.key as OrderFilterKey)} />
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Search */}
+            <View style={styles.section}>
+              <View style={styles.searchBar}>
+                <Ionicons name="search-outline" size={16} color={COLORS.slate} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search by Order ID, customer name or phone"
+                  placeholderTextColor={COLORS.slateLight}
+                  value={search}
+                  onChangeText={setSearch}
+                />
+                {search.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
+                    <Ionicons name="close-circle" size={18} color={COLORS.slateLight} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* Filter tabs */}
+            <View style={[styles.section, { marginBottom: 4 }]}>
+              <OrderFilterTabs active={activeFilter} onChange={setActiveFilter} />
+            </View>
+          </View>
+        }
+        renderItem={({ item }: { item: OrderCardData }) => (
+          <View style={[styles.cardWrapper, isWideWeb && styles.cardWrapperWide]}>
+            <OrderCard
+              order={item}
+              updating={updatingId === item.id || markingOutForDeliveryId === item.id}
+              onNavigate={() => handleNavigate(item)}
+              onCall={() => handleCall(item)}
+              onMarkPickedUp={() => handleMarkPickedUp(item.id)}
+              onStartDelivery={() => handleStartDelivery(item.id)}
+              onMarkDelivered={() => handleMarkDelivered(item.id)}
+              onUnableToDeliver={() => handleUnableToDeliver(item.id)}
+            />
+          </View>
+        )}
+        ListEmptyComponent={
+          isLoading ? (
+            <View style={styles.loadingWrap}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+            </View>
+          ) : (
+            <View style={[styles.webContainer, isWideWeb && styles.webContainerWide]}>
+              <EmptyOrdersState
+                message={activeFilter === 'all' ? 'No deliveries assigned yet.' : 'No orders found'}
+              />
+            </View>
+          )
+        }
+      />
+
+      {!isWideWeb && (
+        <View style={styles.bottomNav}>
+          {bottomTabs.map((tab) => {
+            const active = tab.key === ACTIVE_TAB;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.bottomNavItem, webNoOutlineStyle]}
+                activeOpacity={0.7}
+                onPress={() => handleTabPress(tab)}
+              >
+                <Ionicons name={tab.icon as keyof typeof Ionicons.glyphMap} size={22} color={active ? COLORS.primary : COLORS.slateLight} />
+                <Text style={[styles.bottomNavLabel, { color: active ? COLORS.primary : COLORS.slateLight }]}>{tab.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+>>>>>>> dd520935df100fa787865484198a4572cead7812
       {listBody}
 
       <View style={styles.bottomNav}>
