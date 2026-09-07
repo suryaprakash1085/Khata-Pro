@@ -2,11 +2,11 @@
 import axios from 'axios';
 
 
-<<<<<<< HEAD
+
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000') + '/api';
-=======
-const API_BASE_URL = " /api";
->>>>>>> dd520935df100fa787865484198a4572cead7812
+
+
+
 
 interface CreateOrderResponse {
   success: boolean;

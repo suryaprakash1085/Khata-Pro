@@ -1,4 +1,9 @@
-<<<<<<< HEAD
+
+
+
+
+
+
 // import React, { useContext, useMemo, useState } from 'react';
 // import {
 //   View,
@@ -28,7 +33,7 @@
 // import {
 //   useListMyDeliveries,
 //   useUpdateDriver,
-//   useListNotifications,
+//   useGetDriverUnreadNotificationCount,
 //   useRejectDelivery,
 // } from '@workspace/api-client-react';
 // import { useCallDeliveryCustomer } from '@workspace/api-client-react';
@@ -407,11 +412,11 @@
 // );
 
 // // API base — mirrors the same default used elsewhere in the app.
-// const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+// const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL  || ' /api';
 
 // const DriverOrdersScreen: React.FC = () => {
 //   const navigation = useNavigation<any>();
-//   const { driver: authDriver } = useContext(DriverAuthContext) as any;
+//   const { driver: authDriver, driverLogout } = useContext(DriverAuthContext) as any;
 //   const driverId = authDriver?.id;
 //   const businessId = authDriver?.business_id;
 
@@ -438,17 +443,15 @@
 //     { limit: 50 },
 //     { query: { enabled: !!driverId } }
 //   );
-//   const { data: notificationsData } = useListNotifications(
-//     { driver_id: driverId, limit: 8 },
-//     { query: { enabled: !!driverId && isWideWeb } }
-//   );
 
-  
+//   // Same source of truth as DriverHomeScreen — this is the *unread* count,
+//   // not the length of the notifications list. Using the list length (capped
+//   // at whatever `limit` was passed) was why this screen showed a stale/wrong
+//   // badge number that didn't match Home.
+//   const { data: unreadCountResponse } = useGetDriverUnreadNotificationCount();
+//   const notificationsCount = unreadCountResponse?.count ?? 0;
+
 //   const rejectDelivery = useRejectDelivery();
-
-//   const notificationsCount = Array.isArray(notificationsData)
-//     ? notificationsData.length
-//     : ((notificationsData as any)?.data?.length ?? 0);
 
 //   // ── Derived view data ──────────────────────────────────────────────────
 //   const deliveriesPayload: any = deliveriesResponse;
@@ -516,85 +519,10 @@
 //     return list;
 //   }, [allOrders, activeFilter, paymentFilter, search]);
 
-//   const todayLabel = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 //   const updateDriver = useUpdateDriver();
 //   const callCustomer = useCallDeliveryCustomer();
 
-//   // ── Summary items ──────────────────────────────────────────────────────
-//   const summaryItems = useMemo(() => {
-//     return [
-//       {
-//         key: 'all',
-//         label: 'All Orders',
-//         count: allOrders.length,
-//         icon: 'cube-outline' as const,
-//         color: COLORS.primary,
-//         bgColor: COLORS.primaryLight,
-//       },
-//       {
-//         key: 'pending',
-//         label: 'New',
-//         count: counts.pending || 0,
-//         icon: 'time-outline' as const,
-//         color: COLORS.amber,
-//         bgColor: COLORS.amberLight,
-//       },
-//       {
-//         key: 'picked_up',
-//         label: 'Active',
-//         count: counts.picked_up || 0,
-//         icon: 'bicycle-outline' as const,
-//         color: '#7C3AED',
-//         bgColor: '#EDE9FE',
-//       },
-//       {
-//         key: 'delivered',
-//         label: 'Completed',
-//         count: counts.delivered || 0,
-//         icon: 'checkmark-circle-outline' as const,
-//         color: COLORS.secondary,
-//         bgColor: COLORS.secondaryLight,
-//       },
-//       {
-//         key: 'cancelled',
-//         label: 'Cancelled',
-//         count: counts.cancelled || 0,
-//         icon: 'close-circle-outline' as const,
-//         color: COLORS.danger,
-//         bgColor: COLORS.dangerLight,
-//       },
-//     ];
-//   }, [allOrders, counts]);
-
 //   // ── Handlers ─────────────────────────────────────────────────────────
-//   // const handleToggleOnline = () => {
-//   //   setIsOnline(!isOnline);
-//   // };
-
-//   // const runStatusUpdate = async (id: string, status: string) => {
-//   //   setUpdatingId(id);
-//   //   try {
-//   //     const token = await getDriverToken();
-//   //     const res = await fetch(`${API_BASE}/deliveries/${id}/status`, {
-//   //       method: 'PUT',
-//   //       headers: {
-//   //         'Content-Type': 'application/json',
-//   //         Authorization: `Bearer ${token}`,
-//   //       },
-//   //       body: JSON.stringify({ status }),
-//   //     });
-//   //     if (!res.ok) {
-//   //       const err = await res.json().catch(() => ({}));
-//   //       throw new Error(err?.error || 'Failed to update status');
-//   //     }
-//   //     refetchDeliveries();
-//   //   } catch (err: any) {
-//   //     Alert.alert('Error', err?.message || 'Could not update status. Please try again.');
-//   //   } finally {
-//   //     setUpdatingId(null);
-//   //   }
-//   // };
-
 //   const handleCall = (order: OrderCardData) => {
 //     if (!order.phone) {
 //       showAlert('No phone number', 'This customer has no phone number on file.');
@@ -715,10 +643,6 @@
 
 //   const handleMarkDelivered = (id: string) => runStatusUpdate(id, 'delivered');
 //   const handleUnableToDeliver = (id: string) => runStatusUpdate(id, 'cancelled');
-
-//   const handleNavigateLegacy = (order: OrderCardData) => {
-//     Alert.alert('Navigate', order.dropAddress);
-//   };
 
 //   const handleTabPress = (tab: DriverShellTab) => {
 //     if (tab.key === 'orders') return;
@@ -848,6 +772,7 @@
 //     />
 //   );
 
+//   // ── Wide web: shared sidebar + top bar shell ──────────────────────────
 //   if (isWideWeb) {
 //     return (
 //       <DriverWebShell
@@ -859,6 +784,7 @@
 //         notificationsCount={notificationsCount}
 //         onTabPress={handleTabPress}
 //         onNotificationsPress={() => handleTabPress({ key: 'notifications', label: 'Notifications', icon: 'notifications-outline', screen: 'DriverAlerts' })}
+//         onProfilePress={driverLogout}
 //       >
 //         <View style={styles.wideListWrap}>{listBody}</View>
 //       </DriverWebShell>
@@ -873,9 +799,12 @@
 //     { key: 'profile', label: 'Profile', icon: 'person-outline', screen: 'DriverProfile' },
 //   ];
 
+//   // ── Mobile / narrow web: single list, same OrderCardMobile design that
+//   // mirrors the wide-web row layout, rendered exactly once. ─────────────
 //   return (
 //     <SafeAreaView style={styles.safe}>
 //       <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
+
 
 
 //       {isWideWeb && (
@@ -941,7 +870,7 @@
 //               <View style={styles.summaryGrid}>
 //                 {summaryItems.map((item) => (
 //                   <View key={item.key} style={styles.summaryGridItem}>
-//                     <OrderSummaryCard item={item} active={activeFilter === item.key} onPress={() => setActiveFilter(item.key as OrderFilterKey)} />
+//                     <OrderSummaryCard item={item as any} active={activeFilter === item.key} onPress={() => setActiveFilter(item.key as OrderFilterKey)} />
 //                   </View>
 //                 ))}
 //               </View>
@@ -1019,13 +948,20 @@
 //           })}
 //         </View>
 //       )}
+
 //       {listBody}
+
 //       <View style={styles.bottomNav}>
 //         {bottomTabs.map((tab) => {
-//           const active = tab.key === 'orders';
+//           const active = tab.key === ACTIVE_TAB;
 //           return (
-//             <TouchableOpacity key={tab.key} style={[styles.bottomNavItem, webNoOutlineStyle]} activeOpacity={0.7} onPress={() => handleTabPress(tab)}>
-//               <Ionicons name={tab.icon} size={22} color={active ? COLORS.primary : COLORS.slateLight} />
+//             <TouchableOpacity
+//               key={tab.key}
+//               style={[styles.bottomNavItem, webNoOutlineStyle]}
+//               activeOpacity={0.7}
+//               onPress={() => handleTabPress(tab)}
+//             >
+//               <Ionicons name={tab.icon as keyof typeof Ionicons.glyphMap} size={22} color={active ? COLORS.primary : COLORS.slateLight} />
 //               <Text style={[styles.bottomNavLabel, { color: active ? COLORS.primary : COLORS.slateLight }]}>{tab.label}</Text>
 //             </TouchableOpacity>
 //           );
@@ -1171,9 +1107,6 @@
 // });
 
 // export default DriverOrdersScreen;
-=======
-
->>>>>>> dd520935df100fa787865484198a4572cead7812
 
 import React, { useContext, useMemo, useState } from 'react';
 import {
@@ -1328,6 +1261,14 @@ const PAYMENT_FILTERS: { key: 'all' | 'cod' | 'upi'; label: string }[] = [
   { key: 'cod', label: 'Cash on Delivery' },
   { key: 'upi', label: 'Online / UPI' },
 ];
+
+// Shape rendered by the summary-card grid at the top of the mobile/wide
+// list header. One card per filter, each showing that filter's count.
+interface OrderSummaryItem {
+  key: OrderFilterKey;
+  label: string;
+  count: number;
+}
 
 // ────────────────────────────────────────────────────────────────────────
 // Wide-web horizontal row — mirrors the reference design 1:1.
@@ -1665,6 +1606,29 @@ const DriverOrdersScreen: React.FC = () => {
     return c;
   }, [allOrders]);
 
+  // 👇 ADDED — was referenced in the header JSX further below but never
+  // defined anywhere, causing "Cannot find name 'todayLabel'". This just
+  // formats today's date the same way the rest of the screen formats dates.
+  const todayLabel = useMemo(
+    () => new Date().toLocaleDateString(undefined, { weekday: 'long', day: '2-digit', month: 'long' }),
+    []
+  );
+
+  // 👇 ADDED — was referenced (via `summaryItems.map(...)`) in the summary
+  // grid further below but never defined, causing "Cannot find name
+  // 'summaryItems'" plus the implicit-`any` warning on the map callback.
+  // One entry per filter tab, each carrying that filter's live count, so
+  // OrderSummaryCard has the same data the filter tabs above it show.
+  const summaryItems: OrderSummaryItem[] = useMemo(
+    () =>
+      FILTERS.map((f) => ({
+        key: f.key,
+        label: f.label,
+        count: f.key === 'all' ? counts.all : (counts as any)[f.key] ?? 0,
+      })),
+    [counts]
+  );
+
   const filteredOrders = useMemo(() => {
     let list = allOrders;
     if (activeFilter !== 'all') {
@@ -1976,8 +1940,7 @@ const DriverOrdersScreen: React.FC = () => {
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
 
-<<<<<<< HEAD
-=======
+
 
       {isWideWeb && (
         <View style={styles.webTopBar}>
@@ -2040,7 +2003,7 @@ const DriverOrdersScreen: React.FC = () => {
             {/* Summary */}
             <View style={styles.section}>
               <View style={styles.summaryGrid}>
-                {summaryItems.map((item) => (
+                {summaryItems.map((item: OrderSummaryItem) => (
                   <View key={item.key} style={styles.summaryGridItem}>
                     <OrderSummaryCard item={item as any} active={activeFilter === item.key} onPress={() => setActiveFilter(item.key as OrderFilterKey)} />
                   </View>
@@ -2120,7 +2083,7 @@ const DriverOrdersScreen: React.FC = () => {
           })}
         </View>
       )}
->>>>>>> dd520935df100fa787865484198a4572cead7812
+
       {listBody}
 
       <View style={styles.bottomNav}>
