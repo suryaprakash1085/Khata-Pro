@@ -2,7 +2,15 @@
 import axios from 'axios';
 
 
+<<<<<<< HEAD
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000') + '/api';
+=======
+
+const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000') + '/api';
+
+
+
+>>>>>>> 69bde541ad12bcacf300a9ab549bd92ef9ee05cb
 
 interface CreateOrderResponse {
   success: boolean;

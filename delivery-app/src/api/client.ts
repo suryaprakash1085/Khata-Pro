@@ -3,7 +3,14 @@ import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { getToken, removeToken, removeUser } from '../utils/storage';
 import { API_URL } from '@env';
 
+<<<<<<< HEAD
 const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
+=======
+
+const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
+
+
+>>>>>>> 69bde541ad12bcacf300a9ab549bd92ef9ee05cb
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: BASE_URL,
