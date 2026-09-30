@@ -1,4 +1,3 @@
-
 {
   "expo": {
     "name": "delivery-app",
@@ -6,12 +5,10 @@
     "version": "1.0.0",
     "extra": {
       "eas": {
-        "projectId": "bccd95c3-e9af-4578-9ab0-f57f9ee1ad4c"
+        "projectId": "1f926f44-064c-4b7a-b9f7-6666ab727879"
       }
     },
-    "owner": "",
     "android": {
-      "useNextNotificationsApi": true,
       "package": "com.subasri0102.deliveryapp",
       "config": {
         "googleMaps": {
@@ -25,8 +22,8 @@
       }
     },
     "plugins": [
-      "expo-notifications",
-      "react-native-maps"
-    ]
+      "expo-notifications"
+    ],
+    "owner": "yogamurugan"
   }
 }

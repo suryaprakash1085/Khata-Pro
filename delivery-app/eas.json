@@ -13,12 +13,14 @@
     },
      "preview": {
       "distribution": "internal",
+      "node": "22.13.0",
       "env": {
         "EAS_BUILD_PACKAGE_MANAGER": "pnpm"
       }
     },
      "production": {
       "autoIncrement": true,
+      "node": "22.13.0",
       "env": {
         "EAS_BUILD_PACKAGE_MANAGER": "pnpm"
       }
