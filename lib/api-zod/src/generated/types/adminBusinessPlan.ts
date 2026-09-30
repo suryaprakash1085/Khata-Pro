@@ -10,7 +10,6 @@ export type AdminBusinessPlan = typeof AdminBusinessPlan[keyof typeof AdminBusin
 
 
 export const AdminBusinessPlan = {
-  free: 'free',
   pro: 'pro',
   premium: 'premium',
 } as const;

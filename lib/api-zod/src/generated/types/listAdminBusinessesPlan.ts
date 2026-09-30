@@ -10,7 +10,6 @@ export type ListAdminBusinessesPlan = typeof ListAdminBusinessesPlan[keyof typeo
 
 
 export const ListAdminBusinessesPlan = {
-  free: 'free',
   pro: 'pro',
   premium: 'premium',
 } as const;

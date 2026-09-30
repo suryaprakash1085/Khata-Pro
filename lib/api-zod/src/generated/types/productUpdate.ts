@@ -8,6 +8,7 @@
 import type { ProductUpdateUnit } from './productUpdateUnit';
 
 export interface ProductUpdate {
+  vendor_id?: number;
   name?: string;
   barcode?: string;
   sku?: string;

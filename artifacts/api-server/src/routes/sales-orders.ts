@@ -23,7 +23,8 @@ import {
   ShopLocationMissingError,
   CustomerLocationMissingError,
 } from "../services/deliveryFee.service";
-
+import { getNextDeliveryNumber } from "../services/deliveryCounter";
+import { createNewOrderNotification, syncLowStockNotification, createOrderCancelledNotification } from "../services/adminNotifications.service";
 const router: IRouter = Router();
 
 
@@ -309,12 +310,14 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
 
   // Track payment_mode locally so it can be returned in the response
   // without an extra round-trip query right after inserting it.
-  let paymentMode: DeliveryPaymentMethod | null = null;
+   let paymentMode: DeliveryPaymentMethod | null = null;
   if (d.shipping_address) {
     const pickupAddress = await resolvePickupAddress(d.business_id);
     paymentMode = (d as any).payment_method as DeliveryPaymentMethod | undefined ?? "online";
+    const nextNo = await getNextDeliveryNumber(d.business_id);
     await db.insert(deliveriesTable).values({
       businessId: d.business_id,
+      businessDeliveryNo: nextNo,
       customerId: d.customer_id,
       salesOrderId: order.id,
       pickupAddress,
@@ -324,7 +327,12 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
       status: "pending",
     });
   }
-
+    await createNewOrderNotification({
+    businessId: d.business_id,
+    salesOrderId: order.id,
+    customerName: customer.name,
+    amount,
+  });
   res.status(201).json(formatSalesOrder(order, customer.name, d.items.length, paymentMode));
 });
 
@@ -386,13 +394,15 @@ router.post("/public/sales-orders", async (req, res): Promise<void> => {
       );
     }
 
-    let paymentMode: DeliveryPaymentMethod | null = null;
+        let paymentMode: DeliveryPaymentMethod | null = null;
     if (d.shipping_address) {
       try {
         const pickupAddress = await resolvePickupAddress(d.business_id);
         paymentMode = (d.payment_method as DeliveryPaymentMethod | undefined) ?? "online";
+        const nextNo = await getNextDeliveryNumber(d.business_id);
         await db.insert(deliveriesTable).values({
           businessId: d.business_id,
+          businessDeliveryNo: nextNo,
           customerId: d.customer_id,
           salesOrderId: order.id,
           pickupAddress,
@@ -407,7 +417,12 @@ router.post("/public/sales-orders", async (req, res): Promise<void> => {
         paymentMode = null; // delivery row failed, so no payment_mode to report
       }
     }
-
+        await createNewOrderNotification({
+      businessId: d.business_id,
+      salesOrderId: order.id,
+      customerName: customer.name,
+      amount,
+    });
     res.status(201).json(formatSalesOrder(order, customer.name, d.items.length, paymentMode));
   } catch (err) {
     console.error("[public/sales-orders] failed:", err);
@@ -470,6 +485,7 @@ router.put("/sales-orders/:id/status", requireAuth, async (req, res): Promise<vo
 
   // Only reduce stock + assign invoice number the first time an order transitions INTO invoiced
   if (status === "invoiced" && existing.status !== "invoiced") {
+
     const items = await db.select().from(salesOrderItemsTable).where(eq(salesOrderItemsTable.salesOrderId, id));
 
     const productIds = items.map((it) => Number(it.productId));
@@ -505,7 +521,17 @@ router.put("/sales-orders/:id/status", requireAuth, async (req, res): Promise<vo
         .where(eq(productsTable.id, Number(item.productId)));
     }
     updates.invoiceNo = `INV-${existing.businessId}-${String(id).padStart(5, "0")}`;
+
+        for (const item of items) {
+      await db
+        .update(productsTable)
+        .set({ stockQty: sql`${productsTable.stockQty} - ${Math.round(parseFloat(item.qty))}` })
+        .where(eq(productsTable.id, Number(item.productId)));
+      await syncLowStockNotification(Number(item.productId));
+    }
   }
+
+  
 
   const [order] = await db
     .update(salesOrdersTable)
@@ -521,6 +547,22 @@ router.put("/sales-orders/:id/status", requireAuth, async (req, res): Promise<vo
         console.error("[sales-orders] Failed to send order-confirmed push:", err),
       );
     }
+  }
+
+ if (status === "cancelled" && existing.status !== "cancelled") {
+    await db
+      .update(deliveriesTable)
+      .set({ status: "cancelled", cancelledAt: new Date() })
+      .where(eq(deliveriesTable.salesOrderId, id));
+
+    const [customerForNotif] = await db.select().from(customersTable).where(eq(customersTable.id, order.customerId));
+    await createOrderCancelledNotification({
+      businessId: Number(order.businessId),
+      salesOrderId: Number(order.id),
+      customerName: customerForNotif?.name ?? "Customer",
+    }).catch((err) =>
+      console.error("[sales-orders] Failed to create order-cancelled notification:", err),
+    );
   }
 
   const [customer] = await db.select({ name: customersTable.name }).from(customersTable).where(eq(customersTable.id, Number(order.customerId)));

@@ -1,5 +1,4 @@
-﻿
-import React, { useState, useContext } from 'react';
+﻿import React, { useState, useContext } from 'react';
 import {
   View,
   Text,
@@ -12,9 +11,31 @@ import {
   StatusBar,
   StyleSheet,
   Platform,
+  SafeAreaView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { AuthContext } from '../../context/AuthContext';
+
+/* ── Design tokens (UI only) — same as LoginScreen ───────────────────── */
+const COLORS = {
+  primary: '#4B3F9E',
+  primaryDark: '#2B2266',
+  primarySoft: '#EFEDFA',
+  background: '#F8F7FC',
+  card: '#FFFFFF',
+  text: '#1A1745',
+  textMuted: '#6E6A8E',
+  placeholder: '#9A97B3',
+  border: '#E4E1F2',
+  error: '#B3261E',
+  white: '#FFFFFF',
+};
+
+const FONT_FAMILY = Platform.select({
+  ios: 'Times New Roman',
+  android: 'serif',
+  default: '"Times New Roman", Times, serif',
+}) as string;
 
 const SignupScreen: React.FC = ({ navigation }: any) => {
   const [name, setName] = useState('');
@@ -26,6 +47,9 @@ const SignupScreen: React.FC = ({ navigation }: any) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { signup } = useContext(AuthContext);
+
+  // UI-only: which input is focused (for purple focus border)
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   // Error states
   const [nameError, setNameError] = useState('');
@@ -260,287 +284,486 @@ const SignupScreen: React.FC = ({ navigation }: any) => {
   };
 
   const renderInput = (
+    fieldKey: string,
     icon: string,
     label: string,
+    placeholder: string,
     value: string,
     onChangeText: (t: string) => void,
     error: string,
     options: any = {}
-  ) => (
-    <View style={styles.inputWrapper}>
-      <View style={[styles.inputContainer, error && styles.inputErrorBorder]}>
-        <Icon
-          name={icon}
-          size={19}
-          color={error ? '#E4572E' : '#8B8D98'}
-          style={styles.inputIcon}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder={label}
-          placeholderTextColor="#9CA0AC"
-          value={value}
-          onChangeText={onChangeText}
-          {...options}
-        />
-        {options.isPassword && (
-          <TouchableOpacity
-            onPress={options.onToggle}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Icon
-              name={options.visible ? 'eye-outline' : 'eye-off-outline'}
-              size={19}
-              color="#8B8D98"
-            />
-          </TouchableOpacity>
-        )}
+  ) => {
+    // UI-only props are pulled out so they aren't spread onto TextInput
+    const { isPassword, visible, onToggle, ...inputProps } = options;
+    const focused = focusedField === fieldKey;
+
+    return (
+      <View style={styles.inputWrapper}>
+        <Text style={styles.label}>{label}</Text>
+        <View
+          style={[
+            styles.inputContainer,
+            focused && styles.inputFocused,
+            error ? styles.inputErrorBorder : null,
+          ]}
+        >
+          <Icon
+            name={icon}
+            size={20}
+            color={error ? COLORS.error : focused ? COLORS.primary : COLORS.textMuted}
+            style={styles.inputIcon}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder={placeholder}
+            placeholderTextColor={COLORS.placeholder}
+            value={value}
+            onChangeText={onChangeText}
+            onFocus={() => setFocusedField(fieldKey)}
+            onBlur={() => setFocusedField(null)}
+            {...inputProps}
+          />
+          {isPassword && (
+            <TouchableOpacity
+              onPress={onToggle}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Icon
+                name={visible ? 'eye-outline' : 'eye-off-outline'}
+                size={20}
+                color={COLORS.textMuted}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
       </View>
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-    </View>
-  );
+    );
+  };
+
+  const requirements = [
+    'First letter must be uppercase',
+    'At least one special character',
+    'At least one number',
+    'Use lowercase, numbers & special chars only',
+  ];
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <StatusBar barStyle="dark-content" backgroundColor="#EDEBFB" />
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
-      <View style={styles.heroSection}>
-        <View style={styles.heroCircleLarge} />
-        <View style={styles.heroCircleSmall} />
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={20} color="#5B4FE8" />
-        </TouchableOpacity>
-        <Icon name="person-add" size={54} color="#5B4FE8" style={styles.heroIcon} />
-      </View>
-
-      <ScrollView
-        style={styles.sheet}
-        contentContainerStyle={styles.sheetContent}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.titleRow}>
-          <View style={styles.iconBadge}>
-            <Icon name="create-outline" size={22} color="#5B4FE8" />
+        {/* Decorative lavender wave at the bottom — sits behind content */}
+        <View pointerEvents="none" style={styles.waveWrap}>
+          <View style={styles.waveBack} />
+          <View style={styles.waveFront} />
+        </View>
+
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* ── Top bar: back + branding ── */}
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.8}
+            >
+              <Icon name="arrow-back" size={20} color={COLORS.primary} />
+            </TouchableOpacity>
+
+            <View style={styles.brandRow}>
+              <View style={styles.brandIcon}>
+                <Icon name="bicycle" size={18} color={COLORS.white} />
+              </View>
+              <View>
+                <Text style={styles.brandName}>Khata-Pro</Text>
+                <Text style={styles.brandTag}>Delivery Partner</Text>
+              </View>
+            </View>
           </View>
-          <View>
+
+          {/* ── Heading ── */}
+          <View style={styles.heading}>
             <Text style={styles.title}>Sign Up</Text>
             <Text style={styles.subtitle}>Create your new account</Text>
           </View>
-        </View>
 
-        {renderInput('person-outline', 'Full Name', name, validateNameInput, nameError)}
-        {renderInput('mail-outline', 'Email Address', email, validateEmailInput, emailError, {
-          autoCapitalize: 'none',
-          keyboardType: 'email-address',
-        })}
-        {renderInput('call-outline', 'Phone Number', phone, validatePhoneInput, phoneError, {
-          keyboardType: 'phone-pad',
-        })}
-        {renderInput(
-          'lock-closed-outline',
-          'Password',
-          password,
-          validatePasswordInput,
-          passwordError,
-          {
-            secureTextEntry: !showPassword,
-            isPassword: true,
-            visible: showPassword,
-            onToggle: () => setShowPassword(!showPassword),
-          }
-        )}
-        {renderInput(
-          'lock-closed-outline',
-          'Confirm Password',
-          confirmPassword,
-          validateConfirmPasswordInput,
-          confirmPasswordError,
-          {
-            secureTextEntry: !showConfirmPassword,
-            isPassword: true,
-            visible: showConfirmPassword,
-            onToggle: () => setShowConfirmPassword(!showConfirmPassword),
-          }
-        )}
-
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleSignup}
-          disabled={loading}
-          activeOpacity={0.85}
-        >
-          {loading ? (
-            <ActivityIndicator color="#ffffff" size="small" />
-          ) : (
-            <Text style={styles.buttonText}>Create Account</Text>
+          {/* ── Fields ── */}
+          {renderInput(
+            'name',
+            'person-outline',
+            'Full Name',
+            'Enter your full name',
+            name,
+            validateNameInput,
+            nameError
           )}
-        </TouchableOpacity>
+          {renderInput(
+            'email',
+            'mail-outline',
+            'Email Address',
+            'Enter your email address',
+            email,
+            validateEmailInput,
+            emailError,
+            {
+              autoCapitalize: 'none',
+              keyboardType: 'email-address',
+            }
+          )}
+          {renderInput(
+            'phone',
+            'call-outline',
+            'Phone Number',
+            'Enter 10 digit phone number',
+            phone,
+            validatePhoneInput,
+            phoneError,
+            {
+              keyboardType: 'phone-pad',
+            }
+          )}
+          {renderInput(
+            'password',
+            'lock-closed-outline',
+            'Password',
+            'Enter your password',
+            password,
+            validatePasswordInput,
+            passwordError,
+            {
+              secureTextEntry: !showPassword,
+              isPassword: true,
+              visible: showPassword,
+              onToggle: () => setShowPassword(!showPassword),
+            }
+          )}
+          {renderInput(
+            'confirmPassword',
+            'lock-closed-outline',
+            'Confirm Password',
+            'Re-enter your password',
+            confirmPassword,
+            validateConfirmPasswordInput,
+            confirmPasswordError,
+            {
+              secureTextEntry: !showConfirmPassword,
+              isPassword: true,
+              visible: showConfirmPassword,
+              onToggle: () => setShowConfirmPassword(!showConfirmPassword),
+            }
+          )}
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Already have an account?</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-            <Text style={styles.footerLink}> Login</Text>
+          {/* ── Password requirements (static info) ── */}
+          <View style={styles.requirementsCard}>
+            <View style={styles.requirementsHeader}>
+              <Icon name="shield-checkmark-outline" size={18} color={COLORS.primary} />
+              <Text style={styles.requirementsTitle}>Password Requirements</Text>
+            </View>
+            {requirements.map((item) => (
+              <View key={item} style={styles.requirementRow}>
+                <View style={styles.bullet} />
+                <Text style={styles.requirementText}>{item}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* ── Create account ── */}
+          <TouchableOpacity
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleSignup}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <ActivityIndicator color="#ffffff" size="small" />
+            ) : (
+              <Text style={styles.buttonText}>Create Account</Text>
+            )}
           </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+          {/* ── Login link ── */}
+          <View style={styles.divider} />
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Already have an account?</Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Login')}
+              hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+            >
+              <Text style={styles.footerLink}> Login</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.tagline}>Delivering Happiness ♥</Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
+  },
   container: {
     flex: 1,
-    backgroundColor: '#EDEBFB',
+    width: '100%',
+    backgroundColor: COLORS.background,
   },
-  heroSection: {
-    height: 150,
-    backgroundColor: '#EDEBFB',
-    alignItems: 'center',
-    justifyContent: 'center',
+  scrollContent: {
+    flexGrow: 1,
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 32,
+  },
+
+  /* Decorative wave */
+  waveWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 140,
     overflow: 'hidden',
   },
-  heroCircleLarge: {
+  waveBack: {
     position: 'absolute',
-    width: 200,
+    left: -80,
+    right: -80,
+    bottom: -150,
+    height: 220,
+    borderRadius: 200,
+    backgroundColor: COLORS.primarySoft,
+    opacity: 0.6,
+  },
+  waveFront: {
+    position: 'absolute',
+    left: -40,
+    right: -120,
+    bottom: -170,
     height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(91,79,232,0.08)',
-    top: -70,
-    right: -50,
+    borderRadius: 200,
+    backgroundColor: COLORS.primarySoft,
   },
-  heroCircleSmall: {
-    position: 'absolute',
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: 'rgba(91,79,232,0.06)',
-    bottom: -40,
-    left: -30,
-  },
-  backButton: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 54 : 34,
-    left: 20,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroIcon: {
-    opacity: 0.95,
-  },
-  sheet: {
-    flex: 1,
-    backgroundColor: '#F5F4FB',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    marginTop: -20,
-  },
-  sheetContent: {
-    padding: 24,
-    paddingTop: 28,
-    paddingBottom: 40,
-  },
-  titleRow: {
+
+  /* Top bar */
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    justifyContent: 'space-between',
   },
-  iconBadge: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: '#E1DEFB',
+  backButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  brandIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  brandName: {
+    fontFamily: FONT_FAMILY,
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.primaryDark,
+    letterSpacing: 0.3,
+  },
+  brandTag: {
+    fontFamily: FONT_FAMILY,
+    fontSize: 12,
+    color: COLORS.textMuted,
+  },
+
+  /* Heading */
+  heading: {
+    marginTop: 26,
+    marginBottom: 26,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#1B1D28',
+    fontFamily: FONT_FAMILY,
+    fontSize: 32,
+    fontWeight: '700',
+    color: COLORS.text,
+    lineHeight: 38,
   },
   subtitle: {
-    fontSize: 13,
-    color: '#7A7D89',
-    marginTop: 2,
+    fontFamily: FONT_FAMILY,
+    fontSize: 16,
+    color: COLORS.textMuted,
+    marginTop: 8,
+    lineHeight: 22,
   },
+
+  /* Inputs */
   inputWrapper: {
-    marginBottom: 14,
+    marginBottom: 18,
+  },
+  label: {
+    fontFamily: FONT_FAMILY,
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    paddingHorizontal: 16,
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    minHeight: 54,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  inputFocused: {
+    borderColor: COLORS.primary,
     borderWidth: 1.5,
-    borderColor: '#ffffff',
-    shadowColor: '#5B4FE8',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 1,
   },
   inputErrorBorder: {
-    borderColor: '#E4572E',
+    borderColor: COLORS.error,
+    borderWidth: 1.5,
   },
   inputIcon: {
     marginRight: 10,
   },
   input: {
     flex: 1,
-    height: 50,
-    fontSize: 15,
-    color: '#1B1D28',
+    minHeight: 52,
+    fontFamily: FONT_FAMILY,
+    fontSize: 16,
+    color: COLORS.text,
+    paddingVertical: 0,
   },
   errorText: {
-    color: '#E4572E',
-    fontSize: 12,
+    fontFamily: FONT_FAMILY,
+    color: COLORS.error,
+    fontSize: 13,
     marginTop: 6,
-    marginLeft: 4,
-    fontWeight: '500',
+    marginLeft: 2,
+    fontWeight: '600',
   },
+
+  /* Requirements */
+  requirementsCard: {
+    backgroundColor: COLORS.primarySoft,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 22,
+  },
+  requirementsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  requirementsTitle: {
+    fontFamily: FONT_FAMILY,
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.primary,
+    marginLeft: 8,
+  },
+  requirementRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 2,
+    paddingLeft: 2,
+  },
+  bullet: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.textMuted,
+    marginTop: 8,
+    marginRight: 10,
+  },
+  requirementText: {
+    flex: 1,
+    fontFamily: FONT_FAMILY,
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: COLORS.textMuted,
+  },
+
+  /* Button */
   button: {
-    backgroundColor: '#5B4FE8',
-    borderRadius: 16,
-    paddingVertical: 17,
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    minHeight: 54,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 6,
-    shadowColor: '#5B4FE8',
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 4,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 2,
   },
   buttonDisabled: {
-    backgroundColor: '#C4C1E8',
+    backgroundColor: '#A9A2D6',
     shadowOpacity: 0,
   },
   buttonText: {
-    color: '#ffffff',
-    fontSize: 16,
+    fontFamily: FONT_FAMILY,
+    color: COLORS.white,
+    fontSize: 18,
     fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: COLORS.border,
+    marginTop: 26,
+    marginBottom: 18,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 22,
+    alignItems: 'center',
+    flexWrap: 'wrap',
   },
   footerText: {
-    color: '#5F6270',
-    fontSize: 14,
+    fontFamily: FONT_FAMILY,
+    color: COLORS.textMuted,
+    fontSize: 15,
   },
   footerLink: {
-    color: '#5B4FE8',
+    fontFamily: FONT_FAMILY,
+    color: COLORS.primary,
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 15,
+  },
+  tagline: {
+    fontFamily: FONT_FAMILY,
+    textAlign: 'center',
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginTop: 28,
   },
 });
 

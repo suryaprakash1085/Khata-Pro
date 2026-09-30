@@ -12,10 +12,13 @@ import Businesses from '@/pages/businesses';
 import BusinessDetail from '@/pages/business-detail';
 import UsersList from '@/pages/users';
 import Subscriptions from '@/pages/subscriptions';
+
 import Reports from '@/pages/reports';
 import Reminders from '@/pages/reminders';
 import AuditLogs from '@/pages/audit-logs';
 import Broadcast from '@/pages/broadcast';
+import SubscriptionPlans from '@/pages/subscription-plans';
+
 import Settings from '@/pages/settings';
 
 const queryClient = new QueryClient({
@@ -58,7 +61,11 @@ function Router() {
       <Route path="/subscriptions">
         <AuthRoute><Subscriptions /></AuthRoute>
       </Route>
-
+      
+      <Route path="/subscription-plans">
+       <AuthRoute><SubscriptionPlans /></AuthRoute>
+      </Route>
+      
       <Route path="/reports">
         <AuthRoute><Reports /></AuthRoute>
       </Route>

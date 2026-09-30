@@ -18,14 +18,17 @@ import returnsRouter from './returns';
 import paymentsRouter from "./paymentsRoutes";
 import customerAuthRouter from "./customer-auth";
 import notificationsRouter from "./notifications"; // 🔶 FIX — was never imported/registered, causing 404s
+import adminNotificationsRouter from "./adminNotifications";
 import promotionsRouter from "./promotions";
 import serviceHighlightsRouter from "./service-highlights";
 import deliveryfeesRouter from "./delivery-fees.routes";
 import driverNotificationsRouter from "./driverNotifications";
 import purchaseOrderRouter from "./purchase-orders";
+import { requireAuth } from "../middlewares/auth";
 import { requireDriverAuth } from "../middlewares/driverAuth";
-
-
+import assistantRoutes from './assistant';
+import addressesRouter from "./addresses";
+import subscriptions from "./subscriptions";
 
 const router: IRouter = Router();
 
@@ -49,9 +52,12 @@ router.use(paymentsRouter);
 router.use(customerAuthRouter);
 router.use(promotionsRouter);
 router.use("/notifications", notificationsRouter);
+router.use("/admin-notifications", requireAuth, adminNotificationsRouter);
 router.use("/driver/notifications", requireDriverAuth, driverNotificationsRouter);
 router.use(serviceHighlightsRouter);
 router.use(deliveryfeesRouter);
 router.use(purchaseOrderRouter);
-
+router.use('/api/assistant', assistantRoutes);
+router.use(addressesRouter);
+router.use(subscriptions);
 export default router;

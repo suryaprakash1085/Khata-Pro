@@ -48,6 +48,8 @@ tags:
     description: Distance-based delivery fee configuration and calculation
   - name: driver-notifications
     description: Driver-facing notifications (paginated, filterable, read-tracking)
+  - name: admin-notifications
+    description: Admin dashboard notifications (new orders, low stock, vendor payments)
 paths:
   /healthz:
     get:
@@ -184,10 +186,10 @@ paths:
           in: query
           schema:
             type: integer
-        - name: staff_user_id     # ← new
+        - name: staff_user_id
           in: query
           schema:
-           type: integer
+            type: integer
         - name: search
           in: query
           schema:
@@ -314,6 +316,106 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StaffMember"
+
+  # ─── SUBSCRIPTIONS (business-facing) ────────────────────────────────────────
+
+  /subscription-plans:
+    get:
+      operationId: listActiveSubscriptionPlans
+      tags: [subscriptions]
+      summary: List active subscription plans (business-facing, no admin auth)
+      security: []
+      responses:
+        "200":
+          description: Active subscription plans
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SubscriptionPlan"
+
+  /subscriptions/me:
+    get:
+      operationId: getMySubscription
+      tags: [subscriptions]
+      summary: Get the authenticated user's business subscription, plan config, and business info
+      responses:
+        "200":
+          description: Current subscription
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [subscription, plan, business]
+                properties:
+                  subscription:
+                    $ref: "#/components/schemas/Subscription"
+                  plan:
+                    $ref: "#/components/schemas/SubscriptionPlan"
+                  business:
+                    $ref: "#/components/schemas/Business"
+        "404":
+          description: No subscription found for this user's business
+
+  /subscriptions/renew:
+    post:
+      operationId: renewSubscription
+      tags: [subscriptions]
+      summary: Business owner renews or activates their subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenewSubscriptionBody"
+      responses:
+        "200":
+          description: Subscription renewed
+
+  /subscriptions/create-order:
+    post:
+      operationId: createSubscriptionOrder
+      tags: [subscriptions]
+      summary: Create a Razorpay order for subscription renewal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSubscriptionOrderBody"
+      responses:
+        "200":
+          description: Razorpay order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateSubscriptionOrderResponse"
+
+  /subscriptions/verify-payment:
+    post:
+      operationId: verifySubscriptionPayment
+      tags: [subscriptions]
+      summary: Verify Razorpay payment signature and activate subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifySubscriptionPaymentBody"
+      responses:
+        "200":
+          description: Payment verified, subscription activated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifySubscriptionPaymentResponse"
+        "400":
+          description: Signature verification failed
 
   # ─── SERVICE HIGHLIGHTS ─────────────────────────────────────────────────────
 
@@ -442,6 +544,7 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/PublicServiceHighlight"
+
   # ─── DELIVERY FEES ──────────────────────────────────────────────────────────
 
   /delivery-fees/settings:
@@ -500,6 +603,7 @@ paths:
                 $ref: "#/components/schemas/DeliveryFeeCalculation"
         "422":
           description: Shop location not configured, or invalid/missing customer location
+
   # ─── CUSTOMERS ──────────────────────────────────────────────────────────────
 
   /customers:
@@ -759,7 +863,7 @@ paths:
                 $ref: "#/components/schemas/Product"
         "404":
           description: Not found
-  
+
   # ─── PROMOTIONS ──────────────────────────────────────────────────────────────
 
   /promotions:
@@ -919,6 +1023,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Promotion"
+
   # ─── VENDORS ─────────────────────────────────────────────────────────────────
 
   /vendors:
@@ -1031,7 +1136,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
-# ─── PURCHASES ───────────────────────────────────────────────────────────────
+
+  # ─── PURCHASES ───────────────────────────────────────────────────────────────
 
   /purchases:
     get:
@@ -1158,6 +1264,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
+
   # ─── SALES ORDERS ────────────────────────────────────────────────────────────
 
   /sales-orders:
@@ -1229,6 +1336,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SalesOrder"
+
   /public/sales-orders:
     post:
       operationId: createPublicSalesOrder
@@ -1247,6 +1355,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SalesOrder"
+
   /sales-orders/{id}:
     get:
       operationId: getSalesOrder
@@ -1332,6 +1441,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SalesOrder"
+
   # ─── DRIVERS ─────────────────────────────────────────────────────────────────
 
   /drivers:
@@ -1642,6 +1752,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Delivery"
+
   # ── Driver delivery-flow endpoints (delivery-app) ──────────────────────────
 
   /deliveries/my:
@@ -1745,7 +1856,7 @@ paths:
           description: Not found
         "409":
           description: Delivery can no longer be rejected
-  
+
   /deliveries/{id}/call:
     post:
       operationId: callDeliveryCustomer
@@ -1772,6 +1883,7 @@ paths:
           description: Calling is not configured
         "502":
           description: Call provider rejected the request
+
   /deliveries/{id}/pickup:
     post:
       operationId: pickupDelivery
@@ -1958,6 +2070,7 @@ paths:
           description: Not found
         "409":
           description: Preconditions not met (arrival / OTP / payment)
+
   # ─── TRANSACTIONS ────────────────────────────────────────────────────────────
 
   /transactions:
@@ -2379,7 +2492,7 @@ paths:
                 items:
                   $ref: "#/components/schemas/Notification"
 
-    # ─── DRIVER NOTIFICATIONS ────────────────────────────────────────────────────
+  # ─── DRIVER NOTIFICATIONS ────────────────────────────────────────────────────
 
   /driver/notifications:
     get:
@@ -2463,6 +2576,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DriverNotificationActionResponse"
+
   # ─── ADMIN ───────────────────────────────────────────────────────────────────
 
   /admin/analytics:
@@ -2497,7 +2611,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [free, pro, premium]
+            enum: [pro, premium]
         - name: page
           in: query
           schema:
@@ -2547,10 +2661,10 @@ paths:
       tags: [admin]
       summary: List all users on the platform (admin view)
       parameters:
-        - name: search
+        - name: business_id
           in: query
           schema:
-            type: string
+            type: integer
         - name: role
           in: query
           schema:
@@ -2613,12 +2727,17 @@ paths:
           in: query
           schema:
             type: string
-            enum: [free, pro, premium]
+            enum: [pro, premium]
+        - name: billing_cycle
+          in: query
+          schema:
+            type: string
+            enum: [monthly, quarterly, half_yearly, yearly]
         - name: status
           in: query
           schema:
             type: string
-            enum: [active, expired, cancelled]
+            enum: [trial, active, expired, cancelled]
         - name: page
           in: query
           schema:
@@ -2636,6 +2755,117 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SubscriptionListResponse"
+
+  /admin/subscription-plans:
+    get:
+      operationId: listSubscriptionPlans
+      tags: [admin]
+      summary: List all subscription plan configurations (Pro & Premium pricing, limits, features)
+      responses:
+        "200":
+          description: List of subscription plans
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SubscriptionPlan"
+    post:
+      operationId: createSubscriptionPlan
+      tags: [admin]
+      summary: Create a subscription plan configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSubscriptionPlanInput"
+      responses:
+        "201":
+          description: Plan created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionPlan"
+        "409":
+          description: Plan already exists
+
+  /admin/subscription-plans/{id}:
+    get:
+      operationId: getSubscriptionPlan
+      tags: [admin]
+      summary: Get a subscription plan by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Plan detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionPlan"
+        "404":
+          description: Not found
+    put:
+      operationId: updateSubscriptionPlan
+      tags: [admin]
+      summary: Update a subscription plan's pricing, limits or features
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSubscriptionPlanInput"
+      responses:
+        "200":
+          description: Updated plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionPlan"
+        "404":
+          description: Not found
+
+  /admin/subscription-plans/{id}/status:
+    patch:
+      operationId: updateSubscriptionPlanStatus
+      tags: [admin]
+      summary: Activate or deactivate a subscription plan
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSubscriptionPlanStatusInput"
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionPlan"
+        "404":
+          description: Not found
 
   /admin/subscriptions/{id}:
     put:
@@ -2717,6 +2947,100 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
 
+  # ─── ADMIN NOTIFICATIONS ──────────────────────────────────────────────────
+
+  /admin-notifications:
+    get:
+      operationId: listAdminNotifications
+      tags: [admin-notifications]
+      summary: List notifications for the admin dashboard (business-scoped)
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum: [ALL, NEW_ORDERS, LOW_STOCK, VENDOR_PAYMENTS, SUBSCRIPTION,UNREAD]
+            default: ALL
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Admin notifications
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminNotificationListResponse"
+
+  /admin-notifications/unread-count:
+    get:
+      operationId: getAdminNotificationsUnreadCount
+      tags: [admin-notifications]
+      summary: Unread admin notification count for a business
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUnreadCountResponse"
+
+  /admin-notifications/{id}/read:
+    patch:
+      operationId: markAdminNotificationRead
+      tags: [admin-notifications]
+      summary: Mark one admin notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin-notifications/mark-all-read:
+    patch:
+      operationId: markAllAdminNotificationsRead
+      tags: [admin-notifications]
+      summary: Mark all admin notifications as read for a business
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: All marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
 # ─── SCHEMAS ─────────────────────────────────────────────────────────────────
 
 components:
@@ -2743,7 +3067,6 @@ components:
       properties:
         email:
           type: string
-
         password:
           type: string
 
@@ -2843,7 +3166,7 @@ components:
           type: string
         gstin:
           type: ["string", "null"]
-        description:                      # 🆕
+        description:
           type: ["string", "null"]
         phone:
           type: ["string", "null"]
@@ -2877,14 +3200,23 @@ components:
           type: boolean
         plan:
           type: string
-          enum: [free, pro, premium]
+          enum: [pro, premium]
+        billing_cycle:
+          type: ["string", "null"]
+          enum: [monthly, quarterly, half_yearly, yearly]
+        subscription_status:
+          type: ["string", "null"]
+          enum: [trial, active, expired, cancelled]
+        trial_end_date:
+          type: ["string", "null"]
+          format: date
         created_at:
           type: string
           format: date-time
 
     BusinessInput:
       type: object
-      required: [business_name, business_type]
+      required: [business_name, business_type, plan, billing_cycle]
       properties:
         business_name:
           type: string
@@ -2892,7 +3224,7 @@ components:
           type: string
         gstin:
           type: string
-        description:                      # 🆕
+        description:
           type: string
         phone:
           type: string
@@ -2923,6 +3255,12 @@ components:
         financial_year_start:
           type: string
           format: date
+        plan:
+          type: string
+          enum: [pro, premium]
+        billing_cycle:
+          type: string
+          enum: [monthly, quarterly, half_yearly, yearly]
 
     BusinessUpdate:
       type: object
@@ -2933,7 +3271,7 @@ components:
           type: string
         gstin:
           type: string
-        description:                      # 🆕
+        description:
           type: string
         phone:
           type: string
@@ -3030,7 +3368,7 @@ components:
           type: string
         plan:
           type: string
-          enum: [free, pro, premium]
+          enum: [pro, premium]
         is_active:
           type: boolean
         customer_count:
@@ -3083,7 +3421,8 @@ components:
       properties:
         is_active:
           type: boolean
-  # ── Service Highlights ("Why Choose Us") ────────────────────────────────────
+
+    # ── Service Highlights ("Why Choose Us") ────────────────────────────────────
 
     ServiceHighlight:
       type: object
@@ -3172,7 +3511,8 @@ components:
           type: string
         icon:
           type: string
-        # ── Delivery Fees ─────────────────────────────────────────────────────────
+
+    # ── Delivery Fees ─────────────────────────────────────────────────────────
 
     DeliveryFeeSettings:
       type: object
@@ -3330,6 +3670,10 @@ components:
           type: integer
         business_id:
           type: integer
+        vendor_id:
+          type: ["integer", "null"]
+        vendor_name:
+          type: ["string", "null"]
         name:
           type: string
         barcode:
@@ -3367,6 +3711,8 @@ components:
       properties:
         business_id:
           type: integer
+        vendor_id:
+          type: integer
         name:
           type: string
         barcode:
@@ -3403,6 +3749,8 @@ components:
     ProductUpdate:
       type: object
       properties:
+        vendor_id:
+          type: integer
         name:
           type: string
         barcode:
@@ -3445,7 +3793,7 @@ components:
           type: integer
         limit:
           type: integer
-  
+
     Promotion:
       type: object
       required: [id, business_id, name, promotion_type, apply_to, start_date, end_date, status, created_at]
@@ -3474,7 +3822,7 @@ components:
         discount_percentage:
           type: ["number", "null"]
         category:
-          type:  ["string", "null"]
+          type: ["string", "null"]
         description:
           type: ["string", "null"]
         promo_code:
@@ -3576,6 +3924,7 @@ components:
           type: array
           items:
             type: integer
+
     PromotionStatusUpdate:
       type: object
       required: [status]
@@ -3598,6 +3947,7 @@ components:
           type: integer
         limit:
           type: integer
+
     # ── Vendor ────────────────────────────────────────────────────────────────
 
     Vendor:
@@ -3667,7 +4017,8 @@ components:
           type: integer
         limit:
           type: integer
-# ── Purchase ──────────────────────────────────────────────────────────────  
+
+    # ── Purchase ──────────────────────────────────────────────────────────────
 
     Purchase:
       type: object
@@ -3702,6 +4053,9 @@ components:
           type: ["string", "null"]
         entry_date:
           type: string
+          format: date
+        due_date:
+          type: ["string", "null"]
           format: date
         product_count:
           type: integer
@@ -3738,6 +4092,9 @@ components:
         entry_date:
           type: string
           format: date
+        due_date:
+          type: string
+          format: date
         items:
           type: array
           items:
@@ -3757,6 +4114,9 @@ components:
         description:
           type: string
         entry_date:
+          type: string
+          format: date
+        due_date:
           type: string
           format: date
 
@@ -3800,6 +4160,7 @@ components:
           type: number
         unit_cost:
           type: number
+
     # ── Sales Order ───────────────────────────────────────────────────────────
 
     SalesOrder:
@@ -3951,6 +4312,7 @@ components:
           type: number
         unit_price:
           type: number
+
     # ── Driver ────────────────────────────────────────────────────────────────
 
     Driver:
@@ -3998,7 +4360,7 @@ components:
         created_at:
           type: string
           format: date-time
-          
+
     DriverInput:
       type: object
       required: [business_id, name, phone]
@@ -4099,7 +4461,7 @@ components:
         avg_delivery_time_minutes:
           type: number
 
-    # ── Driver Earnings (REPLACES the old DriverEarnings schema block) ──────
+    # ── Driver Earnings ──────────────────────────────────────────────────────
 
     DriverEarnings:
       type: object
@@ -4207,6 +4569,8 @@ components:
       properties:
         id:
           type: integer
+        business_delivery_no:
+          type: ["integer", "null"]
         business_id:
           type: integer
         customer_id:
@@ -4235,11 +4599,11 @@ components:
           enum: [cod, online, card]
         distance_km:
           type: ["number", "null"]
-        subtotal:                     # 🆕
+        subtotal:
           type: ["number", "null"]
-        tax:                          # 🆕 (rename if already exists elsewhere)
+        tax:
           type: ["number", "null"]
-        delivery_fee:                 # 🆕
+        delivery_fee:
           type: ["number", "null"]
         assigned_at:
           type: ["string", "null"]
@@ -4262,12 +4626,10 @@ components:
         cancelled_at:
           type: ["string", "null"]
           format: date-time
- 
         rejection_reason:
           type: ["string", "null"]
         cancellation_reason:
           type: ["string", "null"]
- 
         otp_verified:
           type: boolean
         otp_verified_at:
@@ -4278,7 +4640,6 @@ components:
           format: date-time
         otp_attempts_remaining:
           type: ["integer", "null"]
- 
         payment_status:
           type: string
           enum: [not_applicable, pending, collected]
@@ -4287,7 +4648,6 @@ components:
           format: date-time
         collected_amount:
           type: ["number", "null"]
- 
         created_at:
           type: string
           format: date-time
@@ -4300,7 +4660,7 @@ components:
           type: integer
         customer_id:
           type: integer
-        sales_order_id:            # ← NEW (optional)
+        sales_order_id:
           type: integer
         pickup_address:
           type: string
@@ -4353,9 +4713,9 @@ components:
           type: integer
         limit:
           type: integer
-    
-     # ── Driver-flow request bodies ───────────────────────────────────────────
- 
+
+    # ── Driver-flow request bodies ───────────────────────────────────────────
+
     RejectDeliveryInput:
       type: object
       required: [reason]
@@ -4364,7 +4724,7 @@ components:
           type: string
           minLength: 1
           maxLength: 500
- 
+
     VerifyDeliveryOtpInput:
       type: object
       required: [otp]
@@ -4373,7 +4733,7 @@ components:
           type: string
           minLength: 4
           maxLength: 6
- 
+
     ConfirmDeliveryPaymentInput:
       type: object
       required: [amount]
@@ -4381,9 +4741,9 @@ components:
         amount:
           type: number
           exclusiveMinimum: 0
- 
+
     # ── Driver-flow response bodies ──────────────────────────────────────────
- 
+
     DeliveryMyDetails:
       type: object
       required: [delivery, customer, items]
@@ -4396,7 +4756,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DeliveryOrderItem"
- 
+
     DeliveryCustomerBrief:
       type: object
       required: [id, name, phone]
@@ -4409,7 +4769,7 @@ components:
           type: string
         address:
           type: ["string", "null"]
- 
+
     DeliveryOrderItem:
       type: object
       required: [id, product_name, qty, unit_price, total_price]
@@ -4424,7 +4784,7 @@ components:
           type: number
         total_price:
           type: number
- 
+
     CompleteDeliveryResult:
       type: object
       required: [success, message, data]
@@ -4435,7 +4795,7 @@ components:
           type: string
         data:
           $ref: "#/components/schemas/Delivery"
-   
+
     CallCustomerResult:
       type: object
       required: [message]
@@ -4444,6 +4804,7 @@ components:
           type: string
         call_sid:
           type: ["string", "null"]
+
     # ── Transaction ───────────────────────────────────────────────────────────
 
     Transaction:
@@ -4472,11 +4833,11 @@ components:
         payment_mode:
           type: string
           enum: [cash, online, cheque, upi]
-        tax:                          # ✅ ADD
+        tax:
           type: number
-        gst_rate:                     # ✅ ADD
+        gst_rate:
           type: number
-        invoice_no:                   # ✅ ADD
+        invoice_no:
           type: ["string", "null"]
         entry_date:
           type: string
@@ -4515,13 +4876,13 @@ components:
           type: string
           enum: [cash, online, cheque, upi]
           default: cash
-        tax:                          # ✅ ADD
+        tax:
           type: number
           default: 0
-        gst_rate:                     # ✅ ADD
+        gst_rate:
           type: number
           default: 0
-        invoice_no:                   # ✅ ADD
+        invoice_no:
           type: string
         entry_date:
           type: string
@@ -4820,7 +5181,8 @@ components:
         created_at:
           type: string
           format: date-time
-        # ── Driver Notifications ──────────────────────────────────────────────────
+
+    # ── Driver Notifications ──────────────────────────────────────────────────
 
     DriverNotification:
       type: object
@@ -4861,7 +5223,6 @@ components:
         read_at:
           type: ["string", "null"]
           format: date-time
-          
 
     DriverNotificationPagination:
       type: object
@@ -4906,6 +5267,61 @@ components:
           type: boolean
         message:
           type: string
+
+    # ── Admin Notifications ───────────────────────────────────────────────────
+
+    AdminNotification:
+      type: object
+      required: [id, type, message, is_read, created_at]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [new_order, low_stock, vendor_payment_pending, vendor_payment_overdue,subscription_renewal,subscription_renewal_success,subscription_trial_expiring]
+        title:
+          type: ["string", "null"]
+        message:
+          type: string
+        order_id:
+          type: ["integer", "null"]
+        product_id:
+          type: ["integer", "null"]
+        vendor_id:
+          type: ["integer", "null"]
+        purchase_id:
+          type: ["integer", "null"]
+        is_read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        read_at:
+          type: ["string", "null"]
+          format: date-time
+
+    AdminNotificationListResponse:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminNotification"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    AdminUnreadCountResponse:
+      type: object
+      required: [count]
+      properties:
+        count:
+          type: integer
+
     # ── Admin ─────────────────────────────────────────────────────────────────
 
     AdminAnalytics:
@@ -4932,6 +5348,82 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Business"
+        monthly_revenue:
+          type: array
+          items:
+            $ref: "#/components/schemas/MonthlyRevenuePoint"
+        current_month_revenue:
+          type: number
+        previous_month_revenue:
+          type: number
+        subscription_status_breakdown:
+          $ref: "#/components/schemas/SubscriptionStatusBreakdown"
+        system_alerts:
+          $ref: "#/components/schemas/SystemAlerts"
+        recent_payments:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecentPayment"
+
+    MonthlyRevenuePoint:
+      type: object
+      required: [month, amount]
+      properties:
+        month:
+          type: string
+        amount:
+          type: number
+
+    SubscriptionStatusBreakdown:
+      type: object
+      required: [active, trial, expiring_soon, expired, cancelled]
+      properties:
+        active:
+          type: integer
+        trial:
+          type: integer
+        expiring_soon:
+          type: integer
+        expired:
+          type: integer
+        cancelled:
+          type: integer
+
+    SystemAlerts:
+      type: object
+      required: [expiring_soon_count, failed_payments_count, suspended_businesses_count]
+      properties:
+        expiring_soon_count:
+          type: integer
+        failed_payments_count:
+          type: integer
+        suspended_businesses_count:
+          type: integer
+
+    RecentPayment:
+      type: object
+      required: [id, business_id, business_name, plan, billing_cycle, amount, payment_date, status]
+      properties:
+        id:
+          type: integer
+        business_id:
+          type: integer
+        business_name:
+          type: string
+        plan:
+          type: string
+          enum: [pro, premium]
+        billing_cycle:
+          type: string
+          enum: [monthly, quarterly, half_yearly, yearly]
+        amount:
+          type: number
+        payment_date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [paid, pending, failed]
 
     MonthlyGrowthPoint:
       type: object
@@ -4948,10 +5440,8 @@ components:
 
     PlanBreakdown:
       type: object
-      required: [free, pro, premium]
+      required: [pro, premium, trial]
       properties:
-        free:
-          type: integer
         pro:
           type: integer
         premium:
@@ -4961,7 +5451,7 @@ components:
 
     Subscription:
       type: object
-      required: [id, business_id, plan, status, start_date, end_date]
+      required: [id, business_id, plan, billing_cycle, amount, status, start_date, end_date]
       properties:
         id:
           type: integer
@@ -4971,32 +5461,109 @@ components:
           type: string
         plan:
           type: string
-          enum: [free, pro, premium]
+          enum: [pro, premium]
+        billing_cycle:
+          type: string
+          enum: [monthly, quarterly, half_yearly, yearly]
+        amount:
+          type: number
         start_date:
           type: string
           format: date
         end_date:
           type: string
           format: date
+        trial_end_date:
+          type: ["string", "null"]
+          format: date
         status:
           type: string
-          enum: [active, expired, cancelled]
+          enum: [active, trial, expired, cancelled]
         payment_ref:
           type: ["string", "null"]
 
     SubscriptionUpdate:
       type: object
-      required: [plan, status]
       properties:
         plan:
           type: string
-          enum: [free, pro, premium]
+          enum: [pro, premium]
+        billing_cycle:
+          type: string
+          enum: [monthly, quarterly, half_yearly, yearly]
         status:
           type: string
-          enum: [active, expired, cancelled]
+          enum: [trial, active, expired, cancelled]
         end_date:
           type: string
           format: date
+
+    # ── Renamed/used-once bodies for the three subscription-payment endpoints ──
+    # These are now $ref'd directly by /subscriptions/renew, /subscriptions/create-order
+    # and /subscriptions/verify-payment above — do NOT also inline these shapes in
+    # the path's requestBody/response, or orval will generate two colliding types
+    # with the same name (this was the original bug).
+
+    RenewSubscriptionBody:
+      type: object
+      required: [plan, billing_cycle]
+      properties:
+        plan:
+          type: string
+          enum: [pro, premium]
+        billing_cycle:
+          type: string
+          enum: [monthly, quarterly, half_yearly, yearly]
+
+    CreateSubscriptionOrderBody:
+      type: object
+      required: [plan, billing_cycle]
+      properties:
+        plan:
+          type: string
+          enum: [pro, premium]
+        billing_cycle:
+          type: string
+          enum: [monthly, quarterly, half_yearly, yearly]
+
+    CreateSubscriptionOrderResponse:
+      type: object
+      required: [order_id, amount, currency, key_id]
+      properties:
+        order_id:
+          type: string
+        amount:
+          type: integer
+        currency:
+          type: string
+        key_id:
+          type: string
+
+    VerifySubscriptionPaymentBody:
+      type: object
+      required: [razorpay_order_id, razorpay_payment_id, razorpay_signature, plan, billing_cycle]
+      properties:
+        razorpay_order_id:
+          type: string
+        razorpay_payment_id:
+          type: string
+        razorpay_signature:
+          type: string
+        plan:
+          type: string
+          enum: [pro, premium]
+        billing_cycle:
+          type: string
+          enum: [monthly, quarterly, half_yearly, yearly]
+
+    VerifySubscriptionPaymentResponse:
+      type: object
+      required: [message, subscription]
+      properties:
+        message:
+          type: string
+        subscription:
+          $ref: "#/components/schemas/Subscription"
 
     SubscriptionListResponse:
       type: object
@@ -5012,6 +5579,136 @@ components:
           type: integer
         limit:
           type: integer
+
+    SubscriptionPlan:
+      type: object
+      required:
+        [id, plan, monthly_price, quarterly_price, half_yearly_price, yearly_price,
+         trial_days, max_users, max_branches, max_products, max_customers,
+         max_vendors, max_orders, features, is_active, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+        plan:
+          type: string
+          enum: [pro, premium]
+        monthly_price:
+          type: number
+        quarterly_price:
+          type: number
+        half_yearly_price:
+          type: number
+        yearly_price:
+          type: number
+        trial_days:
+          type: integer
+        max_users:
+          type: integer
+        max_branches:
+          type: integer
+        max_products:
+          type: integer
+        max_customers:
+          type: integer
+        max_vendors:
+          type: integer
+        max_orders:
+          type: integer
+        features:
+          type: object
+          additionalProperties:
+            type: boolean
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateSubscriptionPlanInput:
+      type: object
+      required: [plan, monthly_price, quarterly_price, half_yearly_price, yearly_price]
+      properties:
+        plan:
+          type: string
+          enum: [pro, premium]
+        monthly_price:
+          type: number
+        quarterly_price:
+          type: number
+        half_yearly_price:
+          type: number
+        yearly_price:
+          type: number
+        trial_days:
+          type: integer
+          default: 15
+        max_users:
+          type: integer
+          default: -1
+        max_branches:
+          type: integer
+          default: -1
+        max_products:
+          type: integer
+          default: -1
+        max_customers:
+          type: integer
+          default: -1
+        max_vendors:
+          type: integer
+          default: -1
+        max_orders:
+          type: integer
+          default: -1
+        features:
+          type: object
+          additionalProperties:
+            type: boolean
+        is_active:
+          type: boolean
+          default: true
+
+    UpdateSubscriptionPlanInput:
+      type: object
+      properties:
+        monthly_price:
+          type: number
+        quarterly_price:
+          type: number
+        half_yearly_price:
+          type: number
+        yearly_price:
+          type: number
+        trial_days:
+          type: integer
+        max_users:
+          type: integer
+        max_branches:
+          type: integer
+        max_products:
+          type: integer
+        max_customers:
+          type: integer
+        max_vendors:
+          type: integer
+        max_orders:
+          type: integer
+        features:
+          type: object
+          additionalProperties:
+            type: boolean
+        is_active:
+          type: boolean
+
+    UpdateSubscriptionPlanStatusInput:
+      type: object
+      required: [is_active]
+      properties:
+        is_active:
+          type: boolean
 
     # ── Audit ─────────────────────────────────────────────────────────────────
 
@@ -5069,5 +5766,5 @@ components:
           enum: [push, sms, all]
         target_plan:
           type: string
-          enum: [free, pro, premium, all]
+          enum: [pro, premium, all]
           default: all

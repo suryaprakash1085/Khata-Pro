@@ -14,7 +14,9 @@ import './index.css';
 
 
 setBaseUrl(import.meta.env.VITE_API_URL || 'http://localhost:3000');
-setBaseUrl('https://khata-pro.onrender.com');
+
+// backend deloyment code 
+// setBaseUrl('https://khata-pro.onrender.com');
 
 
 createRoot(document.getElementById('root')!).render(<App />);

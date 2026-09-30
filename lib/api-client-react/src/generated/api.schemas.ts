@@ -74,9 +74,34 @@ export type BusinessPlan = typeof BusinessPlan[keyof typeof BusinessPlan];
 
 
 export const BusinessPlan = {
-  free: 'free',
   pro: 'pro',
   premium: 'premium',
+} as const;
+
+/**
+ * @nullable
+ */
+export type BusinessBillingCycle = typeof BusinessBillingCycle[keyof typeof BusinessBillingCycle] | null;
+
+
+export const BusinessBillingCycle = {
+  monthly: 'monthly',
+  quarterly: 'quarterly',
+  half_yearly: 'half_yearly',
+  yearly: 'yearly',
+} as const;
+
+/**
+ * @nullable
+ */
+export type BusinessSubscriptionStatus = typeof BusinessSubscriptionStatus[keyof typeof BusinessSubscriptionStatus] | null;
+
+
+export const BusinessSubscriptionStatus = {
+  trial: 'trial',
+  active: 'active',
+  expired: 'expired',
+  cancelled: 'cancelled',
 } as const;
 
 export interface Business {
@@ -115,8 +140,32 @@ export interface Business {
   financial_year_start?: string | null;
   is_active?: boolean;
   plan?: BusinessPlan;
+  /** @nullable */
+  billing_cycle?: BusinessBillingCycle;
+  /** @nullable */
+  subscription_status?: BusinessSubscriptionStatus;
+  /** @nullable */
+  trial_end_date?: string | null;
   created_at: string;
 }
+
+export type BusinessInputPlan = typeof BusinessInputPlan[keyof typeof BusinessInputPlan];
+
+
+export const BusinessInputPlan = {
+  pro: 'pro',
+  premium: 'premium',
+} as const;
+
+export type BusinessInputBillingCycle = typeof BusinessInputBillingCycle[keyof typeof BusinessInputBillingCycle];
+
+
+export const BusinessInputBillingCycle = {
+  monthly: 'monthly',
+  quarterly: 'quarterly',
+  half_yearly: 'half_yearly',
+  yearly: 'yearly',
+} as const;
 
 export interface BusinessInput {
   business_name: string;
@@ -136,6 +185,8 @@ export interface BusinessInput {
   logo_url?: string;
   currency?: string;
   financial_year_start?: string;
+  plan: BusinessInputPlan;
+  billing_cycle: BusinessInputBillingCycle;
 }
 
 export interface BusinessUpdate {
@@ -178,7 +229,6 @@ export type AdminBusinessPlan = typeof AdminBusinessPlan[keyof typeof AdminBusin
 
 
 export const AdminBusinessPlan = {
-  free: 'free',
   pro: 'pro',
   premium: 'premium',
 } as const;
@@ -430,6 +480,10 @@ export const ProductUnit = {
 export interface Product {
   id: number;
   business_id: number;
+  /** @nullable */
+  vendor_id?: number | null;
+  /** @nullable */
+  vendor_name?: string | null;
   name: string;
   /** @nullable */
   barcode?: string | null;
@@ -469,6 +523,7 @@ export const ProductInputUnit = {
 
 export interface ProductInput {
   business_id: number;
+  vendor_id?: number;
   name: string;
   barcode?: string;
   sku?: string;
@@ -500,6 +555,7 @@ export const ProductUpdateUnit = {
 } as const;
 
 export interface ProductUpdate {
+  vendor_id?: number;
   name?: string;
   barcode?: string;
   sku?: string;
@@ -749,6 +805,8 @@ export interface Purchase {
   /** @nullable */
   description?: string | null;
   entry_date: string;
+  /** @nullable */
+  due_date?: string | null;
   product_count?: number;
   created_by?: number;
   created_at: string;
@@ -770,6 +828,7 @@ export interface PurchaseInput {
   bill_image_url?: string;
   description?: string;
   entry_date?: string;
+  due_date?: string;
   items: PurchaseItemInput[];
 }
 
@@ -780,6 +839,7 @@ export interface PurchaseUpdate {
   bill_image_url?: string;
   description?: string;
   entry_date?: string;
+  due_date?: string;
 }
 
 export interface PurchaseListResponse {
@@ -1148,6 +1208,8 @@ export const DeliveryPaymentStatus = {
 
 export interface Delivery {
   id: number;
+  /** @nullable */
+  business_delivery_no?: number | null;
   business_id: number;
   customer_id: number;
   /** @nullable */
@@ -1671,6 +1733,50 @@ export interface DriverNotificationActionResponse {
   message: string;
 }
 
+export type AdminNotificationType = typeof AdminNotificationType[keyof typeof AdminNotificationType];
+
+
+export const AdminNotificationType = {
+  new_order: 'new_order',
+  low_stock: 'low_stock',
+  vendor_payment_pending: 'vendor_payment_pending',
+  vendor_payment_overdue: 'vendor_payment_overdue',
+  subscription_renewal: 'subscription_renewal',
+  subscription_renewal_success: 'subscription_renewal_success',
+  subscription_trial_expiring: 'subscription_trial_expiring',
+} as const;
+
+export interface AdminNotification {
+  id: number;
+  type: AdminNotificationType;
+  /** @nullable */
+  title?: string | null;
+  message: string;
+  /** @nullable */
+  order_id?: number | null;
+  /** @nullable */
+  product_id?: number | null;
+  /** @nullable */
+  vendor_id?: number | null;
+  /** @nullable */
+  purchase_id?: number | null;
+  is_read: boolean;
+  created_at: string;
+  /** @nullable */
+  read_at?: string | null;
+}
+
+export interface AdminNotificationListResponse {
+  data: AdminNotification[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface AdminUnreadCountResponse {
+  count: number;
+}
+
 export interface MonthlyGrowthPoint {
   month: string;
   businesses: number;
@@ -1679,9 +1785,65 @@ export interface MonthlyGrowthPoint {
 }
 
 export interface PlanBreakdown {
-  free: number;
   pro: number;
   premium: number;
+}
+
+export interface MonthlyRevenuePoint {
+  month: string;
+  amount: number;
+}
+
+export interface SubscriptionStatusBreakdown {
+  active: number;
+  trial: number;
+  expiring_soon: number;
+  expired: number;
+  cancelled: number;
+}
+
+export interface SystemAlerts {
+  expiring_soon_count: number;
+  failed_payments_count: number;
+  suspended_businesses_count: number;
+}
+
+export type RecentPaymentPlan = typeof RecentPaymentPlan[keyof typeof RecentPaymentPlan];
+
+
+export const RecentPaymentPlan = {
+  pro: 'pro',
+  premium: 'premium',
+} as const;
+
+export type RecentPaymentBillingCycle = typeof RecentPaymentBillingCycle[keyof typeof RecentPaymentBillingCycle];
+
+
+export const RecentPaymentBillingCycle = {
+  monthly: 'monthly',
+  quarterly: 'quarterly',
+  half_yearly: 'half_yearly',
+  yearly: 'yearly',
+} as const;
+
+export type RecentPaymentStatus = typeof RecentPaymentStatus[keyof typeof RecentPaymentStatus];
+
+
+export const RecentPaymentStatus = {
+  paid: 'paid',
+  pending: 'pending',
+  failed: 'failed',
+} as const;
+
+export interface RecentPayment {
+  id: number;
+  business_id: number;
+  business_name: string;
+  plan: RecentPaymentPlan;
+  billing_cycle: RecentPaymentBillingCycle;
+  amount: number;
+  payment_date: string;
+  status: RecentPaymentStatus;
 }
 
 export interface AdminAnalytics {
@@ -1693,15 +1855,30 @@ export interface AdminAnalytics {
   monthly_growth: MonthlyGrowthPoint[];
   plan_breakdown?: PlanBreakdown;
   recent_signups?: Business[];
+  monthly_revenue?: MonthlyRevenuePoint[];
+  current_month_revenue?: number;
+  previous_month_revenue?: number;
+  subscription_status_breakdown?: SubscriptionStatusBreakdown;
+  system_alerts?: SystemAlerts;
+  recent_payments?: RecentPayment[];
 }
 
-export type SubscriptionPlan = typeof SubscriptionPlan[keyof typeof SubscriptionPlan];
+export type SubscriptionPlanProperty = typeof SubscriptionPlanProperty[keyof typeof SubscriptionPlanProperty];
 
 
-export const SubscriptionPlan = {
-  free: 'free',
+export const SubscriptionPlanProperty = {
   pro: 'pro',
   premium: 'premium',
+} as const;
+
+export type SubscriptionBillingCycle = typeof SubscriptionBillingCycle[keyof typeof SubscriptionBillingCycle];
+
+
+export const SubscriptionBillingCycle = {
+  monthly: 'monthly',
+  quarterly: 'quarterly',
+  half_yearly: 'half_yearly',
+  yearly: 'yearly',
 } as const;
 
 export type SubscriptionStatus = typeof SubscriptionStatus[keyof typeof SubscriptionStatus];
@@ -1709,6 +1886,7 @@ export type SubscriptionStatus = typeof SubscriptionStatus[keyof typeof Subscrip
 
 export const SubscriptionStatus = {
   active: 'active',
+  trial: 'trial',
   expired: 'expired',
   cancelled: 'cancelled',
 } as const;
@@ -1717,9 +1895,13 @@ export interface Subscription {
   id: number;
   business_id: number;
   business_name?: string;
-  plan: SubscriptionPlan;
+  plan: SubscriptionPlanProperty;
+  billing_cycle: SubscriptionBillingCycle;
+  amount: number;
   start_date: string;
   end_date: string;
+  /** @nullable */
+  trial_end_date?: string | null;
   status: SubscriptionStatus;
   /** @nullable */
   payment_ref?: string | null;
@@ -1729,24 +1911,119 @@ export type SubscriptionUpdatePlan = typeof SubscriptionUpdatePlan[keyof typeof 
 
 
 export const SubscriptionUpdatePlan = {
-  free: 'free',
   pro: 'pro',
   premium: 'premium',
+} as const;
+
+export type SubscriptionUpdateBillingCycle = typeof SubscriptionUpdateBillingCycle[keyof typeof SubscriptionUpdateBillingCycle];
+
+
+export const SubscriptionUpdateBillingCycle = {
+  monthly: 'monthly',
+  quarterly: 'quarterly',
+  half_yearly: 'half_yearly',
+  yearly: 'yearly',
 } as const;
 
 export type SubscriptionUpdateStatus = typeof SubscriptionUpdateStatus[keyof typeof SubscriptionUpdateStatus];
 
 
 export const SubscriptionUpdateStatus = {
+  trial: 'trial',
   active: 'active',
   expired: 'expired',
   cancelled: 'cancelled',
 } as const;
 
 export interface SubscriptionUpdate {
-  plan: SubscriptionUpdatePlan;
-  status: SubscriptionUpdateStatus;
+  plan?: SubscriptionUpdatePlan;
+  billing_cycle?: SubscriptionUpdateBillingCycle;
+  status?: SubscriptionUpdateStatus;
   end_date?: string;
+}
+
+export type RenewSubscriptionBodyPlan = typeof RenewSubscriptionBodyPlan[keyof typeof RenewSubscriptionBodyPlan];
+
+
+export const RenewSubscriptionBodyPlan = {
+  pro: 'pro',
+  premium: 'premium',
+} as const;
+
+export type RenewSubscriptionBodyBillingCycle = typeof RenewSubscriptionBodyBillingCycle[keyof typeof RenewSubscriptionBodyBillingCycle];
+
+
+export const RenewSubscriptionBodyBillingCycle = {
+  monthly: 'monthly',
+  quarterly: 'quarterly',
+  half_yearly: 'half_yearly',
+  yearly: 'yearly',
+} as const;
+
+export interface RenewSubscriptionBody {
+  plan: RenewSubscriptionBodyPlan;
+  billing_cycle: RenewSubscriptionBodyBillingCycle;
+}
+
+export type CreateSubscriptionOrderBodyPlan = typeof CreateSubscriptionOrderBodyPlan[keyof typeof CreateSubscriptionOrderBodyPlan];
+
+
+export const CreateSubscriptionOrderBodyPlan = {
+  pro: 'pro',
+  premium: 'premium',
+} as const;
+
+export type CreateSubscriptionOrderBodyBillingCycle = typeof CreateSubscriptionOrderBodyBillingCycle[keyof typeof CreateSubscriptionOrderBodyBillingCycle];
+
+
+export const CreateSubscriptionOrderBodyBillingCycle = {
+  monthly: 'monthly',
+  quarterly: 'quarterly',
+  half_yearly: 'half_yearly',
+  yearly: 'yearly',
+} as const;
+
+export interface CreateSubscriptionOrderBody {
+  plan: CreateSubscriptionOrderBodyPlan;
+  billing_cycle: CreateSubscriptionOrderBodyBillingCycle;
+}
+
+export interface CreateSubscriptionOrderResponse {
+  order_id: string;
+  amount: number;
+  currency: string;
+  key_id: string;
+}
+
+export type VerifySubscriptionPaymentBodyPlan = typeof VerifySubscriptionPaymentBodyPlan[keyof typeof VerifySubscriptionPaymentBodyPlan];
+
+
+export const VerifySubscriptionPaymentBodyPlan = {
+  pro: 'pro',
+  premium: 'premium',
+} as const;
+
+export type VerifySubscriptionPaymentBodyBillingCycle = typeof VerifySubscriptionPaymentBodyBillingCycle[keyof typeof VerifySubscriptionPaymentBodyBillingCycle];
+
+
+export const VerifySubscriptionPaymentBodyBillingCycle = {
+  monthly: 'monthly',
+  quarterly: 'quarterly',
+  half_yearly: 'half_yearly',
+  yearly: 'yearly',
+} as const;
+
+export interface VerifySubscriptionPaymentBody {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+  plan: VerifySubscriptionPaymentBodyPlan;
+  billing_cycle: VerifySubscriptionPaymentBodyBillingCycle;
+}
+
+export interface VerifySubscriptionPaymentResponse {
+  message: string;
+  subscription: Subscription;
 }
 
 export interface SubscriptionListResponse {
@@ -1754,6 +2031,85 @@ export interface SubscriptionListResponse {
   total: number;
   page: number;
   limit: number;
+}
+
+export type SubscriptionPlanPlan = typeof SubscriptionPlanPlan[keyof typeof SubscriptionPlanPlan];
+
+
+export const SubscriptionPlanPlan = {
+  pro: 'pro',
+  premium: 'premium',
+} as const;
+
+export type SubscriptionPlanFeatures = {[key: string]: boolean};
+
+export interface SubscriptionPlan {
+  id: number;
+  plan: SubscriptionPlanPlan;
+  monthly_price: number;
+  quarterly_price: number;
+  half_yearly_price: number;
+  yearly_price: number;
+  trial_days: number;
+  max_users: number;
+  max_branches: number;
+  max_products: number;
+  max_customers: number;
+  max_vendors: number;
+  max_orders: number;
+  features: SubscriptionPlanFeatures;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CreateSubscriptionPlanInputPlan = typeof CreateSubscriptionPlanInputPlan[keyof typeof CreateSubscriptionPlanInputPlan];
+
+
+export const CreateSubscriptionPlanInputPlan = {
+  pro: 'pro',
+  premium: 'premium',
+} as const;
+
+export type CreateSubscriptionPlanInputFeatures = {[key: string]: boolean};
+
+export interface CreateSubscriptionPlanInput {
+  plan: CreateSubscriptionPlanInputPlan;
+  monthly_price: number;
+  quarterly_price: number;
+  half_yearly_price: number;
+  yearly_price: number;
+  trial_days?: number;
+  max_users?: number;
+  max_branches?: number;
+  max_products?: number;
+  max_customers?: number;
+  max_vendors?: number;
+  max_orders?: number;
+  features?: CreateSubscriptionPlanInputFeatures;
+  is_active?: boolean;
+}
+
+export type UpdateSubscriptionPlanInputFeatures = {[key: string]: boolean};
+
+export interface UpdateSubscriptionPlanInput {
+  monthly_price?: number;
+  quarterly_price?: number;
+  half_yearly_price?: number;
+  yearly_price?: number;
+  trial_days?: number;
+  max_users?: number;
+  max_branches?: number;
+  max_products?: number;
+  max_customers?: number;
+  max_vendors?: number;
+  max_orders?: number;
+  features?: UpdateSubscriptionPlanInputFeatures;
+  is_active?: boolean;
+}
+
+export interface UpdateSubscriptionPlanStatusInput {
+  is_active: boolean;
 }
 
 export interface AuditLog {
@@ -1795,7 +2151,6 @@ export type BroadcastInputTargetPlan = typeof BroadcastInputTargetPlan[keyof typ
 
 
 export const BroadcastInputTargetPlan = {
-  free: 'free',
   pro: 'pro',
   premium: 'premium',
   all: 'all',
@@ -1814,6 +2169,16 @@ staff_user_id?: number;
 search?: string;
 page?: number;
 limit?: number;
+};
+
+export type ListActiveSubscriptionPlans200 = {
+  data: SubscriptionPlan[];
+};
+
+export type GetMySubscription200 = {
+  subscription: Subscription;
+  plan: SubscriptionPlan;
+  business: Business;
 };
 
 export type ListCustomersParams = {
@@ -2115,13 +2480,12 @@ export type ListAdminBusinessesPlan = typeof ListAdminBusinessesPlan[keyof typeo
 
 
 export const ListAdminBusinessesPlan = {
-  free: 'free',
   pro: 'pro',
   premium: 'premium',
 } as const;
 
 export type ListAdminUsersParams = {
-search?: string;
+business_id?: number;
 role?: ListAdminUsersRole;
 is_active?: boolean;
 page?: number;
@@ -2139,6 +2503,7 @@ export const ListAdminUsersRole = {
 
 export type ListSubscriptionsParams = {
 plan?: ListSubscriptionsPlan;
+billing_cycle?: ListSubscriptionsBillingCycle;
 status?: ListSubscriptionsStatus;
 page?: number;
 limit?: number;
@@ -2148,19 +2513,33 @@ export type ListSubscriptionsPlan = typeof ListSubscriptionsPlan[keyof typeof Li
 
 
 export const ListSubscriptionsPlan = {
-  free: 'free',
   pro: 'pro',
   premium: 'premium',
+} as const;
+
+export type ListSubscriptionsBillingCycle = typeof ListSubscriptionsBillingCycle[keyof typeof ListSubscriptionsBillingCycle];
+
+
+export const ListSubscriptionsBillingCycle = {
+  monthly: 'monthly',
+  quarterly: 'quarterly',
+  half_yearly: 'half_yearly',
+  yearly: 'yearly',
 } as const;
 
 export type ListSubscriptionsStatus = typeof ListSubscriptionsStatus[keyof typeof ListSubscriptionsStatus];
 
 
 export const ListSubscriptionsStatus = {
+  trial: 'trial',
   active: 'active',
   expired: 'expired',
   cancelled: 'cancelled',
 } as const;
+
+export type ListSubscriptionPlans200 = {
+  data: SubscriptionPlan[];
+};
 
 export type ListAuditLogsParams = {
 business_id?: number;
@@ -2168,5 +2547,32 @@ user_id?: number;
 action?: string;
 page?: number;
 limit?: number;
+};
+
+export type ListAdminNotificationsParams = {
+business_id: number;
+filter?: ListAdminNotificationsFilter;
+page?: number;
+limit?: number;
+};
+
+export type ListAdminNotificationsFilter = typeof ListAdminNotificationsFilter[keyof typeof ListAdminNotificationsFilter];
+
+
+export const ListAdminNotificationsFilter = {
+  ALL: 'ALL',
+  NEW_ORDERS: 'NEW_ORDERS',
+  LOW_STOCK: 'LOW_STOCK',
+  VENDOR_PAYMENTS: 'VENDOR_PAYMENTS',
+  SUBSCRIPTION: 'SUBSCRIPTION',
+  UNREAD: 'UNREAD',
+} as const;
+
+export type GetAdminNotificationsUnreadCountParams = {
+business_id: number;
+};
+
+export type MarkAllAdminNotificationsReadParams = {
+business_id: number;
 };
 

@@ -11,6 +11,7 @@ import {
 } from "@workspace/db";
 import { eq, and, gte, sql, desc, count, inArray } from "drizzle-orm";
 import { z } from "zod/v4";
+import { createVendorPaymentNotification } from "../services/adminNotifications.service";
 
 const router: IRouter = Router();
 
@@ -167,6 +168,64 @@ router.get("/purchase-orders/next-number", requireAuth, async (req, res): Promis
 });
 
 // ---------------------------------------------------------------------------
+// GET /purchase-orders/vendor-pending-total — sum of unpaid PO balances for
+// ALL vendors of a business. Mirrors /purchases/pending-total so it can feed
+// the same dashboard "To be Paid" card once you decide to combine both
+// sources (or keep them as two separate numbers — your call).
+// Must stay above "/purchase-orders/:id" — same Express route-matching
+// reason as "next-number" above.
+// ---------------------------------------------------------------------------
+router.get("/purchase-orders/vendor-pending-total", requireAuth, async (req, res): Promise<void> => {
+  const businessId = parseInt(req.query.business_id as string, 10);
+  if (isNaN(businessId)) { res.status(400).json({ error: "business_id is required" }); return; }
+
+  const [row] = await db.select({
+    totalOrdered: sql<string>`coalesce(sum(${purchaseOrdersTable.totalAmount}), 0)`,
+  }).from(purchaseOrdersTable)
+    .where(and(
+      eq(purchaseOrdersTable.businessId, businessId),
+      eq(purchaseOrdersTable.isDeleted, false),
+      sql`${purchaseOrdersTable.status} != 'cancelled'`,
+    ));
+
+  const [paidRow] = await db.select({
+    totalPaid: sql<string>`coalesce(sum(${purchaseOrderPaymentsTable.amount}), 0)`,
+  }).from(purchaseOrderPaymentsTable)
+    .innerJoin(purchaseOrdersTable, eq(purchaseOrderPaymentsTable.purchaseOrderId, purchaseOrdersTable.id))
+    .where(and(eq(purchaseOrdersTable.businessId, businessId), eq(purchaseOrdersTable.isDeleted, false)));
+
+  const totalOrdered = parseFloat(row.totalOrdered ?? "0");
+  const totalPaid = parseFloat(paidRow.totalPaid ?? "0");
+
+  res.json({ total_pending: Math.max(0, totalOrdered - totalPaid) });
+});
+
+// ---------------------------------------------------------------------------
+// GET /purchase-orders/pending-qty-total — total units still owed by ALL
+// vendors (ordered_qty - received_qty, summed across every non-cancelled,
+// non-deleted purchase order for the business). Powers the Dashboard's
+// "Quantity to be Received" card.
+// Must stay above "/purchase-orders/:id" — same Express route-matching
+// reason as "next-number" above.
+// ---------------------------------------------------------------------------
+router.get("/purchase-orders/pending-qty-total", requireAuth, async (req, res): Promise<void> => {
+  const businessId = parseInt(req.query.business_id as string, 10);
+  if (isNaN(businessId)) { res.status(400).json({ error: "business_id is required" }); return; }
+
+  const [row] = await db.select({
+    pendingQty: sql<string>`coalesce(sum(${purchaseOrderItemsTable.orderedQty} - ${purchaseOrderItemsTable.receivedQty}), 0)`,
+  }).from(purchaseOrderItemsTable)
+    .innerJoin(purchaseOrdersTable, eq(purchaseOrderItemsTable.purchaseOrderId, purchaseOrdersTable.id))
+    .where(and(
+      eq(purchaseOrdersTable.businessId, businessId),
+      eq(purchaseOrdersTable.isDeleted, false),
+      sql`${purchaseOrdersTable.status} != 'cancelled'`,
+    ));
+
+  res.json({ total_pending_qty: parseFloat(row.pendingQty ?? "0") });
+});
+
+// ---------------------------------------------------------------------------
 // GET /purchase-orders/:id — full detail: items + payments + computed totals
 // ---------------------------------------------------------------------------
 router.get("/purchase-orders/:id", requireAuth, async (req, res): Promise<void> => {
@@ -259,7 +318,15 @@ router.post("/purchase-orders", requireAuth, async (req, res): Promise<void> => 
 
     return order;
   });
-
+  await createVendorPaymentNotification({
+    businessId: d.business_id,
+    vendorId: d.vendor_id,
+    vendorName: vendor.name,
+    purchaseId: result.id,
+    amount: totalAmount,
+    invoiceNo: result.purchaseOrderNumber,
+  }).catch((err) => console.error("[purchase-orders] notification failed:", err));
+  
   res.status(201).json(formatPurchaseOrder(result, vendor.name, d.items.length));
 });
 
@@ -337,37 +404,6 @@ router.post("/purchase-orders/:id/payments", requireAuth, async (req, res): Prom
     balance_due: Math.max(0, totalAmount - amountPaid),
     payment_status: computePaymentStatus(totalAmount, amountPaid),
   });
-});
-
-// ---------------------------------------------------------------------------
-// GET /purchase-orders/vendor-pending-total — sum of unpaid PO balances for
-// ALL vendors of a business. Mirrors /purchases/pending-total so it can feed
-// the same dashboard "To be Paid" card once you decide to combine both
-// sources (or keep them as two separate numbers — your call).
-// ---------------------------------------------------------------------------
-router.get("/purchase-orders/vendor-pending-total", requireAuth, async (req, res): Promise<void> => {
-  const businessId = parseInt(req.query.business_id as string, 10);
-  if (isNaN(businessId)) { res.status(400).json({ error: "business_id is required" }); return; }
-
-  const [row] = await db.select({
-    totalOrdered: sql<string>`coalesce(sum(${purchaseOrdersTable.totalAmount}), 0)`,
-  }).from(purchaseOrdersTable)
-    .where(and(
-      eq(purchaseOrdersTable.businessId, businessId),
-      eq(purchaseOrdersTable.isDeleted, false),
-      sql`${purchaseOrdersTable.status} != 'cancelled'`,
-    ));
-
-  const [paidRow] = await db.select({
-    totalPaid: sql<string>`coalesce(sum(${purchaseOrderPaymentsTable.amount}), 0)`,
-  }).from(purchaseOrderPaymentsTable)
-    .innerJoin(purchaseOrdersTable, eq(purchaseOrderPaymentsTable.purchaseOrderId, purchaseOrdersTable.id))
-    .where(and(eq(purchaseOrdersTable.businessId, businessId), eq(purchaseOrdersTable.isDeleted, false)));
-
-  const totalOrdered = parseFloat(row.totalOrdered ?? "0");
-  const totalPaid = parseFloat(paidRow.totalPaid ?? "0");
-
-  res.json({ total_pending: Math.max(0, totalOrdered - totalPaid) });
 });
 
 export default router;

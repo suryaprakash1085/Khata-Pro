@@ -1,6 +1,19 @@
-
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  useContext,
+  useRef,
+  ReactNode,
+  useCallback,
+} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AuthContext } from './AuthContext';
+
+// NOTE: AddressProvider must be rendered INSIDE <AuthProvider>, because it reads
+// the logged-in customer from AuthContext.
+
+const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000') + '/api';
 
 export interface Address {
   id: string;
@@ -19,10 +32,11 @@ export interface Address {
 interface AddressContextType {
   addresses: Address[];
   selectedAddress: Address | null;
-  addAddress: (address: Address) => void;
-  updateAddress: (id: string, address: Partial<Address>) => void;
-  deleteAddress: (id: string) => void;
-  setDefaultAddress: (id: string) => void;
+  loading: boolean;
+  addAddress: (address: Omit<Address, 'id' | 'isDefault'> & { isDefault?: boolean }) => Promise<Address | null>;
+  updateAddress: (id: string, address: Partial<Address>) => Promise<void>;
+  deleteAddress: (id: string) => Promise<void>;
+  setDefaultAddress: (id: string) => Promise<void>;
   setSelectedAddress: (address: Address | null) => void;
   getAddresses: () => Address[];
   getDefaultAddress: () => Address | undefined;
@@ -32,10 +46,11 @@ interface AddressContextType {
 export const AddressContext = createContext<AddressContextType>({
   addresses: [],
   selectedAddress: null,
-  addAddress: () => {},
-  updateAddress: () => {},
-  deleteAddress: () => {},
-  setDefaultAddress: () => {},
+  loading: true,
+  addAddress: async () => null,
+  updateAddress: async () => {},
+  deleteAddress: async () => {},
+  setDefaultAddress: async () => {},
   setSelectedAddress: () => {},
   getAddresses: () => [],
   getDefaultAddress: () => undefined,
@@ -46,117 +61,168 @@ interface AddressProviderProps {
   children: ReactNode;
 }
 
-// export function AddressProvider({ children }: AddressProviderProps): JSX.Element {
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await AsyncStorage.getItem('authToken');
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+}
+
+function mapFromApi(a: any): Address {
+  return {
+    id: String(a.id),
+    type: a.type,
+    address: a.address,
+    city: a.city,
+    state: a.state,
+    pincode: a.pincode,
+    landmark: a.landmark,
+    phone: a.phone,
+    latitude: a.latitude,
+    longitude: a.longitude,
+    isDefault: a.isDefault,
+  };
+}
+
 export function AddressProvider({ children }: AddressProviderProps): React.JSX.Element {
+  const { user } = useContext(AuthContext);
+  const customerId = user?.id ?? null;
+
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadAddresses();
-  }, []);
+  // Guards against a slow response for customer A landing after customer B logged in.
+  const requestRef = useRef(0);
 
-  // ✅ NO HARDCODED ADDRESSES - Starts empty
-  const loadAddresses = async () => {
+  const loadAddresses = useCallback(async () => {
+    const requestId = ++requestRef.current;
+
+    if (customerId === null) {
+      // Logged out (or not logged in yet): hold nothing.
+      setAddresses([]);
+      setSelectedAddress(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     try {
-      const saved = await AsyncStorage.getItem('addresses');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setAddresses(parsed);
-        // Set first address as selected if available
-        if (parsed.length > 0) {
-          const defaultAddr = parsed.find((a: Address) => a.isDefault);
-          setSelectedAddress(defaultAddr || parsed[0]);
-        } else {
-          setSelectedAddress(null);
-        }
-      } else {
-        // ✅ START WITH EMPTY ARRAY - NO HARDCODED ADDRESSES
+      const headers = await authHeaders();
+      const res = await fetch(`${API_BASE_URL}/addresses`, { headers });
+      if (requestId !== requestRef.current) return; // superseded by a newer load / logout
+      if (!res.ok) {
         setAddresses([]);
         setSelectedAddress(null);
-        // Save empty array to storage
-        await AsyncStorage.setItem('addresses', JSON.stringify([]));
+        return;
       }
+      const json = await res.json();
+      if (requestId !== requestRef.current) return;
+      const mapped: Address[] = (json.data || []).map(mapFromApi);
+      setAddresses(mapped);
+      const defaultAddr = mapped.find((a) => a.isDefault);
+      setSelectedAddress(defaultAddr || mapped[0] || null);
     } catch (error) {
+      if (requestId !== requestRef.current) return;
       console.error('Failed to load addresses:', error);
       setAddresses([]);
       setSelectedAddress(null);
+    } finally {
+      if (requestId === requestRef.current) setLoading(false);
     }
-  };
+  }, [customerId]);
 
-  const saveAddresses = async (addr: Address[]) => {
+  // Runs on mount and every time the logged-in customer changes (login, signup, logout).
+  useEffect(() => {
+    // Drop the previous customer's data immediately, before the new fetch returns.
+    setAddresses([]);
+    setSelectedAddress(null);
+    loadAddresses();
+  }, [loadAddresses]);
+
+  const addAddress: AddressContextType['addAddress'] = async (address) => {
     try {
-      await AsyncStorage.setItem('addresses', JSON.stringify(addr));
+      const headers = await authHeaders();
+      const res = await fetch(`${API_BASE_URL}/addresses`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(address),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error('Failed to add address:', err);
+        return null;
+      }
+      const json = await res.json();
+      const newAddress = mapFromApi(json);
+      await loadAddresses();
+      return newAddress;
     } catch (error) {
-      console.error('Failed to save addresses:', error);
+      console.error('Failed to add address:', error);
+      return null;
     }
   };
 
-  const addAddress = (address: Address) => {
-    const newAddresses = [...addresses, address];
-    setAddresses(newAddresses);
-    saveAddresses(newAddresses);
-    // Auto-select the new address if it's the only one or default
-    if (address.isDefault || newAddresses.length === 1) {
-      setSelectedAddress(address);
+  const updateAddress = async (id: string, address: Partial<Address>) => {
+    try {
+      const headers = await authHeaders();
+      const res = await fetch(`${API_BASE_URL}/addresses/${id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(address),
+      });
+      if (res.ok) await loadAddresses();
+    } catch (error) {
+      console.error('Failed to update address:', error);
     }
   };
 
-  const updateAddress = (id: string, address: Partial<Address>) => {
-    const updatedAddresses = addresses.map(addr =>
-      addr.id === id ? { ...addr, ...address } : addr
-    );
-    setAddresses(updatedAddresses);
-    saveAddresses(updatedAddresses);
-    
-    if (selectedAddress?.id === id) {
-      const updated = updatedAddresses.find(addr => addr.id === id);
-      if (updated) setSelectedAddress(updated);
+  const deleteAddress = async (id: string) => {
+    try {
+      const headers = await authHeaders();
+      const res = await fetch(`${API_BASE_URL}/addresses/${id}`, {
+        method: 'DELETE',
+        headers,
+      });
+      if (res.ok) await loadAddresses();
+    } catch (error) {
+      console.error('Failed to delete address:', error);
     }
   };
 
-  const deleteAddress = (id: string) => {
-    const filteredAddresses = addresses.filter(addr => addr.id !== id);
-    setAddresses(filteredAddresses);
-    saveAddresses(filteredAddresses);
-    
-    if (selectedAddress?.id === id) {
-      const defaultAddr = filteredAddresses.find(a => a.isDefault);
-      setSelectedAddress(defaultAddr || filteredAddresses[0] || null);
+  const setDefaultAddress = async (id: string) => {
+    try {
+      const headers = await authHeaders();
+      const res = await fetch(`${API_BASE_URL}/addresses/${id}/default`, {
+        method: 'PUT',
+        headers,
+      });
+      if (res.ok) await loadAddresses();
+    } catch (error) {
+      console.error('Failed to set default address:', error);
     }
-  };
-
-  const setDefaultAddress = (id: string) => {
-    const updatedAddresses = addresses.map(addr => ({
-      ...addr,
-      isDefault: addr.id === id,
-    }));
-    setAddresses(updatedAddresses);
-    saveAddresses(updatedAddresses);
-    
-    const defaultAddr = updatedAddresses.find(addr => addr.id === id);
-    if (defaultAddr) setSelectedAddress(defaultAddr);
   };
 
   const getAddresses = () => addresses;
-  const getDefaultAddress = () => addresses.find(addr => addr.isDefault);
-
-  const refreshAddresses = async () => {
-    await loadAddresses();
-  };
+  const getDefaultAddress = () => addresses.find((a) => a.isDefault);
+  const refreshAddresses = loadAddresses;
 
   return (
-    <AddressContext.Provider value={{
-      addresses,
-      selectedAddress,
-      addAddress,
-      updateAddress,
-      deleteAddress,
-      setDefaultAddress,
-      setSelectedAddress,
-      getAddresses,
-      getDefaultAddress,
-      refreshAddresses,
-    }}>
+    <AddressContext.Provider
+      value={{
+        addresses,
+        selectedAddress,
+        loading,
+        addAddress,
+        updateAddress,
+        deleteAddress,
+        setDefaultAddress,
+        setSelectedAddress,
+        getAddresses,
+        getDefaultAddress,
+        refreshAddresses,
+      }}
+    >
       {children}
     </AddressContext.Provider>
   );

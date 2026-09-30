@@ -1,0 +1,2 @@
+CREATE TYPE "public"."sales_order_payment_mode" AS ENUM('cod', 'online', 'card');--> statement-breakpoint
+ALTER TABLE "sales_orders" ADD COLUMN "payment_mode" "sales_order_payment_mode" DEFAULT 'online' NOT NULL;

@@ -102,3 +102,14 @@ export const businessAPI = {
   getBusinessById: (id: number) =>
     apiClient.get(`/businesses/${id}`),
 };
+
+export const notificationAPI = {
+  getNotifications: (customerId: number, limit = 50) =>
+    apiClient.get('/notifications', { params: { customer_id: customerId, limit } }),
+  getUnreadCount: (customerId: number) =>
+    apiClient.get('/notifications/unread-count', { params: { customer_id: customerId } }),
+  markRead: (id: number) =>
+    apiClient.post('/notifications/mark-read', { id }),
+  markAllRead: (customerId: number) =>
+    apiClient.post('/notifications/mark-all-read', { customer_id: customerId }),
+};

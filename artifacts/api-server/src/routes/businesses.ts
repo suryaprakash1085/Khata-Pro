@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
-import { db, businessesTable, customersTable, transactionsTable, subscriptionsTable, usersTable, staffBusinessMapTable } from "@workspace/db";
-import { eq, and, ilike, count, sql, desc, inArray } from "drizzle-orm";
+import { db, businessesTable, customersTable, transactionsTable, subscriptionsTable, subscriptionPlansTable, usersTable, staffBusinessMapTable, productsTable } from "@workspace/db";
+import { eq, and, or, ilike, count, sql, desc, inArray } from "drizzle-orm";
 import { requireAuth, AuthPayload } from "../middlewares/auth";
+import { calculateTrialEndDate, getPriceForCycle } from "../services/subscription-billing.service";
 import {
   CreateBusinessBody,
   UpdateBusinessBody,
@@ -10,13 +11,21 @@ import {
   GetBusinessStatsParams,
   AddStaffParams,
   AddStaffBody,
+
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
+type SubInfo = {
+  plan: string;
+  billingCycle: string;
+  status: string;
+  trialEndDate: string | null;
+} | undefined;
+
 // Shared response formatter — keeps the GET list / POST / GET :id / PUT :id
 // responses consistent instead of repeating this object 4 times.
-function formatBusiness(b: any, plan: string) {
+function formatBusiness(b: any, sub?: SubInfo) {
   return {
     id: Number(b.id),
     owner_id: Number(b.ownerId),
@@ -32,15 +41,34 @@ function formatBusiness(b: any, plan: string) {
     state: b.state,
     postal_code: b.postalCode,
     country: b.country,
-    latitude: b.latitude !== null && b.latitude !== undefined ? parseFloat(b.latitude) : null,   // ✅ ADD
-    longitude: b.longitude !== null && b.longitude !== undefined ? parseFloat(b.longitude) : null, // ✅ ADD
+    latitude: b.latitude !== null && b.latitude !== undefined ? parseFloat(b.latitude) : null,
+    longitude: b.longitude !== null && b.longitude !== undefined ? parseFloat(b.longitude) : null,
     logo_url: b.logoUrl,
     currency: b.currency,
     financial_year_start: b.financialYearStart,
     is_active: b.isActive,
-    plan,
+    // ⚠️ No "free" fallback — Free plan does not exist anymore.
+    plan: sub?.plan ?? null,
+    billing_cycle: sub?.billingCycle ?? null,
+    subscription_status: sub?.status ?? null,
+    trial_end_date: sub?.trialEndDate ?? null,
     created_at: b.createdAt,
   };
+}
+
+// Helper to build a businessId -> SubInfo map from a list of subscription rows
+function buildSubMap(subs: any[]): Map<number, SubInfo> {
+  return new Map(
+    subs.map((s) => [
+      Number(s.businessId),
+      {
+        plan: s.plan,
+        billingCycle: s.billingCycle,
+        status: s.status,
+        trialEndDate: s.trialEndDate,
+      },
+    ])
+  );
 }
 
 // GET /businesses
@@ -73,9 +101,9 @@ router.get("/businesses", requireAuth, async (req, res): Promise<void> => {
   ]);
 
   const subs = await db.select().from(subscriptionsTable);
-  const subMap = new Map(subs.map((s) => [Number(s.businessId), s.plan]));
+  const subMap = buildSubMap(subs);
 
-  const data = businesses.map((b: any) => formatBusiness(b, subMap.get(Number(b.id)) ?? "free"));
+  const data = businesses.map((b: any) => formatBusiness(b, subMap.get(Number(b.id))));
 
   res.json({ data, total: Number(totalResult[0].count), page, limit });
 });
@@ -87,6 +115,16 @@ router.post("/businesses", requireAuth, async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+
+  // ⚠️ CreateBusinessBody must include `plan` ("pro" | "premium") and
+  // `billing_cycle` ("monthly" | "quarterly" | "half_yearly" | "yearly").
+  // Add these to the zod schema in @workspace/api-zod if not already present.
+  const { plan, billing_cycle } = parsed.data as any;
+  if (!plan || !billing_cycle) {
+    res.status(400).json({ error: "plan and billing_cycle are required" });
+    return;
+  }
+
   const { userId } = (req as any).user as AuthPayload;
   const [biz] = await db.insert(businessesTable).values({
     ownerId: userId,
@@ -102,25 +140,44 @@ router.post("/businesses", requireAuth, async (req, res): Promise<void> => {
     state: parsed.data.state,
     postalCode: parsed.data.postal_code,
     country: parsed.data.country ?? "India",
-    latitude: parsed.data.latitude !== undefined ? parsed.data.latitude.toString() : undefined,   // ✅ ADD
-    longitude: parsed.data.longitude !== undefined ? parsed.data.longitude.toString() : undefined, // ✅ ADD
+    latitude: parsed.data.latitude !== undefined ? parsed.data.latitude.toString() : undefined,
+    longitude: parsed.data.longitude !== undefined ? parsed.data.longitude.toString() : undefined,
     logoUrl: parsed.data.logo_url,
     currency: parsed.data.currency ?? "INR",
     financialYearStart: parsed.data.financial_year_start instanceof Date ? parsed.data.financial_year_start.toISOString().split("T")[0] : parsed.data.financial_year_start,
   }).returning();
 
-  // Create default free subscription
-  const today = new Date().toISOString().split("T")[0];
-  const nextYear = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  await db.insert(subscriptionsTable).values({
-    businessId: Number(biz.id),
-    plan: "free",
-    startDate: today,
-    endDate: nextYear,
-    status: "active",
-  });
+  // ── Start 15-day trial for the chosen plan (spec §3) ──
+  const [planConfig] = await db.select().from(subscriptionPlansTable).where(eq(subscriptionPlansTable.plan, plan));
+  if (!planConfig) {
+    res.status(400).json({ error: `Plan "${plan}" is not configured` });
+    return;
+  }
 
-  res.status(201).json(formatBusiness(biz, "free"));
+  const today = new Date().toISOString().split("T")[0];
+  const trialEnd = calculateTrialEndDate(today, planConfig.trialDays);
+  const price = getPriceForCycle(planConfig, billing_cycle);
+
+  const [sub] = await db.insert(subscriptionsTable).values({
+    businessId: Number(biz.id),
+    plan,
+    billingCycle: billing_cycle,
+    amount: price,
+    startDate: today,
+    endDate: trialEnd, // while in trial, endDate mirrors trialEndDate
+    trialStartDate: today,
+    trialEndDate: trialEnd,
+    status: "trial",
+  }).returning();
+
+  res.status(201).json(
+    formatBusiness(biz, {
+      plan: sub.plan,
+      billingCycle: sub.billingCycle,
+      status: sub.status,
+      trialEndDate: sub.trialEndDate,
+    })
+  );
 });
 
 // GET /businesses/:id
@@ -133,7 +190,14 @@ router.get("/businesses/:id", requireAuth, async (req, res): Promise<void> => {
     return;
   }
   const [sub] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.businessId, Number(biz.id)));
-  res.json(formatBusiness(biz, sub?.plan ?? "free"));
+  res.json(
+    formatBusiness(
+      biz,
+      sub
+        ? { plan: sub.plan, billingCycle: sub.billingCycle, status: sub.status, trialEndDate: sub.trialEndDate }
+        : undefined
+    )
+  );
 });
 
 // PUT /businesses/:id
@@ -158,8 +222,8 @@ router.put("/businesses/:id", requireAuth, async (req, res): Promise<void> => {
   if (parsed.data.state !== undefined) updates.state = parsed.data.state;
   if (parsed.data.postal_code !== undefined) updates.postalCode = parsed.data.postal_code;
   if (parsed.data.country !== undefined) updates.country = parsed.data.country;
-  if (parsed.data.latitude !== undefined) updates.latitude = parsed.data.latitude.toString();     // ✅ ADD
-  if (parsed.data.longitude !== undefined) updates.longitude = parsed.data.longitude.toString();   // ✅ ADD
+  if (parsed.data.latitude !== undefined) updates.latitude = parsed.data.latitude.toString();
+  if (parsed.data.longitude !== undefined) updates.longitude = parsed.data.longitude.toString();
   if (parsed.data.logo_url !== undefined) updates.logoUrl = parsed.data.logo_url;
   if (parsed.data.currency) updates.currency = parsed.data.currency;
   if (parsed.data.financial_year_start !== undefined) updates.financialYearStart = parsed.data.financial_year_start instanceof Date ? parsed.data.financial_year_start.toISOString().split("T")[0] : parsed.data.financial_year_start;
@@ -170,7 +234,14 @@ router.put("/businesses/:id", requireAuth, async (req, res): Promise<void> => {
     return;
   }
   const [sub] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.businessId, Number(biz.id)));
-  res.json(formatBusiness(biz, sub?.plan ?? "free"));
+  res.json(
+    formatBusiness(
+      biz,
+      sub
+        ? { plan: sub.plan, billingCycle: sub.billingCycle, status: sub.status, trialEndDate: sub.trialEndDate }
+        : undefined
+    )
+  );
 });
 
 // GET /businesses/:id/stats
@@ -272,10 +343,149 @@ router.get("/public/businesses", async (req, res): Promise<void> => {
   const businesses = await (query as any).limit(limit).offset(offset).orderBy(desc(businessesTable.createdAt));
 
   const subs = await db.select().from(subscriptionsTable);
-  const subMap = new Map(subs.map((s) => [Number(s.businessId), s.plan]));
+  const subMap = buildSubMap(subs);
 
-  const data = businesses.map((b: any) => formatBusiness(b, subMap.get(Number(b.id)) ?? "free"));
+  const data = businesses.map((b: any) => formatBusiness(b, subMap.get(Number(b.id))));
   res.json({ data });
+});
+
+// GET /public/search?q=kid  — no auth, used by delivery-app for combined
+// shop-name + product-name search. Matches on business_name OR any
+// product name belonging to that business.
+router.get("/public/search", async (req, res): Promise<void> => {
+  try {
+    const q = (req.query.q as string)?.trim();
+
+    if (!q) {
+      res.json({ data: [] });
+      return;
+    }
+
+    const searchTerm = `%${q}%`;
+
+    // 1️⃣ Business name direct match
+    const nameMatches = await db
+      .select()
+      .from(businessesTable)
+      .where(
+        and(
+          eq(businessesTable.isActive, true),
+          ilike(businessesTable.businessName, searchTerm)
+        )
+      );
+
+    // 2️⃣ Product name match — find distinct business_ids whose products match
+    const matchingProducts = await db
+      .select({ businessId: productsTable.businessId })
+      .from(productsTable)
+      .where(
+        and(
+          eq(productsTable.isDeleted, false),
+          ilike(productsTable.name, searchTerm)
+        )
+      );
+
+    const productBusinessIds = [...new Set(matchingProducts.map((p) => Number(p.businessId)))];
+
+    const productMatches = productBusinessIds.length
+      ? await db
+          .select()
+          .from(businessesTable)
+          .where(
+            and(
+              eq(businessesTable.isActive, true),
+              inArray(businessesTable.id, productBusinessIds)
+            )
+          )
+      : [];
+
+    // 3️⃣ Merge + dedupe by business id
+    const merged = [...nameMatches, ...productMatches];
+    const uniqueMap = new Map(merged.map((b: any) => [Number(b.id), b]));
+    const uniqueBusinesses = Array.from(uniqueMap.values());
+
+    const subs = await db.select().from(subscriptionsTable);
+    const subMap = buildSubMap(subs);
+
+    const data = uniqueBusinesses.map((b: any) =>
+      formatBusiness(b, subMap.get(Number(b.id)))
+    );
+
+    res.json({ data });
+  } catch (error) {
+    console.error("Search error:", error);
+    res.status(500).json({ error: "Search failed" });
+  }
+});
+
+// GET /public/businesses/by-category?category=Fashion
+// Matches businesses whose business_type contains the category,
+// OR businesses that have at least one product with matching category.
+router.get("/public/businesses/by-category", async (req, res): Promise<void> => {
+  try {
+    const category = (req.query.category as string)?.trim();
+
+    if (!category) {
+      res.json({ data: [] });
+      return;
+    }
+
+    const searchTerm = `%${category}%`;
+
+    // 1️⃣ Business type match (e.g. business_type = "Fashion Store")
+    const typeMatches = await db
+      .select()
+      .from(businessesTable)
+      .where(
+        and(
+          eq(businessesTable.isActive, true),
+          ilike(businessesTable.businessType, searchTerm)
+        )
+      );
+
+    // 2️⃣ Product category match — find businesses that sell products
+    // tagged with this category (e.g. category = "Kids")
+    const matchingProducts = await db
+      .select({ businessId: productsTable.businessId })
+      .from(productsTable)
+      .where(
+        and(
+          eq(productsTable.isDeleted, false),
+          ilike(productsTable.category, searchTerm)
+        )
+      );
+
+    const productBusinessIds = [...new Set(matchingProducts.map((p) => Number(p.businessId)))];
+
+    const productMatches = productBusinessIds.length
+      ? await db
+          .select()
+          .from(businessesTable)
+          .where(
+            and(
+              eq(businessesTable.isActive, true),
+              inArray(businessesTable.id, productBusinessIds)
+            )
+          )
+      : [];
+
+    // 3️⃣ Merge + dedupe
+    const merged = [...typeMatches, ...productMatches];
+    const uniqueMap = new Map(merged.map((b: any) => [Number(b.id), b]));
+    const uniqueBusinesses = Array.from(uniqueMap.values());
+
+    const subs = await db.select().from(subscriptionsTable);
+    const subMap = buildSubMap(subs);
+
+    const data = uniqueBusinesses.map((b: any) =>
+      formatBusiness(b, subMap.get(Number(b.id)))
+    );
+
+    res.json({ data });
+  } catch (error) {
+    console.error("Category filter error:", error);
+    res.status(500).json({ error: "Category filter failed" });
+  }
 });
 
 export default router;

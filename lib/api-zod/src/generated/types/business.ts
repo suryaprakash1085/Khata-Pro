@@ -5,7 +5,9 @@
  * KhataPro CRM API — digital ledger platform for small businesses
  * OpenAPI spec version: 0.1.0
  */
+import type { BusinessBillingCycle } from './businessBillingCycle';
 import type { BusinessPlan } from './businessPlan';
+import type { BusinessSubscriptionStatus } from './businessSubscriptionStatus';
 
 export interface Business {
   id: number;
@@ -43,5 +45,11 @@ export interface Business {
   financial_year_start?: Date | null;
   is_active?: boolean;
   plan?: BusinessPlan;
+  /** @nullable */
+  billing_cycle?: BusinessBillingCycle;
+  /** @nullable */
+  subscription_status?: BusinessSubscriptionStatus;
+  /** @nullable */
+  trial_end_date?: Date | null;
   created_at: Date;
 }

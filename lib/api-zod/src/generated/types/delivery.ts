@@ -11,6 +11,8 @@ import type { DeliveryStatus } from './deliveryStatus';
 
 export interface Delivery {
   id: number;
+  /** @nullable */
+  business_delivery_no?: number | null;
   business_id: number;
   customer_id: number;
   /** @nullable */

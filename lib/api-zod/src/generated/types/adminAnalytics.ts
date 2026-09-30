@@ -7,7 +7,11 @@
  */
 import type { Business } from './business';
 import type { MonthlyGrowthPoint } from './monthlyGrowthPoint';
+import type { MonthlyRevenuePoint } from './monthlyRevenuePoint';
 import type { PlanBreakdown } from './planBreakdown';
+import type { RecentPayment } from './recentPayment';
+import type { SubscriptionStatusBreakdown } from './subscriptionStatusBreakdown';
+import type { SystemAlerts } from './systemAlerts';
 
 export interface AdminAnalytics {
   total_businesses: number;
@@ -18,4 +22,10 @@ export interface AdminAnalytics {
   monthly_growth: MonthlyGrowthPoint[];
   plan_breakdown?: PlanBreakdown;
   recent_signups?: Business[];
+  monthly_revenue?: MonthlyRevenuePoint[];
+  current_month_revenue?: number;
+  previous_month_revenue?: number;
+  subscription_status_breakdown?: SubscriptionStatusBreakdown;
+  system_alerts?: SystemAlerts;
+  recent_payments?: RecentPayment[];
 }

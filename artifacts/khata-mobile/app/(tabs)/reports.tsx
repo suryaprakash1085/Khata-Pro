@@ -96,6 +96,42 @@ function useListSalesOrders(
   });
 }
 
+// ---- Custom-range transactions (Sales Report) ----
+// The orval-generated useListTransactions hook only types `filter` as the
+// today/week/month/all enum — it has no from/to. This hook talks to the
+// same GET /transactions endpoint directly (now that the backend accepts
+// from/to) so the Sales Report can support an arbitrary custom date range
+// (e.g. Apr 2025 -> Apr 2026), the same way /reports/* endpoints already do.
+type TransactionListResponse = {
+  data: any[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
+function useListTransactionsCustom(
+  params: { business_id?: number; filter?: string; type?: 'you_got' | 'you_gave'; from?: string; to?: string; limit?: number },
+  enabled: boolean,
+) {
+  return useQuery<TransactionListResponse>({
+    queryKey: ['transactions', params],
+    enabled,
+    queryFn: () => {
+      const search = new URLSearchParams();
+      if (params.business_id) search.set('business_id', String(params.business_id));
+      if (params.type) search.set('type', params.type);
+      if (params.from) search.set('from', params.from);
+      if (params.to) search.set('to', params.to);
+      // Only send the enum filter when there's no explicit custom range —
+      // from/to takes priority server-side anyway, but keep the query
+      // string minimal/unambiguous.
+      if (!params.from && !params.to && params.filter) search.set('filter', params.filter);
+      search.set('limit', String(params.limit ?? 1000));
+      return customFetch<TransactionListResponse>(`/api/transactions?${search.toString()}`, { responseType: 'json' });
+    },
+  });
+}
+
 type EmployeePerformance = {
   user_id: number;
   name: string;
@@ -182,7 +218,7 @@ function useReportExpenses(
 }
 
 function useReportPaymentMethods(
-  params: { business_id?: number; filter?: PeriodKey | 'all'; type: 'you_got' | 'you_gave' },
+  params: { business_id?: number; filter?: PeriodKey | 'all'; from?: string; to?: string; type: 'you_got' | 'you_gave' },
   enabled: boolean
 ) {
   return useQuery<PaymentMethodsResponse>({
@@ -191,7 +227,11 @@ function useReportPaymentMethods(
     queryFn: async () => {
       const search = new URLSearchParams();
       if (params.business_id) search.set('business_id', String(params.business_id));
-      if (params.filter) search.set('filter', params.filter);
+      // Custom from/to takes priority over the enum filter — same pattern
+      // used by transactions/employee-performance/profit-loss/returns.
+      if (params.from) search.set('from', params.from);
+      if (params.to) search.set('to', params.to);
+      if (!params.from && !params.to && params.filter) search.set('filter', params.filter);
       search.set('type', params.type);
       return customFetch<PaymentMethodsResponse>(`/api/reports/payment-methods?${search.toString()}`, { responseType: 'json' });
     },
@@ -307,13 +347,15 @@ type PurchaseListItem = {
 
 type PurchaseListResponse = { data: PurchaseListItem[]; total: number; page: number; limit: number };
 
-function useListPurchases(params: { business_id?: number; limit?: number }, enabled: boolean) {
+function useListPurchases(params: { business_id?: number; limit?: number; from?: string; to?: string }, enabled: boolean) {
   return useQuery<PurchaseListResponse>({
     queryKey: ['purchases', params],
     enabled,
     queryFn: () => {
       const search = new URLSearchParams();
       if (params.business_id) search.set('business_id', String(params.business_id));
+      if (params.from) search.set('from', params.from);
+      if (params.to) search.set('to', params.to);
       search.set('limit', String(params.limit ?? 20));
       return customFetch<PurchaseListResponse>(`/api/purchases?${search.toString()}`, { responseType: 'json' });
     },
@@ -345,14 +387,16 @@ type ProductSalesItem = {
   last_sale_date?: string;
 };
 
-function useReportProductSales(params: { business_id?: number; filter?: PeriodKey | 'all' }, enabled: boolean) {
+function useReportProductSales(params: { business_id?: number; filter?: PeriodKey | 'all'; from?: string; to?: string }, enabled: boolean) {
   return useQuery<ProductSalesItem[]>({
     queryKey: ['reports', 'product-sales', params],
     enabled,
     queryFn: () => {
       const search = new URLSearchParams();
       if (params.business_id) search.set('business_id', String(params.business_id));
-      if (params.filter) search.set('filter', params.filter);
+      if (params.from) search.set('from', params.from);
+      if (params.to) search.set('to', params.to);
+      if (!params.from && !params.to && params.filter) search.set('filter', params.filter);
       return customFetch<ProductSalesItem[]>(`/api/reports/product-sales?${search.toString()}`, { responseType: 'json' });
     },
   });
@@ -511,6 +555,30 @@ function periodToDays(period: PeriodKey): number {
   }
 }
 
+// A specific calendar month (e.g. "September 2026"), independent of today's date —
+// used by the "Month" picker so any report can be checked for any past month,
+// not just This Month / This Week / Today.
+function monthRange(year: number, month: number): { from: string; to: string } {
+  const from = new Date(year, month, 1);
+  const to = new Date(year, month + 1, 0); // last day of that month
+  return { from: toLocalISODate(from), to: toLocalISODate(to) };
+}
+
+function monthLabel(year: number, month: number): string {
+  return new Date(year, month, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+}
+
+// Inclusive day count between two ISO dates — used to turn a custom date
+// range into a "per day" sales velocity for reorder suggestions, the same
+// way periodToDays() does for the Today/Week/Month chips.
+function daysBetweenInclusive(fromISO: string, toISO: string): number {
+  const from = new Date(fromISO);
+  const to = new Date(toISO);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return 1;
+  const diff = Math.round((to.getTime() - from.getTime()) / 86400000) + 1;
+  return Math.max(1, diff);
+}
+
 function formatQty(qty: number, unit?: string | null): string {
   const cleanUnit = (unit ?? '').trim();
   return `${qty} ${cleanUnit || 'pcs'}`;
@@ -566,7 +634,7 @@ function ExportButton({ onPress, colors }: { onPress: () => void; colors: any })
 }
 
 // ---- Profit & Loss / Return Report shared filter type ----
-type PnLPeriodKey = PeriodKey | 'custom';
+type PnLPeriodKey = PeriodKey | 'custom' | 'pickMonth';
 
 // ---- Shared filter bar: Today/Week/Month/Custom + Export/Print ----
 function ReportFilterBar({
@@ -576,6 +644,8 @@ function ReportFilterBar({
   customTo,
   onCustomFromChange,
   onCustomToChange,
+  monthYear,
+  onMonthYearChange,
   onExportPdf,
   onPrint,
   colors,
@@ -586,12 +656,73 @@ function ReportFilterBar({
   customTo: string;
   onCustomFromChange: (d: string) => void;
   onCustomToChange: (d: string) => void;
+  monthYear: { year: number; month: number };
+  onMonthYearChange: (my: { year: number; month: number }) => void;
   onExportPdf: () => void;
   onPrint: () => void;
   colors: any;
 }) {
   const [showFrom, setShowFrom] = useState(false);
   const [showTo, setShowTo] = useState(false);
+
+  const now = new Date();
+  const isCurrentMonth = monthYear.year === now.getFullYear() && monthYear.month === now.getMonth();
+
+  const goPrevMonth = () => {
+    const m = monthYear.month === 0 ? 11 : monthYear.month - 1;
+    const y = monthYear.month === 0 ? monthYear.year - 1 : monthYear.year;
+    onMonthYearChange({ year: y, month: m });
+  };
+  const goNextMonth = () => {
+    if (isCurrentMonth) return; // future month-ku pogave koodathu
+    const m = monthYear.month === 11 ? 0 : monthYear.month + 1;
+    const y = monthYear.month === 11 ? monthYear.year + 1 : monthYear.year;
+    onMonthYearChange({ year: y, month: m });
+  };
+
+  const renderDateInput = (value: string, onChange: (v: string) => void, show: boolean, setShow: (v: boolean) => void) => {
+    if (Platform.OS === 'web') {
+      return (
+        // @ts-ignore — raw HTML input valid only on web build
+        <input
+          type="date"
+          value={value}
+          onChange={(e: any) => onChange(e.target.value)}
+          style={{
+            border: `1px solid ${colors.border}`,
+            borderRadius: 8,
+            padding: 8,
+            fontSize: 12,
+            fontFamily: FONT_REGULAR,
+            backgroundColor: colors.background,
+            color: colors.foreground,
+            width: '100%',
+            boxSizing: 'border-box',
+            outline: 'none',
+          }}
+        />
+      );
+    }
+    return (
+      <>
+        <Pressable
+          onPress={() => setShow(true)}
+          style={[taxStyles.filterInput, { borderColor: colors.border, backgroundColor: colors.background, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+        >
+          <Text style={{ color: colors.foreground, fontFamily: FONT_REGULAR, fontSize: 12 }}>{value}</Text>
+          <Feather name="calendar" size={13} color={colors.mutedForeground} />
+        </Pressable>
+        {show && (
+          <DateTimePicker
+            value={new Date(value)}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'inline' : 'default'}
+            onChange={(e, d) => { setShow(Platform.OS === 'ios'); if (d) onChange(toLocalISODate(d)); }}
+          />
+        )}
+      </>
+    );
+  };
 
   return (
     <View style={{ marginBottom: 10 }}>
@@ -604,6 +735,7 @@ function ReportFilterBar({
             { key: 'today', label: 'Today' },
             { key: 'week', label: 'This Week' },
             { key: 'month', label: 'This Month' },
+            { key: 'pickMonth', label: 'Pick Month' },
             { key: 'custom', label: 'Custom' },
           ]}
         />
@@ -619,42 +751,28 @@ function ReportFilterBar({
         </View>
       </View>
 
+      {period === 'pickMonth' && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 10 }}>
+          <Pressable onPress={goPrevMonth} style={[reportFilterStyles.monthNavBtn, { borderColor: colors.border, backgroundColor: colors.background }]}>
+            <Feather name="chevron-left" size={16} color={colors.foreground} />
+          </Pressable>
+          <Text style={{ fontSize: 13, fontFamily: FONT_BOLD, fontWeight: '700', color: colors.foreground, minWidth: 140, textAlign: 'center' }}>
+            {monthLabel(monthYear.year, monthYear.month)}
+          </Text>
+          <Pressable
+            onPress={goNextMonth}
+            disabled={isCurrentMonth}
+            style={[reportFilterStyles.monthNavBtn, { borderColor: colors.border, backgroundColor: colors.background, opacity: isCurrentMonth ? 0.35 : 1 }]}
+          >
+            <Feather name="chevron-right" size={16} color={colors.foreground} />
+          </Pressable>
+        </View>
+      )}
+
       {period === 'custom' && (
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
-          <View style={{ flex: 1 }}>
-            <Pressable
-              onPress={() => setShowFrom(true)}
-              style={[taxStyles.filterInput, { borderColor: colors.border, backgroundColor: colors.background, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
-            >
-              <Text style={{ color: colors.foreground, fontFamily: FONT_REGULAR, fontSize: 12 }}>{customFrom}</Text>
-              <Feather name="calendar" size={13} color={colors.mutedForeground} />
-            </Pressable>
-            {showFrom && (
-              <DateTimePicker
-                value={new Date(customFrom)}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                onChange={(e, d) => { setShowFrom(Platform.OS === 'ios'); if (d) onCustomFromChange(toLocalISODate(d)); }}
-              />
-            )}
-          </View>
-          <View style={{ flex: 1 }}>
-            <Pressable
-              onPress={() => setShowTo(true)}
-              style={[taxStyles.filterInput, { borderColor: colors.border, backgroundColor: colors.background, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
-            >
-              <Text style={{ color: colors.foreground, fontFamily: FONT_REGULAR, fontSize: 12 }}>{customTo}</Text>
-              <Feather name="calendar" size={13} color={colors.mutedForeground} />
-            </Pressable>
-            {showTo && (
-              <DateTimePicker
-                value={new Date(customTo)}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                onChange={(e, d) => { setShowTo(Platform.OS === 'ios'); if (d) onCustomToChange(toLocalISODate(d)); }}
-              />
-            )}
-          </View>
+          <View style={{ flex: 1 }}>{renderDateInput(customFrom, onCustomFromChange, showFrom, setShowFrom)}</View>
+          <View style={{ flex: 1 }}>{renderDateInput(customTo, onCustomToChange, showTo, setShowTo)}</View>
         </View>
       )}
     </View>
@@ -663,7 +781,90 @@ function ReportFilterBar({
 
 const reportFilterStyles = StyleSheet.create({
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 6, borderWidth: 1 },
+  monthNavBtn: { width: 30, height: 30, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
 });
+
+// ---- Calendar-only date range filter ----
+// Same visual language as the "Custom" picker inside ReportFilterBar, but
+// with none of the Today/Week/Month/Pick-Month chips — just two date
+// fields. Used by reports that only need a plain from -> to range
+// (Purchase, Inventory, Product Sales, Vendors, Employee, Payment).
+function CustomDateRangeFilter({
+  from,
+  to,
+  onFromChange,
+  onToChange,
+  colors,
+  label = 'Date Range',
+}: {
+  from: string;
+  to: string;
+  onFromChange: (d: string) => void;
+  onToChange: (d: string) => void;
+  colors: any;
+  label?: string;
+}) {
+  const [showFrom, setShowFrom] = useState(false);
+  const [showTo, setShowTo] = useState(false);
+
+  const renderDateInput = (value: string, onChange: (v: string) => void, show: boolean, setShow: (v: boolean) => void) => {
+    if (Platform.OS === 'web') {
+      return (
+        // @ts-ignore — raw HTML input valid only on web build
+        <input
+          type="date"
+          value={value}
+          onChange={(e: any) => onChange(e.target.value)}
+          style={{
+            border: `1px solid ${colors.border}`,
+            borderRadius: 8,
+            padding: 8,
+            fontSize: 12,
+            fontFamily: FONT_REGULAR,
+            backgroundColor: colors.background,
+            color: colors.foreground,
+            width: '100%',
+            boxSizing: 'border-box',
+            outline: 'none',
+          }}
+        />
+      );
+    }
+    return (
+      <>
+        <Pressable
+          onPress={() => setShow(true)}
+          style={[taxStyles.filterInput, { borderColor: colors.border, backgroundColor: colors.background, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+        >
+          <Text style={{ color: colors.foreground, fontFamily: FONT_REGULAR, fontSize: 12 }}>{value}</Text>
+          <Feather name="calendar" size={13} color={colors.mutedForeground} />
+        </Pressable>
+        {show && (
+          <DateTimePicker
+            value={new Date(value)}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'inline' : 'default'}
+            onChange={(e, d) => { setShow(Platform.OS === 'ios'); if (d) onChange(toLocalISODate(d)); }}
+          />
+        )}
+      </>
+    );
+  };
+
+  return (
+    <View style={{ marginBottom: 10 }}>
+      {label ? (
+        <Text style={{ fontSize: 10, fontFamily: FONT_REGULAR, color: colors.mutedForeground, marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.3 }}>
+          {label}
+        </Text>
+      ) : null}
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flex: 1 }}>{renderDateInput(from, onFromChange, showFrom, setShowFrom)}</View>
+        <View style={{ flex: 1 }}>{renderDateInput(to, onToChange, showTo, setShowTo)}</View>
+      </View>
+    </View>
+  );
+}
 
 // ---- Monthly Revenue/Expenses/Profit chart (grouped horizontal bars) ----
 function PnLMonthlyChart({ data, colors, fmt }: { data: MonthlyPnLItem[]; colors: any; fmt: (n: number) => string }) {
@@ -1029,9 +1230,12 @@ function ProfitLossReportSection({ colors, fmt }: { colors: any; fmt: (n: number
   const [period, setPeriod] = useState<PnLPeriodKey>('month');
   const [customFrom, setCustomFrom] = useState(toLocalISODate(new Date()));
   const [customTo, setCustomTo] = useState(toLocalISODate(new Date()));
-
+  const now = new Date();
+  const [monthYear, setMonthYear] = useState({ year: now.getFullYear(), month: now.getMonth() });
   const queryParams =
     period === 'custom'
+      ? { business_id: business?.id, from: customFrom, to: customTo }
+      : period === 'pickMonth'
       ? { business_id: business?.id, from: customFrom, to: customTo }
       : { business_id: business?.id, filter: period as PeriodKey };
 
@@ -1054,6 +1258,8 @@ function ProfitLossReportSection({ colors, fmt }: { colors: any; fmt: (n: number
           customTo={customTo}
           onCustomFromChange={setCustomFrom}
           onCustomToChange={setCustomTo}
+          monthYear={monthYear}
+          onMonthYearChange={setMonthYear}
           onExportPdf={() => Alert.alert('Export', 'PDF export coming soon')}
           onPrint={() => Alert.alert('Print', 'Print support coming soon')}
           colors={colors}
@@ -1108,14 +1314,18 @@ function ProfitLossReportSection({ colors, fmt }: { colors: any; fmt: (n: number
 }
 
 function ReturnReportSection({ colors, fmt }: { colors: any; fmt: (n: number) => string }) {
-  const { business } = useBusiness();
+    const { business } = useBusiness();
   const [period, setPeriod] = useState<PnLPeriodKey>('month');
   const [customFrom, setCustomFrom] = useState(toLocalISODate(new Date()));
   const [customTo, setCustomTo] = useState(toLocalISODate(new Date()));
+  const now = new Date();
+  const [monthYear, setMonthYear] = useState({ year: now.getFullYear(), month: now.getMonth() });
 
   const queryParams =
     period === 'custom'
       ? { business_id: business?.id, from: customFrom, to: customTo }
+      : period === 'pickMonth'
+      ? { business_id: business?.id, ...monthRange(monthYear.year, monthYear.month) }
       : { business_id: business?.id, filter: period as PeriodKey };
 
   const { data, isLoading, isError } = useReportReturns(queryParams, !!business?.id);
@@ -1148,6 +1358,8 @@ function ReturnReportSection({ colors, fmt }: { colors: any; fmt: (n: number) =>
           customTo={customTo}
           onCustomFromChange={setCustomFrom}
           onCustomToChange={setCustomTo}
+          monthYear={monthYear}
+          onMonthYearChange={setMonthYear}
           onExportPdf={() => Alert.alert('Export', 'PDF export coming soon')}
           onPrint={() => Alert.alert('Print', 'Print support coming soon')}
           colors={colors}
@@ -1210,12 +1422,17 @@ function ReturnReportSection({ colors, fmt }: { colors: any; fmt: (n: number) =>
 
 function ExpenseReportSection({ colors, fmt }: { colors: any; fmt: (n: number) => string }) {
   const { business } = useBusiness();
+
   const [period, setPeriod] = useState<PnLPeriodKey>('month');
   const [customFrom, setCustomFrom] = useState(toLocalISODate(new Date()));
   const [customTo, setCustomTo] = useState(toLocalISODate(new Date()));
+  const now = new Date();
+  const [monthYear, setMonthYear] = useState({ year: now.getFullYear(), month: now.getMonth() });
 
   const queryParams =
     period === 'custom'
+      ? { business_id: business?.id, from: customFrom, to: customTo }
+      : period === 'pickMonth'
       ? { business_id: business?.id, from: customFrom, to: customTo }
       : { business_id: business?.id, filter: period as PeriodKey };
 
@@ -1244,6 +1461,8 @@ function ExpenseReportSection({ colors, fmt }: { colors: any; fmt: (n: number) =
           customTo={customTo}
           onCustomFromChange={setCustomFrom}
           onCustomToChange={setCustomTo}
+          monthYear={monthYear}
+          onMonthYearChange={setMonthYear}
           onExportPdf={() => Alert.alert('Export', 'PDF export coming soon')}
           onPrint={() => Alert.alert('Print', 'Print support coming soon')}
           colors={colors}
@@ -1847,7 +2066,10 @@ export default function ReportsScreen() {
   });
   const vendors = vendorsResponse?.data;
 
-  const employeeParams = { business_id: business?.id };
+  // ---- Employee Report date range (custom calendar only — no chips) ----
+  const [employeeFrom, setEmployeeFrom] = useState(toLocalISODate(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
+  const [employeeTo, setEmployeeTo] = useState(toLocalISODate(new Date()));
+  const employeeParams = { business_id: business?.id, from: employeeFrom, to: employeeTo };
   const { data: employeePerformance, isLoading: employeeLoading } = useReportEmployeePerformance(
     employeeParams,
     !!business?.id,
@@ -1860,30 +2082,47 @@ export default function ReportsScreen() {
   const products: Product[] | undefined = productsResponse?.data;
 
   // ---- Local UI state ----
-  const [salesPeriod, setSalesPeriod] = useState<PeriodKey>('today');
+  // Sales Report period now supports Today/Week/Month/Custom (PnLPeriodKey)
+  // so a real from->to date range (e.g. Apr 2025 -> Apr 2026) can be picked,
+  // same as Expense/Profit&Loss/Return reports.
+  const [salesPeriod, setSalesPeriod] = useState<PnLPeriodKey>('today');
+  const [salesCustomFrom, setSalesCustomFrom] = useState(toLocalISODate(new Date()));
+  const [salesCustomTo, setSalesCustomTo] = useState(toLocalISODate(new Date()));
   const [salesSource, setSalesSource] = useState<'direct' | 'online'>('direct');
   const [inventoryCategory, setInventoryCategory] = useState<string>('All');
   const [productSalesCategory, setProductSalesCategory] = useState<string>('All');
   const [productSalesTab, setProductSalesTab] = useState<'top' | 'bottom'>('top');
 
   // Sales Report — Direct (in-shop bills, type: you_gave)
-  const apiSalesFilter = periodToApiFilter(salesPeriod);
-  const salesTxnParams = {
-    business_id: business?.id as number,
-    filter: apiSalesFilter,
-    type: 'you_gave' as const,
-    limit: 1000,
-  };
+  // Custom range takes priority over the enum filter — see
+  // useListTransactionsCustom, which talks to GET /transactions directly
+  // (now that the backend supports from/to) instead of the orval-generated
+  // hook, which only types the today/week/month/all enum.
+
+  const now = new Date();
+const [salesMonthYear, setSalesMonthYear] = useState({ year: now.getFullYear(), month: now.getMonth() });
+  const salesTxnParams =
+  salesPeriod === 'custom'
+    ? { business_id: business?.id as number, type: 'you_gave' as const, from: salesCustomFrom, to: salesCustomTo, limit: 1000 }
+    : salesPeriod === 'pickMonth'
+    ? { business_id: business?.id as number, type: 'you_gave' as const, ...monthRange(salesMonthYear.year, salesMonthYear.month), limit: 1000 }
+    : { business_id: business?.id as number, filter: periodToApiFilter(salesPeriod), type: 'you_gave' as const, limit: 1000 };
+
   const {
     data: salesTxnResponse,
     isLoading: salesTxnLoading,
     isError: salesTxnError,
-  } = useListTransactions(salesTxnParams, {
-    query: { enabled: !!business?.id, queryKey: getListTransactionsQueryKey(salesTxnParams) },
-  });
+  } = useListTransactionsCustom(salesTxnParams, !!business?.id);
+  
+  
 
   // Sales Report — Online (orders placed via the customer/delivery app, sales_orders table)
-  const onlineOrdersDateRange = periodToDateRange(salesPeriod);
+const onlineOrdersDateRange =
+  salesPeriod === 'custom'
+    ? { from: salesCustomFrom, to: salesCustomTo }
+    : salesPeriod === 'pickMonth'
+    ? monthRange(salesMonthYear.year, salesMonthYear.month)
+    : periodToDateRange(salesPeriod);
   const {
     data: onlineOrdersResponse,
     isLoading: onlineOrdersLoading,
@@ -1903,9 +2142,11 @@ const allTimeSalesParams = {
 const { data: allTimeSalesResponse } = useListTransactions(allTimeSalesParams, {
   query: { enabled: !!business?.id, queryKey: getListTransactionsQueryKey(allTimeSalesParams) },
 });
-  // Payment Report
-  const { data: paymentsCollected } = useReportPaymentMethods({ business_id: business?.id, type: 'you_got' }, !!business?.id);
-  const { data: paymentsPaid } = useReportPaymentMethods({ business_id: business?.id, type: 'you_gave' }, !!business?.id);
+  // ---- Payment Report date range (custom calendar only — no chips) ----
+  const [paymentFrom, setPaymentFrom] = useState(toLocalISODate(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
+  const [paymentTo, setPaymentTo] = useState(toLocalISODate(new Date()));
+  const { data: paymentsCollected } = useReportPaymentMethods({ business_id: business?.id, from: paymentFrom, to: paymentTo, type: 'you_got' }, !!business?.id);
+  const { data: paymentsPaid } = useReportPaymentMethods({ business_id: business?.id, from: paymentFrom, to: paymentTo, type: 'you_gave' }, !!business?.id);
 
   // Daily Closing
   const todayISO = useMemo(() => toLocalISODate(new Date()), []);
@@ -1915,15 +2156,17 @@ const { data: allTimeSalesResponse } = useListTransactions(allTimeSalesParams, {
     isError: cashbookError,
   } = useReportCashbook({ business_id: business?.id, from: todayISO, to: todayISO }, !!business?.id);
 
-  // Purchases
- const [purchasePage, setPurchasePage] = useState(1);
+  // ---- Purchase Report date range (custom calendar only — no chips) ----
+  const [purchaseFrom, setPurchaseFrom] = useState(toLocalISODate(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
+  const [purchaseTo, setPurchaseTo] = useState(toLocalISODate(new Date()));
+  const [purchasePage, setPurchasePage] = useState(1);
 const PURCHASES_PER_PAGE = 10;
 
 const {
   data: purchasesResponse,
   isLoading: purchasesLoading,
   isError: purchasesError,
-} = useListPurchases({ business_id: business?.id, limit: 1000 }, !!business?.id);
+} = useListPurchases({ business_id: business?.id, from: purchaseFrom, to: purchaseTo, limit: 1000 }, !!business?.id);
 
 // Paginate client-side from the full list
 const purchasePageCount = Math.ceil((purchasesResponse?.data.length ?? 0) / PURCHASES_PER_PAGE);
@@ -1933,16 +2176,25 @@ const paginatedPurchases = useMemo(() => {
   return all.slice(start, start + PURCHASES_PER_PAGE);
 }, [purchasesResponse, purchasePage]);
 
-  // Product Sales
-  const [productSalesPeriod, setProductSalesPeriod] = useState<PeriodKey>('today');
+  // ---- Vendors Report date range (independent of Purchase Report's own range) ----
+  const [vendorFrom, setVendorFrom] = useState(toLocalISODate(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
+  const [vendorTo, setVendorTo] = useState(toLocalISODate(new Date()));
+  const {
+    data: vendorPurchasesResponse,
+  } = useListPurchases({ business_id: business?.id, from: vendorFrom, to: vendorTo, limit: 1000 }, !!business?.id);
+
+  // ---- Product Sales Report + Inventory Report date ranges (custom calendar only — no chips) ----
+  const [productSalesFrom, setProductSalesFrom] = useState(toLocalISODate(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
+  const [productSalesTo, setProductSalesTo] = useState(toLocalISODate(new Date()));
+  const [inventoryFrom, setInventoryFrom] = useState(toLocalISODate(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
+  const [inventoryTo, setInventoryTo] = useState(toLocalISODate(new Date()));
   const [productSalesView, setProductSalesView] = useState<'table' | 'chart'>('table');
-  const productSalesDateRange = periodToDateRange(productSalesPeriod);
  const {
   data: productSalesData,
   isLoading: productSalesLoading,
   isError: productSalesError,
 } = useReportProductSales(
-  { business_id: business?.id, filter: productSalesPeriod },
+  { business_id: business?.id, from: productSalesFrom, to: productSalesTo },
   !!business?.id,
 );
 
@@ -1950,7 +2202,15 @@ const paginatedPurchases = useMemo(() => {
   // down by what was returned, so "Qty" in Product Sales Report reflects
   // actual units that stayed sold, not gross units billed.
   const { data: returnsForProductSales } = useReportReturns(
-    { business_id: business?.id, filter: productSalesPeriod },
+    { business_id: business?.id, from: productSalesFrom, to: productSalesTo },
+    !!business?.id,
+  );
+
+  // Inventory Report's own product-sales fetch (independent custom range) —
+  // only used to drive the reorder-suggestion sales velocity below; current
+  // stock counts themselves are always "now", not date-filterable.
+  const { data: inventoryProductSalesData } = useReportProductSales(
+    { business_id: business?.id, from: inventoryFrom, to: inventoryTo },
     !!business?.id,
   );
 
@@ -2081,24 +2341,17 @@ const paymentStats = useMemo(() => {
     return Array.from(map.entries()).map(([payment_mode, total_amount]) => ({ payment_mode, total_amount }));
   }, [onlineOrdersResponse]);
 
-  const salesDateRange = periodToDateRange(salesPeriod);
-  // const {
-  //   data: paymentMethodsData,
-  //   isLoading: paymentMethodsLoading,
-  //   isError: paymentMethodsError,
-  // } = useReportPaymentMethods(
-  //   { business_id: business?.id, from: salesDateRange.from, to: salesDateRange.to, type: 'you_got' },
-  //   !!business?.id,
-  // );
-
-const {
-  data: paymentMethodsData,
-  isLoading: paymentMethodsLoading,
-  isError: paymentMethodsError,
-} = useReportPaymentMethods(
-  { business_id: business?.id, filter: salesPeriod, type: 'you_gave' },
-  !!business?.id,
-);
+  // Payment Method Wise Sales — for a custom range we don't have a
+  // from/to-aware backend endpoint yet, so fall back to "all" rather than
+  // silently ignoring the custom dates or crashing on an invalid filter key.
+  const {
+    data: paymentMethodsData,
+    isLoading: paymentMethodsLoading,
+    isError: paymentMethodsError,
+  } = useReportPaymentMethods(
+    { business_id: business?.id, filter: (salesPeriod === 'custom' || salesPeriod === 'pickMonth') ? 'all' : salesPeriod, type: 'you_gave' },
+    !!business?.id,
+  );
   const productSalesFiltered = useMemo(() => {
     if (!productSalesNet) return productSalesNet;
     if (productSalesCategory === 'All') return productSalesNet;
@@ -2166,12 +2419,12 @@ const {
   }, [products]);
 
   // Reorder suggestions — for low-stock items, estimate a week's worth of
-  // demand from this period's sales velocity (qty_sold / period days).
-  // Falls back to "top up to 2x the alert threshold" when there's no sales
-  // history yet for that product.
+  // demand from the Inventory Report's own custom-range sales velocity
+  // (qty_sold / number of days in that range). Falls back to "top up to 2x
+  // the alert threshold" when there's no sales history yet for that product.
   const reorderSuggestions = useMemo(() => {
-    const salesByProductId = new Map((productSalesData ?? []).map((s) => [s.product_id, s]));
-    const days = periodToDays(productSalesPeriod);
+    const salesByProductId = new Map((inventoryProductSalesData ?? []).map((s) => [s.product_id, s]));
+    const days = daysBetweenInclusive(inventoryFrom, inventoryTo);
     return inventoryLowStock
       .map((p) => {
         const sales = salesByProductId.get(p.id);
@@ -2182,7 +2435,7 @@ const {
         return { id: p.id, name: p.name, stockQty: p.stock_qty, unit: p.unit, suggestedQty };
       })
       .sort((a, b) => b.suggestedQty - a.suggestedQty);
-  }, [inventoryLowStock, productSalesData, productSalesPeriod]);
+  }, [inventoryLowStock, inventoryProductSalesData, inventoryFrom, inventoryTo]);
 
   // ---- Customer Report computed data ----
 const customerPurchaseTotals = useMemo(() => {
@@ -2236,10 +2489,10 @@ const customerAnalytics = useMemo(() => {
   };
 }, [topCustomers]);
 
-// ---- Vendor Report computed data ----
+// ---- Vendor Report computed data (its own date range, see vendorPurchasesResponse above) ----
 const vendorPurchaseTotals = useMemo(() => {
   const map = new Map<number, { totalPurchased: number; totalDue: number; orderCount: number; lastDate?: string }>();
-  (purchasesResponse?.data ?? []).forEach((p) => {
+  (vendorPurchasesResponse?.data ?? []).forEach((p) => {
     const prev = map.get(p.vendor_id) ?? { totalPurchased: 0, totalDue: 0, orderCount: 0, lastDate: undefined };
     prev.totalPurchased += p.amount;
     prev.totalDue += p.amount - p.amount_paid;
@@ -2248,7 +2501,7 @@ const vendorPurchaseTotals = useMemo(() => {
     map.set(p.vendor_id, prev);
   });
   return map;
-}, [purchasesResponse]);
+}, [vendorPurchasesResponse]);
 
 const vendorRows = useMemo(() => (vendors ?? []).map((v) => ({ vendor: v, totals: vendorPurchaseTotals.get(v.id) })), [vendors, vendorPurchaseTotals]);
 
@@ -2263,17 +2516,17 @@ const pendingVendorPayments = useMemo(
 );
 
 const recentPurchases = useMemo(
-  () => [...(purchasesResponse?.data ?? [])].sort((a, b) => (a.entry_date < b.entry_date ? 1 : -1)).slice(0, 5),
-  [purchasesResponse],
+  () => [...(vendorPurchasesResponse?.data ?? [])].sort((a, b) => (a.entry_date < b.entry_date ? 1 : -1)).slice(0, 5),
+  [vendorPurchasesResponse],
 );
 
 const vendorKpis = useMemo(() => {
   const totalVendors = vendors?.length ?? 0;
   const activeVendors = vendorRows.filter((r) => (r.totals?.orderCount ?? 0) > 0).length;
-  const totalPurchaseAmount = (purchasesResponse?.data ?? []).reduce((sum, p) => sum + p.amount, 0);
+  const totalPurchaseAmount = (vendorPurchasesResponse?.data ?? []).reduce((sum, p) => sum + p.amount, 0);
   const pendingPayments = vendorPendingTotal?.total_pending ?? 0;
   return { totalVendors, activeVendors, totalPurchaseAmount, pendingPayments };
-}, [vendors, vendorRows, purchasesResponse]);
+}, [vendors, vendorRows, vendorPurchasesResponse, vendorPendingTotal]);
 
 const vendorAnalytics = useMemo(() => {
   if (vendorRows.length === 0) return null;
@@ -2364,6 +2617,7 @@ const vendorAnalytics = useMemo(() => {
                 <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Sales Report</Text>
               </View>
               <Card colors={colors} style={{ justifyContent: 'space-between' }}>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: LAYOUT.cardPadding }}>
                 <View>
                   {/* Direct (Shop) / Online (App) toggle */}
                   <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
@@ -2391,15 +2645,18 @@ const vendorAnalytics = useMemo(() => {
                     })}
                   </View>
 
-                  <ChipRow
+                  <ReportFilterBar
+                    period={salesPeriod}
+                    onPeriodChange={setSalesPeriod}
+                    customFrom={salesCustomFrom}
+                    customTo={salesCustomTo}
+                    onCustomFromChange={setSalesCustomFrom}
+                    onCustomToChange={setSalesCustomTo}
+                    monthYear={salesMonthYear}
+                    onMonthYearChange={setSalesMonthYear}
+                    onExportPdf={() => Alert.alert('Export', 'PDF export coming soon')}
+                    onPrint={() => Alert.alert('Print', 'Print support coming soon')}
                     colors={colors}
-                    selected={salesPeriod}
-                    onSelect={(k) => setSalesPeriod(k as PeriodKey)}
-                    options={[
-                      { key: 'today', label: 'Today' },
-                      { key: 'week', label: 'This Week' },
-                      { key: 'month', label: 'This Month' },
-                    ]}
                   />
 
                   {salesSource === 'direct' ? (
@@ -2473,7 +2730,7 @@ const vendorAnalytics = useMemo(() => {
                     />
                   )}
                 </View>
-                
+              </ScrollView>
               </Card>
             </>
           }
@@ -2483,6 +2740,14 @@ const vendorAnalytics = useMemo(() => {
       <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Purchase Report</Text>
     </View>
     <Card colors={colors} style={{ padding: purchasesResponse?.data.length ? 0 : LAYOUT.cardPadding, justifyContent: purchasesResponse?.data.length ? 'flex-start' : 'center' }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: LAYOUT.cardPadding }}>
+          <CustomDateRangeFilter
+            from={purchaseFrom}
+            to={purchaseTo}
+            onFromChange={setPurchaseFrom}
+            onToChange={setPurchaseTo}
+            colors={colors}
+          />
       {purchasesLoading ? (
         <ActivityIndicator color={colors.primary} style={{ marginVertical: 6 }} />
       ) : purchasesError ? (
@@ -2496,7 +2761,7 @@ const vendorAnalytics = useMemo(() => {
           subtitle="Purchases you record from vendors will appear here"
         />
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: LAYOUT.cardPadding }}>
+        <>
           {/* Total pending — same number as Dashboard "To be Paid" */}
           <View style={{ marginBottom: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: colors.border }}>
             <Text style={{ fontSize: 11, fontFamily: FONT_REGULAR, color: colors.mutedForeground }}>Total Pending to Vendors</Text>
@@ -2544,8 +2809,9 @@ const vendorAnalytics = useMemo(() => {
               </Pressable>
             </View>
           )}
-        </ScrollView>
+        </>
       )}
+      </ScrollView>
     </Card>
   </>
 }
@@ -2579,7 +2845,15 @@ const vendorAnalytics = useMemo(() => {
                   }
                 />
               </View>
-              <Card colors={colors} height={520} style={{ justifyContent: 'flex-start' }}>
+              <Card colors={colors} height={560} style={{ justifyContent: 'flex-start' }}>
+                <CustomDateRangeFilter
+                  from={inventoryFrom}
+                  to={inventoryTo}
+                  onFromChange={setInventoryFrom}
+                  onToChange={setInventoryTo}
+                  colors={colors}
+                  label="Reorder Velocity Range"
+                />
                 <ChipRow
                   colors={colors}
                   selected={inventoryCategory}
@@ -2699,7 +2973,14 @@ const vendorAnalytics = useMemo(() => {
                   </Pressable>
                 </View>
               </View>
-              <Card colors={colors} height={520} style={{ justifyContent: 'flex-start' }}>
+              <Card colors={colors} height={560} style={{ justifyContent: 'flex-start' }}>
+                <CustomDateRangeFilter
+                  from={productSalesFrom}
+                  to={productSalesTo}
+                  onFromChange={setProductSalesFrom}
+                  onToChange={setProductSalesTo}
+                  colors={colors}
+                />
                 <ChipRow
                   colors={colors}
                   selected={productSalesCategory}
@@ -2731,16 +3012,6 @@ const vendorAnalytics = useMemo(() => {
                   </Pressable>
                 </View>
 
-                <ChipRow
-                  colors={colors}
-                  selected={productSalesPeriod}
-                  onSelect={(k) => setProductSalesPeriod(k as PeriodKey)}
-                  options={[
-                    { key: 'today', label: 'Today' },
-                    { key: 'week', label: 'This Week' },
-                    { key: 'month', label: 'This Month' },
-                  ]}
-                />
                 {returnedQtyByProductName.size > 0 && (
                   <Text style={{ fontSize: 10, fontFamily: FONT_REGULAR, fontStyle: 'italic', color: colors.mutedForeground, marginBottom: 6 }}>
                     * Qty shown is net of returns for this period.
@@ -2906,12 +3177,20 @@ const vendorAnalytics = useMemo(() => {
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Vendors Report</Text>
       </View>
       <Card colors={colors} height={CRM_CARD_HEIGHT} style={{ padding: 0 }}>
-        {!vendors || vendors.length === 0 ? (
-          <View style={{ flex: 1, justifyContent: 'center', padding: 8 }}>
-            <EmptyState icon="truck" title="No vendors yet" subtitle="Add a vendor to see them listed here" />
-          </View>
-        ) : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: LAYOUT.cardPadding }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: LAYOUT.cardPadding }}>
+          <CustomDateRangeFilter
+            from={vendorFrom}
+            to={vendorTo}
+            onFromChange={setVendorFrom}
+            onToChange={setVendorTo}
+            colors={colors}
+          />
+          {!vendors || vendors.length === 0 ? (
+            <View style={{ paddingVertical: 24 }}>
+              <EmptyState icon="truck" title="No vendors yet" subtitle="Add a vendor to see them listed here" />
+            </View>
+          ) : (
+            <>
             {/* -- KPI Summary -- */}
             <View style={crmStyles.kpiGrid}>
               <View style={{ width: '48%' }}>
@@ -2997,10 +3276,9 @@ const vendorAnalytics = useMemo(() => {
                 <MiniInsightCard icon="alert-circle" label="Pending Payments" value={fmt(vendorKpis.pendingPayments)} color={colors.destructive} colors={colors} />
               </View>
             )}
-
-          
+            </>
+          )}
           </ScrollView>
-        )}
       </Card>
     </>
   }
@@ -3016,16 +3294,24 @@ const vendorAnalytics = useMemo(() => {
         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Employee Report</Text>
       </View>
       <Card colors={colors} height={EMP_PAY_CARD_HEIGHT} style={{ padding: 0 }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: LAYOUT.cardPadding }}>
+          <CustomDateRangeFilter
+            from={employeeFrom}
+            to={employeeTo}
+            onFromChange={setEmployeeFrom}
+            onToChange={setEmployeeTo}
+            colors={colors}
+          />
         {employeeLoading ? (
-          <View style={{ flex: 1, justifyContent: 'center' }}>
+          <View style={{ paddingVertical: 24 }}>
             <ActivityIndicator color={colors.primary} />
           </View>
         ) : employeeStats.totalEmployees === 0 ? (
-          <View style={{ flex: 1, justifyContent: 'center', padding: 8 }}>
+          <View style={{ paddingVertical: 24 }}>
             <EmptyState icon="user" title="No staff yet" subtitle="Add staff members to see their performance here" />
           </View>
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: LAYOUT.cardPadding }}>
+          <>
             {/* -- KPI Summary -- */}
             <View style={crmStyles.kpiGrid}>
               <View style={{ width: '48%' }}>
@@ -3083,10 +3369,9 @@ const vendorAnalytics = useMemo(() => {
               <MiniInsightCard icon="bar-chart-2" label="Avg Bill Value" value={fmt(employeeStats.avgBillValue)} color={colors.mutedForeground} colors={colors} />
               <MiniInsightCard icon="users" label="Total Team Sales" value={fmt(employeeStats.totalSales)} color={colors.destructive} colors={colors} />
             </View>
-
-           
-          </ScrollView>
+          </>
         )}
+        </ScrollView>
       </Card>
     </>
   }
@@ -3097,6 +3382,13 @@ const vendorAnalytics = useMemo(() => {
       </View>
       <Card colors={colors} height={EMP_PAY_CARD_HEIGHT} style={{ padding: 0 }}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: LAYOUT.cardPadding }}>
+          <CustomDateRangeFilter
+            from={paymentFrom}
+            to={paymentTo}
+            onFromChange={setPaymentFrom}
+            onToChange={setPaymentTo}
+            colors={colors}
+          />
           {/* -- KPI Summary -- */}
           <View style={crmStyles.kpiGrid}>
             <View style={{ width: '48%' }}>

@@ -375,7 +375,7 @@ const handleConfirmOrderSubmit = () => {
         </View> */}
  <View style={styles.cardTopRow}>
   <View>
-    <Text style={[styles.deliveryId, { color: colors.foreground }]}>Delivery #{item.id}</Text>
+    <Text style={[styles.deliveryId, { color: colors.foreground }]}>Delivery #{item.business_delivery_no}</Text>
     {item.sales_order_id ? (
       <Text style={[styles.customerText, { color: colors.mutedForeground, marginTop: 2 }]}>
         Order #{item.sales_order_id}
@@ -511,7 +511,7 @@ const handleConfirmOrderSubmit = () => {
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
             <View style={styles.modalHeaderRow}>
               <Text style={[styles.modalTitle, { color: colors.foreground }]}>
-                Assign Driver {selectedDelivery ? `— #${selectedDelivery.id}` : ''}
+                Assign Driver {selectedDelivery ? `— #${selectedDelivery.business_delivery_no}` : ''}
               </Text>
               <Pressable onPress={() => setAssignModalOpen(false)} hitSlop={8}>
                 <Feather name="x" size={20} color={colors.mutedForeground} />
@@ -579,9 +579,10 @@ const handleConfirmOrderSubmit = () => {
               )} */}
               {activeDelivery && (
   <Text style={[styles.detailsSubtitle, { color: colors.mutedForeground }]}>
-    Delivery #{activeDelivery.id}{salesOrderId ? `  •  Order #${salesOrderId}` : ''}
+    Delivery #{activeDelivery.business_delivery_no}{salesOrderId ? `  •  Order #${salesOrderId}` : ''}
   </Text>
 )}
+
             </View>
             <Pressable style={[styles.actionsBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}>
               <Text style={[styles.actionsBtnText, { color: colors.primaryForeground }]}>Actions</Text>
@@ -830,15 +831,23 @@ const handleConfirmOrderSubmit = () => {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.bottomBarTitle, { color: colors.foreground }]}>
-                      {salesOrderId ? (isOrderPending ? 'Confirm this order?' : `Order ${salesOrder?.status ?? 'confirmed'}`) : 'Delivery'}
-                    </Text>
-                    <Text style={[styles.bottomBarSubtitle, { color: colors.mutedForeground }]}>
-                      {salesOrderId
-                        ? isOrderPending
-                          ? 'Review the details above, then confirm to move it forward.'
-                          : 'This order has already been confirmed.'
-                        : 'Not linked to an online order — nothing to confirm.'}
-                    </Text>
+  {salesOrderId
+    ? salesOrder?.status === 'cancelled'
+      ? 'Order cancelled'
+      : isOrderPending
+      ? 'Confirm this order?'
+      : `Order ${salesOrder?.status ?? 'confirmed'}`
+    : 'Delivery'}
+</Text>
+<Text style={[styles.bottomBarSubtitle, { color: colors.mutedForeground }]}>
+  {salesOrderId
+    ? salesOrder?.status === 'cancelled'
+      ? 'This order was cancelled by the customer.'
+      : isOrderPending
+      ? 'Review the details above, then confirm to move it forward.'
+      : 'This order has already been confirmed.'
+    : 'Not linked to an online order — nothing to confirm.'}
+</Text>
                   </View>
                 </View>
  

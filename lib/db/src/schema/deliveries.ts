@@ -23,6 +23,7 @@ export const deliveryPaymentStatusEnum = pgEnum("delivery_payment_status", [
 export const deliveriesTable = pgTable("deliveries", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
   businessId: bigint("business_id", { mode: "number" }).notNull(),
+  businessDeliveryNo: integer("business_delivery_no"),
   customerId: bigint("customer_id", { mode: "number" }).notNull(),
   salesOrderId: bigint("sales_order_id", { mode: "number" }),
   driverId: bigint("driver_id", { mode: "number" }),

@@ -10,6 +10,10 @@ import type { ProductUnit } from './productUnit';
 export interface Product {
   id: number;
   business_id: number;
+  /** @nullable */
+  vendor_id?: number | null;
+  /** @nullable */
+  vendor_name?: string | null;
   name: string;
   /** @nullable */
   barcode?: string | null;

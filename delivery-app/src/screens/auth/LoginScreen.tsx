@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useContext } from 'react';
 import {
   View,
@@ -15,9 +12,31 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  SafeAreaView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { AuthContext } from '../../context/AuthContext';
+
+/* ── Design tokens (UI only) ─────────────────────────────────────────── */
+const COLORS = {
+  primary: '#4B3F9E', // deep indigo-purple
+  primaryDark: '#2B2266',
+  primarySoft: '#EFEDFA', // subtle lavender surface
+  background: '#F8F7FC',
+  card: '#FFFFFF',
+  text: '#1A1745', // dark navy/purple
+  textMuted: '#6E6A8E', // muted gray-purple
+  placeholder: '#9A97B3',
+  border: '#E4E1F2', // light lavender-gray
+  error: '#B3261E', // dark red
+  white: '#FFFFFF',
+};
+
+const FONT_FAMILY = Platform.select({
+  ios: 'Times New Roman',
+  android: 'serif',
+  default: '"Times New Roman", Times, serif',
+}) as string;
 
 const LoginScreen: React.FC = ({ navigation }: any) => {
   const [phone, setPhone] = useState('');
@@ -27,6 +46,9 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
 
   const [phoneError, setPhoneError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+
+  // UI-only: which input is focused (for purple focus border)
+  const [focusedField, setFocusedField] = useState<'phone' | 'password' | null>(null);
 
   const { login } = useContext(AuthContext);
 
@@ -62,7 +84,7 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
       return { isValid: false, message: 'Password cannot be empty' };
     }
     if (!/^[A-Z]/.test(pwd)) {
-      return { isValid: false, message: 'First letter must be uppercase' };
+      return { isValid: false, message: 'First letter must be upprcase' };
     }
     if (!/[!@#$%^&*(),.?":{}|<>]/.test(pwd)) {
       return { isValid: false, message: 'At least one special character required' };
@@ -139,48 +161,82 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
     }
   };
 
-  return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+  const requirements = [
+    'First letter must be uppercase',
+    'At least one special character',
+    'At least one number',
+    'Use lowercase, numbers & special chars only',
+  ];
 
-        {/* ── Illustration — store + delivery rider (full-bleed banner, never floats) ── */}
-        <View style={styles.illustrationSection}>
-          <Image
-            source={require('../../../assets/images/login-illustration.png')}
-            style={styles.illustrationImage}
-            resizeMode="contain"
-            // @ts-ignore - objectFit "contain" guarantees the full illustration is always
-            // visible with zero cropping on any screen size (web and mobile alike).
-            // Any leftover space blends seamlessly since it matches the white background.
-            objectFit="contain"
-          />
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        {/* Decorative lavender wave at the bottom — sits behind content */}
+        <View pointerEvents="none" style={styles.waveWrap}>
+          <View style={styles.waveBack} />
+          <View style={styles.waveFront} />
         </View>
 
-        {/* ── Sheet ── */}
-        <View style={styles.sheet}>
-          <View style={styles.sheetHeader}>
-            <View style={styles.lockBadge}>
-              <Icon name="lock-closed" size={22} color="#4F46E5" />
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* ── Top branding ── */}
+          <View style={styles.brandRow}>
+            <View style={styles.brandIcon}>
+              <Icon name="bicycle" size={22} color={COLORS.white} />
             </View>
             <View>
-              <Text style={styles.title}>Sign In</Text>
-              <Text style={styles.subtitle}>Login to your account</Text>
+              <Text style={styles.brandName}>Khata-Pro</Text>
+              <Text style={styles.brandTag}>Delivery Partner</Text>
             </View>
           </View>
 
+          {/* ── Welcome + illustration ── */}
+          <View style={styles.heroRow}>
+            <View style={styles.heroText}>
+              <Text style={styles.title}>Welcome Back</Text>
+              <Text style={styles.subtitle}>Login to continue your journey</Text>
+            </View>
+            <View style={styles.illustrationBlob}>
+              <Image
+                source={require('../../../assets/images/login-illustration.png')}
+                style={styles.illustrationImage}
+                resizeMode="contain"
+              />
+            </View>
+          </View>
+
+          {/* ── Phone ── */}
           <View style={styles.inputWrapper}>
-            <View style={[styles.inputContainer, phoneError ? styles.inputError : null]}>
-              <Icon name="call-outline" size={20} color="#8b8d98" style={styles.inputIcon} />
+            <Text style={styles.label}>Phone Number</Text>
+            <View
+              style={[
+                styles.inputContainer,
+                focusedField === 'phone' && styles.inputFocused,
+                phoneError ? styles.inputError : null,
+              ]}
+            >
+              <Icon
+                name="call-outline"
+                size={20}
+                color={focusedField === 'phone' ? COLORS.primary : COLORS.textMuted}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={styles.input}
-                placeholder="Phone Number"
-                placeholderTextColor="#9a9ca6"
+                placeholder="Enter 10 digit phone number"
+                placeholderTextColor={COLORS.placeholder}
                 value={phone}
                 onChangeText={setPhone}
+                onFocus={() => setFocusedField('phone')}
+                onBlur={() => setFocusedField(null)}
                 autoCapitalize="none"
                 keyboardType="phone-pad"
                 autoCorrect={false}
@@ -189,29 +245,62 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
             {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
           </View>
 
+          {/* ── Password ── */}
           <View style={styles.inputWrapper}>
-            <View style={[styles.inputContainer, passwordError ? styles.inputError : null]}>
-              <Icon name="lock-closed-outline" size={20} color="#8b8d98" style={styles.inputIcon} />
+            <Text style={styles.label}>Password</Text>
+            <View
+              style={[
+                styles.inputContainer,
+                focusedField === 'password' && styles.inputFocused,
+                passwordError ? styles.inputError : null,
+              ]}
+            >
+              <Icon
+                name="lock-closed-outline"
+                size={20}
+                color={focusedField === 'password' ? COLORS.primary : COLORS.textMuted}
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={styles.input}
-                placeholder="Password"
-                placeholderTextColor="#9a9ca6"
+                placeholder="Enter your password"
+                placeholderTextColor={COLORS.placeholder}
                 value={password}
                 onChangeText={setPassword}
+                onFocus={() => setFocusedField('password')}
+                onBlur={() => setFocusedField(null)}
                 secureTextEntry={!showPassword}
                 autoCorrect={false}
               />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
                 <Icon
                   name={showPassword ? 'eye-outline' : 'eye-off-outline'}
                   size={20}
-                  color="#8b8d98"
+                  color={COLORS.textMuted}
                 />
               </TouchableOpacity>
             </View>
             {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
           </View>
 
+          {/* ── Password requirements (static info) ── */}
+          <View style={styles.requirementsCard}>
+            <View style={styles.requirementsHeader}>
+              <Icon name="shield-checkmark-outline" size={18} color={COLORS.primary} />
+              <Text style={styles.requirementsTitle}>Password Requirements</Text>
+            </View>
+            {requirements.map((item) => (
+              <View key={item} style={styles.requirementRow}>
+                <View style={styles.bullet} />
+                <Text style={styles.requirementText}>{item}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* ── Login button ── */}
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
             onPress={handleLogin}
@@ -225,104 +314,170 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
             )}
           </TouchableOpacity>
 
+          {/* ── Sign up ── */}
+          <View style={styles.divider} />
           <View style={styles.footer}>
             <Text style={styles.footerText}>Don't have an account?</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Signup')}
+              hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+            >
               <Text style={styles.footerLink}> Sign Up</Text>
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            onPress={() => navigation.navigate('StaffLogin')}
-            style={{ marginTop: 16, alignItems: 'center', marginBottom: 12 }}
-          >
-            <Text style={styles.footerLink}>Login as Staff / Driver</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          {/* ── Footer tagline ── */}
+          <Text style={styles.tagline}>Delivering Happiness ♥</Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
+  },
   container: {
     flex: 1,
     width: '100%',
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
     flexGrow: 1,
     width: '100%',
-    alignItems: 'stretch',
+    maxWidth: 520,
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 32,
   },
 
-  illustrationSection: {
-    width: '100%',
-    alignSelf: 'stretch',
-    height: 220,
-    overflow: 'hidden',
-    backgroundColor: '#ffffff',
-    position: 'relative',
-  },
-  illustrationImage: {
+  /* Decorative wave */
+  waveWrap: {
     position: 'absolute',
-    top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    width: '100%',
-    height: '100%',
+    height: 140,
+    overflow: 'hidden',
+  },
+  waveBack: {
+    position: 'absolute',
+    left: -80,
+    right: -80,
+    bottom: -150,
+    height: 220,
+    borderRadius: 200,
+    backgroundColor: COLORS.primarySoft,
+    opacity: 0.6,
+  },
+  waveFront: {
+    position: 'absolute',
+    left: -40,
+    right: -120,
+    bottom: -170,
+    height: 200,
+    borderRadius: 200,
+    backgroundColor: COLORS.primarySoft,
   },
 
-  sheet: {
-    flexGrow: 1,
-    backgroundColor: '#F7F7FB',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingHorizontal: 24,
-    paddingTop: 28,
-    paddingBottom: 24,
-  },
-  sheetHeader: {
+  /* Branding */
+  brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
   },
-  lockBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: '#E9E7FE',
+  brandIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
-  title: {
-    fontSize: 24,
+  brandName: {
+    fontFamily: FONT_FAMILY,
+    fontSize: 22,
     fontWeight: '700',
-    color: '#15151a',
+    color: COLORS.primaryDark,
+    letterSpacing: 0.3,
   },
-  subtitle: {
+  brandTag: {
+    fontFamily: FONT_FAMILY,
     fontSize: 13,
-    color: '#8b8d98',
-    marginTop: 2,
+    color: COLORS.textMuted,
+    marginTop: 1,
   },
 
+  /* Hero */
+  heroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 28,
+    marginBottom: 28,
+  },
+  heroText: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  title: {
+    fontFamily: FONT_FAMILY,
+    fontSize: 32,
+    fontWeight: '700',
+    color: COLORS.text,
+    lineHeight: 38,
+  },
+  subtitle: {
+    fontFamily: FONT_FAMILY,
+    fontSize: 16,
+    color: COLORS.textMuted,
+    marginTop: 8,
+    lineHeight: 22,
+  },
+  illustrationBlob: {
+    width: '38%',
+    aspectRatio: 1,
+    borderRadius: 999,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  illustrationImage: {
+    width: '85%',
+    height: '85%',
+  },
+
+  /* Inputs */
   inputWrapper: {
-    marginBottom: 14,
+    marginBottom: 18,
+  },
+  label: {
+    fontFamily: FONT_FAMILY,
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    height: 54,
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    minHeight: 54,
     borderWidth: 1,
-    borderColor: '#eaeaf0',
+    borderColor: COLORS.border,
+  },
+  inputFocused: {
+    borderColor: COLORS.primary,
+    borderWidth: 1.5,
   },
   inputError: {
-    borderColor: '#FF3B30',
+    borderColor: COLORS.error,
     borderWidth: 1.5,
   },
   inputIcon: {
@@ -330,53 +485,118 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    height: '100%',
-    fontSize: 15,
-    color: '#15151a',
+    minHeight: 52,
+    fontFamily: FONT_FAMILY,
+    fontSize: 16,
+    color: COLORS.text,
+    paddingVertical: 0,
   },
   errorText: {
-    color: '#FF3B30',
-    fontSize: 12,
-    marginTop: 5,
-    marginLeft: 4,
-    fontWeight: '500',
+    fontFamily: FONT_FAMILY,
+    color: COLORS.error,
+    fontSize: 13,
+    marginTop: 6,
+    marginLeft: 2,
+    fontWeight: '600',
   },
 
+  /* Requirements */
+  requirementsCard: {
+    backgroundColor: COLORS.primarySoft,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 22,
+  },
+  requirementsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  requirementsTitle: {
+    fontFamily: FONT_FAMILY,
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.primary,
+    marginLeft: 8,
+  },
+  requirementRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 2,
+    paddingLeft: 2,
+  },
+  bullet: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.textMuted,
+    marginTop: 8,
+    marginRight: 10,
+  },
+  requirementText: {
+    flex: 1,
+    fontFamily: FONT_FAMILY,
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: COLORS.textMuted,
+  },
+
+  /* Buttons */
   button: {
-    backgroundColor: '#4F46E5',
-    borderRadius: 14,
-    height: 54,
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    minHeight: 54,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
-    shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 3,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 2,
   },
   buttonDisabled: {
-    backgroundColor: '#a5a1f0',
+    backgroundColor: '#A9A2D6',
   },
   buttonText: {
-    color: '#ffffff',
-    fontSize: 16,
+    fontFamily: FONT_FAMILY,
+    color: COLORS.white,
+    fontSize: 18,
     fontWeight: '700',
+    letterSpacing: 0.4,
   },
 
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: COLORS.border,
+    marginTop: 26,
+    marginBottom: 18,
+  },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 22,
+    alignItems: 'center',
+    flexWrap: 'wrap',
   },
   footerText: {
-    color: '#6d6d78',
-    fontSize: 14,
+    fontFamily: FONT_FAMILY,
+    color: COLORS.textMuted,
+    fontSize: 15,
   },
   footerLink: {
-    color: '#4F46E5',
+    fontFamily: FONT_FAMILY,
+    color: COLORS.primary,
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 15,
+  },
+
+
+  tagline: {
+    fontFamily: FONT_FAMILY,
+    textAlign: 'center',
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginTop: 28,
   },
 });
 

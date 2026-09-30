@@ -10,7 +10,6 @@ export type BroadcastInputTargetPlan = typeof BroadcastInputTargetPlan[keyof typ
 
 
 export const BroadcastInputTargetPlan = {
-  free: 'free',
   pro: 'pro',
   premium: 'premium',
   all: 'all',

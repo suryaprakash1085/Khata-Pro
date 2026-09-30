@@ -164,7 +164,10 @@ export const ListBusinessesResponse = zod.object({
   "currency": zod.string().default(listBusinessesResponseDataItemCurrencyDefault),
   "financial_year_start": zod.coerce.date().nullish(),
   "is_active": zod.boolean().optional(),
-  "plan": zod.enum(['free', 'pro', 'premium']).optional(),
+  "plan": zod.enum(['pro', 'premium']).optional(),
+  "billing_cycle": zod.enum(['monthly', 'quarterly', 'half_yearly', 'yearly']).nullish(),
+  "subscription_status": zod.enum(['trial', 'active', 'expired', 'cancelled']).nullish(),
+  "trial_end_date": zod.coerce.date().nullish(),
   "created_at": zod.coerce.date()
 })),
   "total": zod.number(),
@@ -196,7 +199,9 @@ export const CreateBusinessBody = zod.object({
   "longitude": zod.number().optional(),
   "logo_url": zod.string().optional(),
   "currency": zod.string().default(createBusinessBodyCurrencyDefault),
-  "financial_year_start": zod.coerce.date().optional()
+  "financial_year_start": zod.coerce.date().optional(),
+  "plan": zod.enum(['pro', 'premium']),
+  "billing_cycle": zod.enum(['monthly', 'quarterly', 'half_yearly', 'yearly'])
 })
 
 export const createBusinessResponseCurrencyDefault = `INR`;
@@ -222,7 +227,10 @@ export const CreateBusinessResponse = zod.object({
   "currency": zod.string().default(createBusinessResponseCurrencyDefault),
   "financial_year_start": zod.coerce.date().nullish(),
   "is_active": zod.boolean().optional(),
-  "plan": zod.enum(['free', 'pro', 'premium']).optional(),
+  "plan": zod.enum(['pro', 'premium']).optional(),
+  "billing_cycle": zod.enum(['monthly', 'quarterly', 'half_yearly', 'yearly']).nullish(),
+  "subscription_status": zod.enum(['trial', 'active', 'expired', 'cancelled']).nullish(),
+  "trial_end_date": zod.coerce.date().nullish(),
   "created_at": zod.coerce.date()
 })
 
@@ -257,7 +265,10 @@ export const GetBusinessResponse = zod.object({
   "currency": zod.string().default(getBusinessResponseCurrencyDefault),
   "financial_year_start": zod.coerce.date().nullish(),
   "is_active": zod.boolean().optional(),
-  "plan": zod.enum(['free', 'pro', 'premium']).optional(),
+  "plan": zod.enum(['pro', 'premium']).optional(),
+  "billing_cycle": zod.enum(['monthly', 'quarterly', 'half_yearly', 'yearly']).nullish(),
+  "subscription_status": zod.enum(['trial', 'active', 'expired', 'cancelled']).nullish(),
+  "trial_end_date": zod.coerce.date().nullish(),
   "created_at": zod.coerce.date()
 })
 
@@ -315,7 +326,10 @@ export const UpdateBusinessResponse = zod.object({
   "currency": zod.string().default(updateBusinessResponseCurrencyDefault),
   "financial_year_start": zod.coerce.date().nullish(),
   "is_active": zod.boolean().optional(),
-  "plan": zod.enum(['free', 'pro', 'premium']).optional(),
+  "plan": zod.enum(['pro', 'premium']).optional(),
+  "billing_cycle": zod.enum(['monthly', 'quarterly', 'half_yearly', 'yearly']).nullish(),
+  "subscription_status": zod.enum(['trial', 'active', 'expired', 'cancelled']).nullish(),
+  "trial_end_date": zod.coerce.date().nullish(),
   "created_at": zod.coerce.date()
 })
 
@@ -374,6 +388,156 @@ export const AddStaffResponse = zod.object({
   "delete_entry": zod.boolean().optional(),
   "view_reports": zod.boolean().optional(),
   "manage_customers": zod.boolean().optional()
+})
+})
+
+
+/**
+ * @summary List active subscription plans (business-facing, no admin auth)
+ */
+export const ListActiveSubscriptionPlansResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "plan": zod.enum(['pro', 'premium']),
+  "monthly_price": zod.number(),
+  "quarterly_price": zod.number(),
+  "half_yearly_price": zod.number(),
+  "yearly_price": zod.number(),
+  "trial_days": zod.number(),
+  "max_users": zod.number(),
+  "max_branches": zod.number(),
+  "max_products": zod.number(),
+  "max_customers": zod.number(),
+  "max_vendors": zod.number(),
+  "max_orders": zod.number(),
+  "features": zod.record(zod.string(), zod.boolean()),
+  "is_active": zod.boolean(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Get the authenticated user's business subscription, plan config, and business info
+ */
+export const getMySubscriptionResponseBusinessCurrencyDefault = `INR`;
+
+export const GetMySubscriptionResponse = zod.object({
+  "subscription": zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "business_name": zod.string().optional(),
+  "plan": zod.enum(['pro', 'premium']),
+  "billing_cycle": zod.enum(['monthly', 'quarterly', 'half_yearly', 'yearly']),
+  "amount": zod.number(),
+  "start_date": zod.coerce.date(),
+  "end_date": zod.coerce.date(),
+  "trial_end_date": zod.coerce.date().nullish(),
+  "status": zod.enum(['active', 'trial', 'expired', 'cancelled']),
+  "payment_ref": zod.string().nullish()
+}),
+  "plan": zod.object({
+  "id": zod.number(),
+  "plan": zod.enum(['pro', 'premium']),
+  "monthly_price": zod.number(),
+  "quarterly_price": zod.number(),
+  "half_yearly_price": zod.number(),
+  "yearly_price": zod.number(),
+  "trial_days": zod.number(),
+  "max_users": zod.number(),
+  "max_branches": zod.number(),
+  "max_products": zod.number(),
+  "max_customers": zod.number(),
+  "max_vendors": zod.number(),
+  "max_orders": zod.number(),
+  "features": zod.record(zod.string(), zod.boolean()),
+  "is_active": zod.boolean(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+}),
+  "business": zod.object({
+  "id": zod.number(),
+  "owner_id": zod.number(),
+  "business_name": zod.string(),
+  "business_type": zod.string(),
+  "gstin": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "address_line1": zod.string().nullish(),
+  "address_line2": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "postal_code": zod.string().nullish(),
+  "country": zod.string().nullish(),
+  "latitude": zod.number().nullish(),
+  "longitude": zod.number().nullish(),
+  "logo_url": zod.string().nullish(),
+  "currency": zod.string().default(getMySubscriptionResponseBusinessCurrencyDefault),
+  "financial_year_start": zod.coerce.date().nullish(),
+  "is_active": zod.boolean().optional(),
+  "plan": zod.enum(['pro', 'premium']).optional(),
+  "billing_cycle": zod.enum(['monthly', 'quarterly', 'half_yearly', 'yearly']).nullish(),
+  "subscription_status": zod.enum(['trial', 'active', 'expired', 'cancelled']).nullish(),
+  "trial_end_date": zod.coerce.date().nullish(),
+  "created_at": zod.coerce.date()
+})
+})
+
+
+/**
+ * @summary Business owner renews or activates their subscription
+ */
+export const RenewSubscriptionBody = zod.object({
+  "plan": zod.enum(['pro', 'premium']),
+  "billing_cycle": zod.enum(['monthly', 'quarterly', 'half_yearly', 'yearly'])
+})
+
+export const RenewSubscriptionResponse = zod.unknown()
+
+
+/**
+ * @summary Create a Razorpay order for subscription renewal
+ */
+export const CreateSubscriptionOrderBody = zod.object({
+  "plan": zod.enum(['pro', 'premium']),
+  "billing_cycle": zod.enum(['monthly', 'quarterly', 'half_yearly', 'yearly'])
+})
+
+export const CreateSubscriptionOrderResponse = zod.object({
+  "order_id": zod.string(),
+  "amount": zod.number(),
+  "currency": zod.string(),
+  "key_id": zod.string()
+})
+
+
+/**
+ * @summary Verify Razorpay payment signature and activate subscription
+ */
+export const VerifySubscriptionPaymentBody = zod.object({
+  "razorpay_order_id": zod.string(),
+  "razorpay_payment_id": zod.string(),
+  "razorpay_signature": zod.string(),
+  "plan": zod.enum(['pro', 'premium']),
+  "billing_cycle": zod.enum(['monthly', 'quarterly', 'half_yearly', 'yearly'])
+})
+
+export const VerifySubscriptionPaymentResponse = zod.object({
+  "message": zod.string(),
+  "subscription": zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "business_name": zod.string().optional(),
+  "plan": zod.enum(['pro', 'premium']),
+  "billing_cycle": zod.enum(['monthly', 'quarterly', 'half_yearly', 'yearly']),
+  "amount": zod.number(),
+  "start_date": zod.coerce.date(),
+  "end_date": zod.coerce.date(),
+  "trial_end_date": zod.coerce.date().nullish(),
+  "status": zod.enum(['active', 'trial', 'expired', 'cancelled']),
+  "payment_ref": zod.string().nullish()
 })
 })
 
@@ -729,6 +893,8 @@ export const ListProductsResponse = zod.object({
   "data": zod.array(zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
+  "vendor_id": zod.number().nullish(),
+  "vendor_name": zod.string().nullish(),
   "name": zod.string(),
   "barcode": zod.string().nullish(),
   "sku": zod.string().nullish(),
@@ -761,6 +927,7 @@ export const createProductBodyLowStockAlertDefault = 5;
 
 export const CreateProductBody = zod.object({
   "business_id": zod.number(),
+  "vendor_id": zod.number().optional(),
   "name": zod.string(),
   "barcode": zod.string().optional(),
   "sku": zod.string().optional(),
@@ -779,6 +946,8 @@ export const CreateProductBody = zod.object({
 export const CreateProductResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
+  "vendor_id": zod.number().nullish(),
+  "vendor_name": zod.string().nullish(),
   "name": zod.string(),
   "barcode": zod.string().nullish(),
   "sku": zod.string().nullish(),
@@ -806,6 +975,8 @@ export const GetProductParams = zod.object({
 export const GetProductResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
+  "vendor_id": zod.number().nullish(),
+  "vendor_name": zod.string().nullish(),
   "name": zod.string(),
   "barcode": zod.string().nullish(),
   "sku": zod.string().nullish(),
@@ -831,6 +1002,7 @@ export const UpdateProductParams = zod.object({
 })
 
 export const UpdateProductBody = zod.object({
+  "vendor_id": zod.number().optional(),
   "name": zod.string().optional(),
   "barcode": zod.string().optional(),
   "sku": zod.string().optional(),
@@ -849,6 +1021,8 @@ export const UpdateProductBody = zod.object({
 export const UpdateProductResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
+  "vendor_id": zod.number().nullish(),
+  "vendor_name": zod.string().nullish(),
   "name": zod.string(),
   "barcode": zod.string().nullish(),
   "sku": zod.string().nullish(),
@@ -888,6 +1062,8 @@ export const GetProductByBarcodeParams = zod.object({
 export const GetProductByBarcodeResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
+  "vendor_id": zod.number().nullish(),
+  "vendor_name": zod.string().nullish(),
   "name": zod.string(),
   "barcode": zod.string().nullish(),
   "sku": zod.string().nullish(),
@@ -1284,6 +1460,7 @@ export const ListPurchasesResponse = zod.object({
   "bill_image_url": zod.string().nullish(),
   "description": zod.string().nullish(),
   "entry_date": zod.coerce.date(),
+  "due_date": zod.coerce.date().nullish(),
   "product_count": zod.number().optional(),
   "created_by": zod.number().optional(),
   "created_at": zod.coerce.date(),
@@ -1316,6 +1493,7 @@ export const CreatePurchaseBody = zod.object({
   "bill_image_url": zod.string().optional(),
   "description": zod.string().optional(),
   "entry_date": zod.coerce.date().optional(),
+  "due_date": zod.coerce.date().optional(),
   "items": zod.array(zod.object({
   "product_id": zod.number(),
   "qty": zod.number(),
@@ -1337,6 +1515,7 @@ export const CreatePurchaseResponse = zod.object({
   "bill_image_url": zod.string().nullish(),
   "description": zod.string().nullish(),
   "entry_date": zod.coerce.date(),
+  "due_date": zod.coerce.date().nullish(),
   "product_count": zod.number().optional(),
   "created_by": zod.number().optional(),
   "created_at": zod.coerce.date(),
@@ -1371,6 +1550,7 @@ export const GetPurchaseResponse = zod.object({
   "bill_image_url": zod.string().nullish(),
   "description": zod.string().nullish(),
   "entry_date": zod.coerce.date(),
+  "due_date": zod.coerce.date().nullish(),
   "product_count": zod.number().optional(),
   "created_by": zod.number().optional(),
   "created_at": zod.coerce.date(),
@@ -1397,7 +1577,8 @@ export const UpdatePurchaseBody = zod.object({
   "amount_paid": zod.number().optional(),
   "bill_image_url": zod.string().optional(),
   "description": zod.string().optional(),
-  "entry_date": zod.coerce.date().optional()
+  "entry_date": zod.coerce.date().optional(),
+  "due_date": zod.coerce.date().optional()
 })
 
 export const UpdatePurchaseResponse = zod.object({
@@ -1414,6 +1595,7 @@ export const UpdatePurchaseResponse = zod.object({
   "bill_image_url": zod.string().nullish(),
   "description": zod.string().nullish(),
   "entry_date": zod.coerce.date(),
+  "due_date": zod.coerce.date().nullish(),
   "product_count": zod.number().optional(),
   "created_by": zod.number().optional(),
   "created_at": zod.coerce.date(),
@@ -2010,6 +2192,7 @@ export const ListDeliveriesQueryParams = zod.object({
 export const ListDeliveriesResponse = zod.object({
   "data": zod.array(zod.object({
   "id": zod.number(),
+  "business_delivery_no": zod.number().nullish(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
   "sales_order_id": zod.number().nullish(),
@@ -2066,6 +2249,7 @@ export const CreateDeliveryBody = zod.object({
 
 export const CreateDeliveryResponse = zod.object({
   "id": zod.number(),
+  "business_delivery_no": zod.number().nullish(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
   "sales_order_id": zod.number().nullish(),
@@ -2111,6 +2295,7 @@ export const GetDeliveryParams = zod.object({
 
 export const GetDeliveryResponse = zod.object({
   "id": zod.number(),
+  "business_delivery_no": zod.number().nullish(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
   "sales_order_id": zod.number().nullish(),
@@ -2162,6 +2347,7 @@ export const UpdateDeliveryBody = zod.object({
 
 export const UpdateDeliveryResponse = zod.object({
   "id": zod.number(),
+  "business_delivery_no": zod.number().nullish(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
   "sales_order_id": zod.number().nullish(),
@@ -2211,6 +2397,7 @@ export const AssignDriverBody = zod.object({
 
 export const AssignDriverResponse = zod.object({
   "id": zod.number(),
+  "business_delivery_no": zod.number().nullish(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
   "sales_order_id": zod.number().nullish(),
@@ -2260,6 +2447,7 @@ export const UpdateDeliveryStatusBody = zod.object({
 
 export const UpdateDeliveryStatusResponse = zod.object({
   "id": zod.number(),
+  "business_delivery_no": zod.number().nullish(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
   "sales_order_id": zod.number().nullish(),
@@ -2311,6 +2499,7 @@ export const ListMyDeliveriesQueryParams = zod.object({
 export const ListMyDeliveriesResponse = zod.object({
   "data": zod.array(zod.object({
   "id": zod.number(),
+  "business_delivery_no": zod.number().nullish(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
   "sales_order_id": zod.number().nullish(),
@@ -2361,6 +2550,7 @@ export const GetMyDeliveryDetailsParams = zod.object({
 export const GetMyDeliveryDetailsResponse = zod.object({
   "delivery": zod.object({
   "id": zod.number(),
+  "business_delivery_no": zod.number().nullish(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
   "sales_order_id": zod.number().nullish(),
@@ -2420,6 +2610,7 @@ export const AcceptDeliveryParams = zod.object({
 
 export const AcceptDeliveryResponse = zod.object({
   "id": zod.number(),
+  "business_delivery_no": zod.number().nullish(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
   "sales_order_id": zod.number().nullish(),
@@ -2473,6 +2664,7 @@ export const RejectDeliveryBody = zod.object({
 
 export const RejectDeliveryResponse = zod.object({
   "id": zod.number(),
+  "business_delivery_no": zod.number().nullish(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
   "sales_order_id": zod.number().nullish(),
@@ -2531,6 +2723,7 @@ export const PickupDeliveryParams = zod.object({
 
 export const PickupDeliveryResponse = zod.object({
   "id": zod.number(),
+  "business_delivery_no": zod.number().nullish(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
   "sales_order_id": zod.number().nullish(),
@@ -2576,6 +2769,7 @@ export const StartDeliveryTripParams = zod.object({
 
 export const StartDeliveryTripResponse = zod.object({
   "id": zod.number(),
+  "business_delivery_no": zod.number().nullish(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
   "sales_order_id": zod.number().nullish(),
@@ -2621,6 +2815,7 @@ export const MarkDeliveryArrivedParams = zod.object({
 
 export const MarkDeliveryArrivedResponse = zod.object({
   "id": zod.number(),
+  "business_delivery_no": zod.number().nullish(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
   "sales_order_id": zod.number().nullish(),
@@ -2687,6 +2882,7 @@ export const VerifyDeliveryOtpBody = zod.object({
 
 export const VerifyDeliveryOtpResponse = zod.object({
   "id": zod.number(),
+  "business_delivery_no": zod.number().nullish(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
   "sales_order_id": zod.number().nullish(),
@@ -2740,6 +2936,7 @@ export const ConfirmDeliveryPaymentBody = zod.object({
 
 export const ConfirmDeliveryPaymentResponse = zod.object({
   "id": zod.number(),
+  "business_delivery_no": zod.number().nullish(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
   "sales_order_id": zod.number().nullish(),
@@ -2788,6 +2985,7 @@ export const CompleteDeliveryResponse = zod.object({
   "message": zod.string(),
   "data": zod.object({
   "id": zod.number(),
+  "business_delivery_no": zod.number().nullish(),
   "business_id": zod.number(),
   "customer_id": zod.number(),
   "sales_order_id": zod.number().nullish(),
@@ -3366,7 +3564,6 @@ export const GetAdminAnalyticsResponse = zod.object({
   "transactions": zod.number()
 })),
   "plan_breakdown": zod.object({
-  "free": zod.number(),
   "pro": zod.number(),
   "premium": zod.number()
 }).optional(),
@@ -3391,8 +3588,39 @@ export const GetAdminAnalyticsResponse = zod.object({
   "currency": zod.string().default(getAdminAnalyticsResponseRecentSignupsItemCurrencyDefault),
   "financial_year_start": zod.coerce.date().nullish(),
   "is_active": zod.boolean().optional(),
-  "plan": zod.enum(['free', 'pro', 'premium']).optional(),
+  "plan": zod.enum(['pro', 'premium']).optional(),
+  "billing_cycle": zod.enum(['monthly', 'quarterly', 'half_yearly', 'yearly']).nullish(),
+  "subscription_status": zod.enum(['trial', 'active', 'expired', 'cancelled']).nullish(),
+  "trial_end_date": zod.coerce.date().nullish(),
   "created_at": zod.coerce.date()
+})).optional(),
+  "monthly_revenue": zod.array(zod.object({
+  "month": zod.string(),
+  "amount": zod.number()
+})).optional(),
+  "current_month_revenue": zod.number().optional(),
+  "previous_month_revenue": zod.number().optional(),
+  "subscription_status_breakdown": zod.object({
+  "active": zod.number(),
+  "trial": zod.number(),
+  "expiring_soon": zod.number(),
+  "expired": zod.number(),
+  "cancelled": zod.number()
+}).optional(),
+  "system_alerts": zod.object({
+  "expiring_soon_count": zod.number(),
+  "failed_payments_count": zod.number(),
+  "suspended_businesses_count": zod.number()
+}).optional(),
+  "recent_payments": zod.array(zod.object({
+  "id": zod.number(),
+  "business_id": zod.number(),
+  "business_name": zod.string(),
+  "plan": zod.enum(['pro', 'premium']),
+  "billing_cycle": zod.enum(['monthly', 'quarterly', 'half_yearly', 'yearly']),
+  "amount": zod.number(),
+  "payment_date": zod.coerce.date(),
+  "status": zod.enum(['paid', 'pending', 'failed'])
 })).optional()
 })
 
@@ -3406,7 +3634,7 @@ export const listAdminBusinessesQueryLimitDefault = 20;
 export const ListAdminBusinessesQueryParams = zod.object({
   "search": zod.coerce.string().optional(),
   "status": zod.enum(['active', 'suspended']).optional(),
-  "plan": zod.enum(['free', 'pro', 'premium']).optional(),
+  "plan": zod.enum(['pro', 'premium']).optional(),
   "page": zod.coerce.number().default(listAdminBusinessesQueryPageDefault),
   "limit": zod.coerce.number().default(listAdminBusinessesQueryLimitDefault)
 })
@@ -3419,7 +3647,7 @@ export const ListAdminBusinessesResponse = zod.object({
   "phone": zod.string().optional(),
   "owner_name": zod.string(),
   "owner_phone": zod.string().optional(),
-  "plan": zod.enum(['free', 'pro', 'premium']),
+  "plan": zod.enum(['pro', 'premium']),
   "is_active": zod.boolean(),
   "customer_count": zod.number().optional(),
   "transaction_count": zod.number().optional(),
@@ -3454,7 +3682,7 @@ export const listAdminUsersQueryPageDefault = 1;
 export const listAdminUsersQueryLimitDefault = 20;
 
 export const ListAdminUsersQueryParams = zod.object({
-  "search": zod.coerce.string().optional(),
+  "business_id": zod.coerce.number().optional(),
   "role": zod.enum(['owner', 'staff', 'admin']).optional(),
   "is_active": zod.coerce.boolean().optional(),
   "page": zod.coerce.number().default(listAdminUsersQueryPageDefault),
@@ -3502,8 +3730,9 @@ export const listSubscriptionsQueryPageDefault = 1;
 export const listSubscriptionsQueryLimitDefault = 20;
 
 export const ListSubscriptionsQueryParams = zod.object({
-  "plan": zod.enum(['free', 'pro', 'premium']).optional(),
-  "status": zod.enum(['active', 'expired', 'cancelled']).optional(),
+  "plan": zod.enum(['pro', 'premium']).optional(),
+  "billing_cycle": zod.enum(['monthly', 'quarterly', 'half_yearly', 'yearly']).optional(),
+  "status": zod.enum(['trial', 'active', 'expired', 'cancelled']).optional(),
   "page": zod.coerce.number().default(listSubscriptionsQueryPageDefault),
   "limit": zod.coerce.number().default(listSubscriptionsQueryLimitDefault)
 })
@@ -3513,15 +3742,198 @@ export const ListSubscriptionsResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
   "business_name": zod.string().optional(),
-  "plan": zod.enum(['free', 'pro', 'premium']),
+  "plan": zod.enum(['pro', 'premium']),
+  "billing_cycle": zod.enum(['monthly', 'quarterly', 'half_yearly', 'yearly']),
+  "amount": zod.number(),
   "start_date": zod.coerce.date(),
   "end_date": zod.coerce.date(),
-  "status": zod.enum(['active', 'expired', 'cancelled']),
+  "trial_end_date": zod.coerce.date().nullish(),
+  "status": zod.enum(['active', 'trial', 'expired', 'cancelled']),
   "payment_ref": zod.string().nullish()
 })),
   "total": zod.number(),
   "page": zod.number(),
   "limit": zod.number()
+})
+
+
+/**
+ * @summary List all subscription plan configurations (Pro & Premium pricing, limits, features)
+ */
+export const ListSubscriptionPlansResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "plan": zod.enum(['pro', 'premium']),
+  "monthly_price": zod.number(),
+  "quarterly_price": zod.number(),
+  "half_yearly_price": zod.number(),
+  "yearly_price": zod.number(),
+  "trial_days": zod.number(),
+  "max_users": zod.number(),
+  "max_branches": zod.number(),
+  "max_products": zod.number(),
+  "max_customers": zod.number(),
+  "max_vendors": zod.number(),
+  "max_orders": zod.number(),
+  "features": zod.record(zod.string(), zod.boolean()),
+  "is_active": zod.boolean(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Create a subscription plan configuration
+ */
+export const createSubscriptionPlanBodyTrialDaysDefault = 15;
+export const createSubscriptionPlanBodyMaxUsersDefault = -1;
+export const createSubscriptionPlanBodyMaxBranchesDefault = -1;
+export const createSubscriptionPlanBodyMaxProductsDefault = -1;
+export const createSubscriptionPlanBodyMaxCustomersDefault = -1;
+export const createSubscriptionPlanBodyMaxVendorsDefault = -1;
+export const createSubscriptionPlanBodyMaxOrdersDefault = -1;
+export const createSubscriptionPlanBodyIsActiveDefault = true;
+
+export const CreateSubscriptionPlanBody = zod.object({
+  "plan": zod.enum(['pro', 'premium']),
+  "monthly_price": zod.number(),
+  "quarterly_price": zod.number(),
+  "half_yearly_price": zod.number(),
+  "yearly_price": zod.number(),
+  "trial_days": zod.number().default(createSubscriptionPlanBodyTrialDaysDefault),
+  "max_users": zod.number().default(createSubscriptionPlanBodyMaxUsersDefault),
+  "max_branches": zod.number().default(createSubscriptionPlanBodyMaxBranchesDefault),
+  "max_products": zod.number().default(createSubscriptionPlanBodyMaxProductsDefault),
+  "max_customers": zod.number().default(createSubscriptionPlanBodyMaxCustomersDefault),
+  "max_vendors": zod.number().default(createSubscriptionPlanBodyMaxVendorsDefault),
+  "max_orders": zod.number().default(createSubscriptionPlanBodyMaxOrdersDefault),
+  "features": zod.record(zod.string(), zod.boolean()).optional(),
+  "is_active": zod.boolean().default(createSubscriptionPlanBodyIsActiveDefault)
+})
+
+export const CreateSubscriptionPlanResponse = zod.object({
+  "id": zod.number(),
+  "plan": zod.enum(['pro', 'premium']),
+  "monthly_price": zod.number(),
+  "quarterly_price": zod.number(),
+  "half_yearly_price": zod.number(),
+  "yearly_price": zod.number(),
+  "trial_days": zod.number(),
+  "max_users": zod.number(),
+  "max_branches": zod.number(),
+  "max_products": zod.number(),
+  "max_customers": zod.number(),
+  "max_vendors": zod.number(),
+  "max_orders": zod.number(),
+  "features": zod.record(zod.string(), zod.boolean()),
+  "is_active": zod.boolean(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get a subscription plan by ID
+ */
+export const GetSubscriptionPlanParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetSubscriptionPlanResponse = zod.object({
+  "id": zod.number(),
+  "plan": zod.enum(['pro', 'premium']),
+  "monthly_price": zod.number(),
+  "quarterly_price": zod.number(),
+  "half_yearly_price": zod.number(),
+  "yearly_price": zod.number(),
+  "trial_days": zod.number(),
+  "max_users": zod.number(),
+  "max_branches": zod.number(),
+  "max_products": zod.number(),
+  "max_customers": zod.number(),
+  "max_vendors": zod.number(),
+  "max_orders": zod.number(),
+  "features": zod.record(zod.string(), zod.boolean()),
+  "is_active": zod.boolean(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update a subscription plan's pricing, limits or features
+ */
+export const UpdateSubscriptionPlanParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateSubscriptionPlanBody = zod.object({
+  "monthly_price": zod.number().optional(),
+  "quarterly_price": zod.number().optional(),
+  "half_yearly_price": zod.number().optional(),
+  "yearly_price": zod.number().optional(),
+  "trial_days": zod.number().optional(),
+  "max_users": zod.number().optional(),
+  "max_branches": zod.number().optional(),
+  "max_products": zod.number().optional(),
+  "max_customers": zod.number().optional(),
+  "max_vendors": zod.number().optional(),
+  "max_orders": zod.number().optional(),
+  "features": zod.record(zod.string(), zod.boolean()).optional(),
+  "is_active": zod.boolean().optional()
+})
+
+export const UpdateSubscriptionPlanResponse = zod.object({
+  "id": zod.number(),
+  "plan": zod.enum(['pro', 'premium']),
+  "monthly_price": zod.number(),
+  "quarterly_price": zod.number(),
+  "half_yearly_price": zod.number(),
+  "yearly_price": zod.number(),
+  "trial_days": zod.number(),
+  "max_users": zod.number(),
+  "max_branches": zod.number(),
+  "max_products": zod.number(),
+  "max_customers": zod.number(),
+  "max_vendors": zod.number(),
+  "max_orders": zod.number(),
+  "features": zod.record(zod.string(), zod.boolean()),
+  "is_active": zod.boolean(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Activate or deactivate a subscription plan
+ */
+export const UpdateSubscriptionPlanStatusParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateSubscriptionPlanStatusBody = zod.object({
+  "is_active": zod.boolean()
+})
+
+export const UpdateSubscriptionPlanStatusResponse = zod.object({
+  "id": zod.number(),
+  "plan": zod.enum(['pro', 'premium']),
+  "monthly_price": zod.number(),
+  "quarterly_price": zod.number(),
+  "half_yearly_price": zod.number(),
+  "yearly_price": zod.number(),
+  "trial_days": zod.number(),
+  "max_users": zod.number(),
+  "max_branches": zod.number(),
+  "max_products": zod.number(),
+  "max_customers": zod.number(),
+  "max_vendors": zod.number(),
+  "max_orders": zod.number(),
+  "features": zod.record(zod.string(), zod.boolean()),
+  "is_active": zod.boolean(),
+  "created_at": zod.coerce.date(),
+  "updated_at": zod.coerce.date()
 })
 
 
@@ -3533,8 +3945,9 @@ export const UpdateSubscriptionParams = zod.object({
 })
 
 export const UpdateSubscriptionBody = zod.object({
-  "plan": zod.enum(['free', 'pro', 'premium']),
-  "status": zod.enum(['active', 'expired', 'cancelled']),
+  "plan": zod.enum(['pro', 'premium']).optional(),
+  "billing_cycle": zod.enum(['monthly', 'quarterly', 'half_yearly', 'yearly']).optional(),
+  "status": zod.enum(['trial', 'active', 'expired', 'cancelled']).optional(),
   "end_date": zod.coerce.date().optional()
 })
 
@@ -3542,10 +3955,13 @@ export const UpdateSubscriptionResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
   "business_name": zod.string().optional(),
-  "plan": zod.enum(['free', 'pro', 'premium']),
+  "plan": zod.enum(['pro', 'premium']),
+  "billing_cycle": zod.enum(['monthly', 'quarterly', 'half_yearly', 'yearly']),
+  "amount": zod.number(),
   "start_date": zod.coerce.date(),
   "end_date": zod.coerce.date(),
-  "status": zod.enum(['active', 'expired', 'cancelled']),
+  "trial_end_date": zod.coerce.date().nullish(),
+  "status": zod.enum(['active', 'trial', 'expired', 'cancelled']),
   "payment_ref": zod.string().nullish()
 })
 
@@ -3592,10 +4008,80 @@ export const BroadcastNotificationBody = zod.object({
   "title": zod.string(),
   "body": zod.string(),
   "channel": zod.enum(['push', 'sms', 'all']),
-  "target_plan": zod.enum(['free', 'pro', 'premium', 'all']).default(broadcastNotificationBodyTargetPlanDefault)
+  "target_plan": zod.enum(['pro', 'premium', 'all']).default(broadcastNotificationBodyTargetPlanDefault)
 })
 
 export const BroadcastNotificationResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary List notifications for the admin dashboard (business-scoped)
+ */
+export const listAdminNotificationsQueryFilterDefault = `ALL`;
+export const listAdminNotificationsQueryPageDefault = 1;
+export const listAdminNotificationsQueryLimitDefault = 20;
+
+export const ListAdminNotificationsQueryParams = zod.object({
+  "business_id": zod.coerce.number(),
+  "filter": zod.enum(['ALL', 'NEW_ORDERS', 'LOW_STOCK', 'VENDOR_PAYMENTS', 'SUBSCRIPTION', 'UNREAD']).default(listAdminNotificationsQueryFilterDefault),
+  "page": zod.coerce.number().default(listAdminNotificationsQueryPageDefault),
+  "limit": zod.coerce.number().default(listAdminNotificationsQueryLimitDefault)
+})
+
+export const ListAdminNotificationsResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "type": zod.enum(['new_order', 'low_stock', 'vendor_payment_pending', 'vendor_payment_overdue', 'subscription_renewal', 'subscription_renewal_success', 'subscription_trial_expiring']),
+  "title": zod.string().nullish(),
+  "message": zod.string(),
+  "order_id": zod.number().nullish(),
+  "product_id": zod.number().nullish(),
+  "vendor_id": zod.number().nullish(),
+  "purchase_id": zod.number().nullish(),
+  "is_read": zod.boolean(),
+  "created_at": zod.coerce.date(),
+  "read_at": zod.coerce.date().nullish()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Unread admin notification count for a business
+ */
+export const GetAdminNotificationsUnreadCountQueryParams = zod.object({
+  "business_id": zod.coerce.number()
+})
+
+export const GetAdminNotificationsUnreadCountResponse = zod.object({
+  "count": zod.number()
+})
+
+
+/**
+ * @summary Mark one admin notification as read
+ */
+export const MarkAdminNotificationReadParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const MarkAdminNotificationReadResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Mark all admin notifications as read for a business
+ */
+export const MarkAllAdminNotificationsReadQueryParams = zod.object({
+  "business_id": zod.coerce.number()
+})
+
+export const MarkAllAdminNotificationsReadResponse = zod.object({
   "message": zod.string()
 })
 

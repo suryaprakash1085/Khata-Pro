@@ -23,19 +23,28 @@ export interface CustomerOrderDelivery {
   picked_up_at: string | null;
   delivered_at: string | null;
 }
+export interface CustomerOrderItem {
+  id: number;
+  product_id: number;
+  product_name: string;
+  qty: number;
+  unit_price: number;
+}
 
 export interface CustomerOrder {
   id: number;
   business_id: number;
+  business_name?: string | null; 
   customer_id: number;
   amount: number;
   entry_date: string;
+  created_at?: string;
   sales_order_status: string;
   delivery_status: string | null;
   tracking_status: CustomerTrackingStatus;
   tracking_steps: readonly string[];
+  items: CustomerOrderItem[];
   delivery: CustomerOrderDelivery | null;
-  business_name?: string;
 store_name?: string;
 description?: string;
 }

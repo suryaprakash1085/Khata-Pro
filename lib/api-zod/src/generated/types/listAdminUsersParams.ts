@@ -8,7 +8,7 @@
 import type { ListAdminUsersRole } from './listAdminUsersRole';
 
 export type ListAdminUsersParams = {
-search?: string;
+business_id?: number;
 role?: ListAdminUsersRole;
 is_active?: boolean;
 page?: number;

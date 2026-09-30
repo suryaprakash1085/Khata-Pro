@@ -430,38 +430,53 @@ const DriverOrderDetailsScreen: React.FC = () => {
     </View>
   );
 
-  const orderItemsCard = (
+    const orderItemsCard = (
     <View style={styles.card}>
       <View style={styles.sectionHeaderRow}>
         <Ionicons name="cube-outline" size={15} color={COLORS.primary} />
         <Text style={styles.sectionTitle}>Order Items</Text>
       </View>
 
-      <View style={styles.itemsRow}>
-        {/* Items table */}
-        <View style={{ flex: 1.3 }}>
-          <View style={styles.itemsTableHeader}>
-            <Text style={[styles.itemsTableHeaderText, { flex: 2 }]}>Item</Text>
-            <Text style={[styles.itemsTableHeaderText, { flex: 0.8, textAlign: 'center' }]}>Qty</Text>
-            <Text style={[styles.itemsTableHeaderText, { flex: 1, textAlign: 'right' }]}>Unit Price</Text>
-            <Text style={[styles.itemsTableHeaderText, { flex: 1, textAlign: 'right' }]}>Total</Text>
-          </View>
+      <View style={isWideWeb ? styles.itemsRow : styles.itemsColumn}>
+        {/* Items list */}
+        <View style={isWideWeb ? { flex: 1.3 } : styles.itemsListFull}>
+          {isWideWeb && (
+            <View style={styles.itemsTableHeader}>
+              <Text style={[styles.itemsTableHeaderText, { flex: 2 }]}>Item</Text>
+              <Text style={[styles.itemsTableHeaderText, { flex: 0.8, textAlign: 'center' }]}>Qty</Text>
+              <Text style={[styles.itemsTableHeaderText, { flex: 1, textAlign: 'right' }]}>Unit Price</Text>
+              <Text style={[styles.itemsTableHeaderText, { flex: 1, textAlign: 'right' }]}>Total</Text>
+            </View>
+          )}
+
           {items.length === 0 ? (
             <Text style={styles.emptyText}>No item details available.</Text>
           ) : (
-            items.map((it: any) => (
-              <View key={it.id} style={styles.itemsTableRow}>
-                <Text style={[styles.itemsTableCellName, { flex: 2 }]}>{it.product_name}</Text>
-                <Text style={[styles.itemsTableCell, { flex: 0.8, textAlign: 'center' }]}>{it.qty}</Text>
-                <Text style={[styles.itemsTableCell, { flex: 1, textAlign: 'right' }]}>₹{it.unit_price}</Text>
-                <Text style={[styles.itemsTableCellBold, { flex: 1, textAlign: 'right' }]}>₹{it.total_price}</Text>
-              </View>
-            ))
+            items.map((it: any) =>
+              isWideWeb ? (
+                <View key={it.id} style={styles.itemsTableRow}>
+                  <Text style={[styles.itemsTableCellName, { flex: 2 }]}>{it.product_name}</Text>
+                  <Text style={[styles.itemsTableCell, { flex: 0.8, textAlign: 'center' }]}>{it.qty}</Text>
+                  <Text style={[styles.itemsTableCell, { flex: 1, textAlign: 'right' }]}>₹{it.unit_price}</Text>
+                  <Text style={[styles.itemsTableCellBold, { flex: 1, textAlign: 'right' }]}>₹{it.total_price}</Text>
+                </View>
+              ) : (
+                <View key={it.id} style={styles.itemCardMobile}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.itemMobileName}>{it.product_name}</Text>
+                    <Text style={styles.itemMobileMeta}>
+                      Qty {it.qty} × ₹{it.unit_price}
+                    </Text>
+                  </View>
+                  <Text style={styles.itemMobileTotal}>₹{it.total_price}</Text>
+                </View>
+              )
+            )
           )}
         </View>
 
         {/* Payment summary */}
-        <View style={styles.itemsSummaryBox}>
+        <View style={[styles.itemsSummaryBox, !isWideWeb && styles.itemsSummaryBoxFull]}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Subtotal</Text>
             <Text style={styles.summaryValue}>₹{delivery.subtotal ?? delivery.amount ?? 0}</Text>
@@ -825,7 +840,9 @@ const styles = StyleSheet.create({
   mapFooterDistance: { fontFamily: FONT_FAMILY, fontSize: 12.5, fontWeight: '700', color: COLORS.secondary },
 
   // ── Order items ───────────────────────────────────────────────────
-  itemsRow: { flexDirection: 'row', gap: 16, flexWrap: 'wrap' },
+  itemsRow: { flexDirection: 'row', gap: 16 },
+  itemsColumn: { flexDirection: 'column', gap: 12 },
+  itemsListFull: { width: '100%' },
   itemsTableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: COLORS.border, paddingBottom: 8, marginBottom: 4 },
   itemsTableHeaderText: { fontFamily: FONT_FAMILY, fontSize: 11, fontWeight: '700', color: COLORS.slate, textTransform: 'uppercase', letterSpacing: 0.3 },
   itemsTableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: COLORS.border },
@@ -833,13 +850,22 @@ const styles = StyleSheet.create({
   itemsTableCell: { fontFamily: FONT_FAMILY, fontSize: 12.5, color: COLORS.slate },
   itemsTableCellBold: { fontFamily: FONT_FAMILY, fontSize: 13, color: COLORS.ink, fontWeight: '700' },
   itemsSummaryBox: { flexBasis: 200, flexGrow: 1, backgroundColor: COLORS.bg, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: COLORS.border },
-
+  itemsSummaryBoxFull: { flexBasis: 'auto', flexGrow: 0, width: '100%' },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 },
   summaryLabel: { fontFamily: FONT_FAMILY, fontSize: 12.5, color: COLORS.slate },
   summaryValue: { fontFamily: FONT_FAMILY, fontSize: 12.5, color: COLORS.ink, fontWeight: '600' },
   divider: { height: 1, backgroundColor: COLORS.border, marginVertical: 8 },
   totalLabel: { fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '700', color: COLORS.ink },
   totalValue: { fontFamily: FONT_FAMILY, fontSize: 16, fontWeight: '700', color: COLORS.primary },
+
+   // Mobile stacked item card
+  itemCardMobile: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  itemMobileName: { fontFamily: FONT_FAMILY, fontSize: 13.5, fontWeight: '700', color: COLORS.ink, lineHeight: 18 },
+  itemMobileMeta: { fontFamily: FONT_FAMILY, fontSize: 12, color: COLORS.slate, marginTop: 3 },
+  itemMobileTotal: { fontFamily: FONT_FAMILY, fontSize: 13.5, fontWeight: '700', color: COLORS.ink },
 
   // ── Payment / notes ───────────────────────────────────────────────
   paymentBadge: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12, padding: 12, borderWidth: 1 },

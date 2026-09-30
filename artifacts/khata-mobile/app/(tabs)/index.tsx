@@ -31,11 +31,13 @@ import {
   getListSalesOrdersQueryKey,
 } from '@workspace/api-client-react';
 // @ts-ignore
-import type { Customer } from '@workspace/api-client-react';
+import type { Customer, Product } from '@workspace/api-client-react';
 import { formatCurrency } from '@/lib/format';
 import { customFetch } from '@workspace/api-client-react';
 import { useQuery } from '@tanstack/react-query';
-
+import { AIAssistantButton } from '@/components/AIAssistant/AIAssistantButton';
+// Add import near the top:
+import { NotificationBell } from '@/components/NotificationBell/NotificationBell';
 const IS_WEB = Platform.OS === 'web';
 
 const ACTIONS = [
@@ -101,12 +103,33 @@ const SALES_ACTIVITY_CARDS = [
   },
 ] as const;
 
-// This month's date range, as YYYY-MM-DD strings (matches entry_date filters on the API)
-function getMonthRange() {
+// ---------------------------------------------------------------------------
+// Period filter — powers the "Today / This Week / This Month" dropdown that
+// used to be a static, non-interactive "This Month" label on Top Selling
+// Items, Purchase Order, and Sales Order.
+// ---------------------------------------------------------------------------
+type PeriodFilter = 'today' | 'week' | 'month';
+
+const PERIOD_OPTIONS: { value: PeriodFilter; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: 'week', label: 'This Week' },
+  { value: 'month', label: 'This Month' },
+];
+
+// Returns { from, to } as YYYY-MM-DD strings (matches entry_date filters on the API)
+function getDateRange(period: PeriodFilter) {
   const now = new Date();
-  const from = new Date(now.getFullYear(), now.getMonth(), 1);
-  const fromStr = from.toISOString().split('T')[0];
   const toStr = now.toISOString().split('T')[0];
+  let from: Date;
+  if (period === 'today') {
+    from = new Date(now);
+  } else if (period === 'week') {
+    from = new Date(now);
+    from.setDate(now.getDate() - 6); // last 7 days, inclusive of today
+  } else {
+    from = new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+  const fromStr = from.toISOString().split('T')[0];
   return { from: fromStr, to: toStr };
 }
 
@@ -155,6 +178,19 @@ function useVendorPendingTotal(businessId?: number, enabled?: boolean) {
   });
 }
 
+function usePendingReceiveQty(businessId?: number, enabled?: boolean) {
+  return useQuery<{ total_pending_qty: number }>({
+    queryKey: ['purchase-orders', 'pending-qty-total', businessId],
+    enabled: !!businessId && !!enabled,
+    queryFn: () => customFetch(`/api/purchase-orders/pending-qty-total?business_id=${businessId}`, { responseType: 'json' }),
+  });
+}
+
+// Defensive readers for product search results in the global search dropdown.
+function getBarcode(p: any): string {
+  return p?.barcode ?? p?.sku ?? '';
+}
+
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -164,6 +200,19 @@ export default function HomeScreen() {
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
 
+  // Responsive breakpoints — used for the header (search/bell/profile),
+  // AI assistant button position, and the Sales Activity grid overflow fix.
+  const isSmallMobile = width < 380;
+  const isMobile = width < 600;
+  const isTablet = width >= 600 && width < 900;
+
+  // Which section's Today/This Week/This Month dropdown is currently open —
+  // only one at a time, anchored directly under that section's chip.
+  const [openDropdown, setOpenDropdown] = useState<'topSelling' | 'purchaseOrder' | 'salesOrder' | null>(null);
+  const [topSellingPeriod, setTopSellingPeriod] = useState<PeriodFilter>('month');
+  const [purchaseOrderPeriod, setPurchaseOrderPeriod] = useState<PeriodFilter>('month');
+  const [salesOrderPeriod, setSalesOrderPeriod] = useState<PeriodFilter>('month');
+
   // Sales Activity grid columns — 3 on wide/desktop screens, 2 on tablet, 1 on narrow mobile.
   const salesActivityColumns = width >= 700 ? 3 : width >= 420 ? 2 : 1;
 
@@ -171,12 +220,30 @@ export default function HomeScreen() {
     query: { enabled: !!business?.id, queryKey: getGetBusinessStatsQueryKey(business?.id as number) },
   });
 
+  // ---------------- Global search — Customers + Products ----------------
   const customersParams = { business_id: business?.id as number, search: search || undefined, limit: 6 };
   const customersQuery = useListCustomers(customersParams, {
     query: { enabled: !!business?.id && search.trim().length > 0, queryKey: getListCustomersQueryKey(customersParams) },
   });
-  const searchResults: Customer[] = search.trim().length > 0 ? customersQuery.data?.data ?? [] : [];
-  const searchLoading = customersQuery.isLoading && search.trim().length > 0;
+  const customerResults: Customer[] = search.trim().length > 0 ? customersQuery.data?.data ?? [] : [];
+  const customerSearchLoading = customersQuery.isLoading && search.trim().length > 0;
+
+  // Product search — reuses the existing product API's `search` param, which already
+  // matches name AND barcode (same param Billing.tsx's product search relies on for
+  // barcode-scan lookups), so a scanned/typed barcode surfaces the exact product here too.
+  const productSearchParams = { business_id: business?.id as number, search: search.trim(), limit: 6 };
+  const productSearchQuery = useListProducts(productSearchParams, {
+    query: {
+      enabled: !!business?.id && search.trim().length > 0,
+      queryKey: getListProductsQueryKey(productSearchParams),
+    },
+  });
+  const productResults: Product[] = search.trim().length > 0 ? productSearchQuery.data?.data ?? [] : [];
+  const productSearchLoading = productSearchQuery.isLoading && search.trim().length > 0;
+
+  const searchLoading = customerSearchLoading || productSearchLoading;
+  const hasNoResults =
+    !searchLoading && search.trim().length > 0 && customerResults.length === 0 && productResults.length === 0;
 
   // Products — powers Inventory Summary, Product Details, and Top Selling Items.
   const productsParams = { business_id: business?.id as number, limit: 500 };
@@ -196,17 +263,27 @@ export default function HomeScreen() {
     return { totalItems, quantityInHand, lowStockCount, activePercent, itemGroups: groupSet.size };
   }, [products]);
 
-  // "Top selling" — best-effort sort by stock movement proxy (falls back to insertion order)
+  // "Top selling" — best-effort sort by stock movement proxy (falls back to insertion order).
+  // NOTE: `sold_count` is a lifetime counter on the product record — there's no
+  // per-period (today/week/month) sales-by-product data available client-side,
+  // so the Today/This Week/This Month picker on this card is UI-only for now;
+  // the ranking itself doesn't change with it. Making that real needs a
+  // backend endpoint that returns sales counts grouped by product + date range.
   const topSellingItems = useMemo(() => {
     return [...products]
       .sort((a, b) => (Number(b?.sold_count ?? 0) || 0) - (Number(a?.sold_count ?? 0) || 0))
       .slice(0, 10);
   }, [products]);
 
-  // ---------------- Purchase Order — this month's purchases from vendors ----------------
-  const { from: monthFrom, to: monthTo } = useMemo(() => getMonthRange(), []);
+  // ---------------- Purchase Order — driven by its own period picker ----------------
+  const purchaseDateRange = useMemo(() => getDateRange(purchaseOrderPeriod), [purchaseOrderPeriod]);
 
-  const purchasesParams = { business_id: business?.id as number, from: monthFrom, to: monthTo, limit: 200 };
+  const purchasesParams = {
+    business_id: business?.id as number,
+    from: purchaseDateRange.from,
+    to: purchaseDateRange.to,
+    limit: 200,
+  };
   const purchasesQuery = useListPurchases(purchasesParams, {
     query: { enabled: !!business?.id, queryKey: getListPurchasesQueryKey(purchasesParams) },
   });
@@ -220,11 +297,20 @@ export default function HomeScreen() {
     const totalCost = purchases.reduce((sum, p) => sum + (Number(p?.amount) || 0), 0);
     return { itemsOrdered, totalCost };
   }, [purchases]);
-  
+
   const { data: vendorPending } = useVendorPendingTotal(business?.id, !!business?.id);
 
-  // ---------------- Sales Order — this month's orders, grouped by channel + status ----------------
-  const salesOrdersParams = { business_id: business?.id as number, from: monthFrom, to: monthTo, limit: 200 };
+  const { data: pendingReceiveQty } = usePendingReceiveQty(business?.id, !!business?.id);
+
+  // ---------------- Sales Order — driven by its own period picker ----------------
+  const salesOrderDateRange = useMemo(() => getDateRange(salesOrderPeriod), [salesOrderPeriod]);
+
+  const salesOrdersParams = {
+    business_id: business?.id as number,
+    from: salesOrderDateRange.from,
+    to: salesOrderDateRange.to,
+    limit: 200,
+  };
   const salesOrdersQuery = useListSalesOrders(salesOrdersParams, {
     query: { enabled: !!business?.id, queryKey: getListSalesOrdersQueryKey(salesOrdersParams) },
   });
@@ -260,9 +346,25 @@ export default function HomeScreen() {
     router.push(`/customer/${customer.id}` as any);
   };
 
+  const handleSelectProduct = (_product: Product) => {
+    setSearch('');
+    setSearchOpen(false);
+    router.push('/all-products' as any);
+  };
+
   const webInputFix = IS_WEB
     ? ({ outlineStyle: 'none', outlineWidth: 0, caretColor: colors.primary } as any)
     : undefined;
+
+  // AI Assistant button — on mobile the header row sits close to the top,
+  // so push the button down below the header/quick-actions area instead of
+  // letting it float over the search bar / bell / profile. Desktop keeps its
+  // original position.
+  // Desktop/tablet: match the header row's own top position (paddingTop
+  // below) so the AI trigger sits in the exact same row as the bell/profile
+  // icons. Mobile: push it below the header so it doesn't overlap search/
+  // bell/profile there.
+  const aiButtonTopOffset = isMobile ? insets.top + 108 : insets.top + 12;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -275,17 +377,25 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Header: search bar + profile, with results dropdown anchored right below it */}
+        {/* Header: search bar + bell + profile, with results dropdown anchored right below it */}
         <View style={styles.searchAreaWrap}>
           <View style={styles.headerRow}>
-            <View style={[styles.searchWrapper, styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View
+              style={[
+                styles.searchWrapper,
+                styles.searchContainer,
+                isTablet && styles.tabletSearchWrapper,
+                isMobile && styles.mobileSearchWrapper,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
               <Feather name="search" size={15} color={colors.mutedForeground} />
               <TextInput
                 value={search}
                 onChangeText={setSearch}
                 onFocus={() => setSearchOpen(true)}
                 onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
-                placeholder="Search customers, products..."
+                placeholder="Search customers, products, barcode..."
                 placeholderTextColor={colors.mutedForeground}
                 selectionColor={colors.primary}
                 style={[styles.searchInput, { color: colors.foreground }, webInputFix]}
@@ -297,45 +407,101 @@ export default function HomeScreen() {
               )}
             </View>
 
-            <Pressable
-              onPress={() => router.push('/profile' as any)}
-              style={[styles.profileButton, { backgroundColor: colors.card, borderColor: colors.border }]}
-            >
-              {(user as any)?.avatar_url ? (
-                <Image source={{ uri: (user as any).avatar_url }} style={styles.profileAvatar} />
-              ) : (
-                <Feather name="user" size={17} color={colors.primary} />
-              )}
-            </Pressable>
+            <View style={styles.headerActions}>
+              <View style={styles.headerIconWrapper}>
+                <NotificationBell />
+              </View>
+              <Pressable
+                onPress={() => router.push('/profile' as any)}
+                style={[styles.profileButton, { backgroundColor: colors.card, borderColor: colors.border }]}
+              >
+                {(user as any)?.avatar_url ? (
+                  <Image source={{ uri: (user as any).avatar_url }} style={styles.profileAvatar} />
+                ) : (
+                  <Feather name="user" size={17} color={colors.primary} />
+                )}
+              </Pressable>
+            </View>
           </View>
 
           {searchOpen && search.trim().length > 0 && (
             <View style={[styles.searchDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              {searchLoading ? (
-                <ActivityIndicator style={{ paddingVertical: 18 }} color={colors.primary} />
-              ) : searchResults.length === 0 ? (
-                <Text style={[styles.searchEmptyText, { color: colors.mutedForeground }]}>No customers found</Text>
-              ) : (
-                searchResults.map((c, index) => (
-                  <Pressable
-                    key={c.id}
-                    onPress={() => handleSelectCustomer(c)}
-                    style={({ pressed }) => [
-                      styles.searchResultRow,
-                      index !== searchResults.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
-                      pressed && { backgroundColor: colors.background },
-                    ]}
-                  >
-                    <View style={[styles.searchResultIcon, { backgroundColor: colors.primary + '15' }]}>
-                      <Feather name="user" size={14} color={colors.primary} />
-                    </View>
-                    <Text style={[styles.searchResultText, { color: colors.foreground }]} numberOfLines={1}>
-                      {c.name}
-                    </Text>
-                    <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
-                  </Pressable>
-                ))
-              )}
+              <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                {searchLoading ? (
+                  <ActivityIndicator style={{ paddingVertical: 18 }} color={colors.primary} />
+                ) : hasNoResults ? (
+                  <Text style={[styles.searchEmptyText, { color: colors.mutedForeground }]}>No results found</Text>
+                ) : (
+                  <>
+                    {customerResults.length > 0 && (
+                      <>
+                        <Text style={[styles.searchSectionLabel, { color: colors.mutedForeground }]}>Customers</Text>
+                        {customerResults.map((c, index) => (
+                          <Pressable
+                            key={`customer-${c.id}`}
+                            onPress={() => handleSelectCustomer(c)}
+                            style={({ pressed }) => [
+                              styles.searchResultRow,
+                              index !== customerResults.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
+                              pressed && { backgroundColor: colors.background },
+                            ]}
+                          >
+                            <View style={[styles.searchResultIcon, { backgroundColor: colors.primary + '15' }]}>
+                              <Feather name="user" size={14} color={colors.primary} />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.searchResultText, { color: colors.foreground }]} numberOfLines={1}>
+                                {c.name}
+                              </Text>
+                              {!!c.phone && (
+                                <Text style={[styles.searchResultSubText, { color: colors.mutedForeground }]} numberOfLines={1}>
+                                  {c.phone}
+                                </Text>
+                              )}
+                            </View>
+                            <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+                          </Pressable>
+                        ))}
+                      </>
+                    )}
+
+                    {productResults.length > 0 && (
+                      <>
+                        <Text style={[styles.searchSectionLabel, { color: colors.mutedForeground }]}>Products</Text>
+                        {productResults.map((p: any, index) => {
+                          const outOfStock = getStockQty(p) <= 0;
+                          return (
+                            <Pressable
+                              key={`product-${p.id}`}
+                              onPress={() => handleSelectProduct(p)}
+                              style={({ pressed }) => [
+                                styles.searchResultRow,
+                                index !== productResults.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
+                                pressed && { backgroundColor: colors.background },
+                              ]}
+                            >
+                              <View style={[styles.searchResultIcon, { backgroundColor: '#14B8A6' + '15' }]}>
+                                <Feather name="box" size={14} color="#14B8A6" />
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={[styles.searchResultText, { color: colors.foreground }]} numberOfLines={1}>
+                                  {p.name}
+                                </Text>
+                                <Text style={[styles.searchResultSubText, { color: colors.mutedForeground }]} numberOfLines={1}>
+                                  {getBarcode(p) ? `#${getBarcode(p)} · ` : ''}
+                                  {formatCurrency(p.selling_price ?? 0, business?.currency)} ·{' '}
+                                  {outOfStock ? 'Out of stock' : `Stock ${getStockQty(p)}`}
+                                </Text>
+                              </View>
+                              <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+                            </Pressable>
+                          );
+                        })}
+                      </>
+                    )}
+                  </>
+                )}
+              </ScrollView>
             </View>
           )}
         </View>
@@ -356,7 +522,7 @@ export default function HomeScreen() {
 
         {/* ---------------- Sales Activity ---------------- */}
         <CardSection title="Sales Activity" colors={colors}>
-          <View style={styles.statGrid}>
+          <View style={[styles.statGrid, isMobile && styles.statGridMobile]}>
             {SALES_ACTIVITY_CARDS.map((item, i) => {
               let value: string;
               switch (item.field) {
@@ -390,6 +556,7 @@ export default function HomeScreen() {
                   key={item.label}
                   style={[
                     styles.statCell,
+                    isMobile && styles.statCellMobile,
                     { flexBasis: `${100 / salesActivityColumns}%` },
                     !isRightCol && { borderRightWidth: 1, borderRightColor: colors.border },
                     isTopRow && { borderBottomWidth: 1, borderBottomColor: colors.border },
@@ -424,7 +591,13 @@ export default function HomeScreen() {
             value={productsLoading ? '—' : String(inventoryMetrics.quantityInHand)}
             onPress={() => router.push('/product-list' as any)}
           />
-          <LabelValueRow colors={colors} label="Quantity to be Received" value="—" muted last />
+          <LabelValueRow
+  colors={colors}
+  label="Quantity to be Received"
+  value={String(pendingReceiveQty?.total_pending_qty ?? 0)}
+  muted
+  last
+/>
         </CardSection>
 
         {/* ---------------- Product Details ---------------- */}
@@ -468,7 +641,17 @@ export default function HomeScreen() {
         </CardSection>
 
         {/* ---------------- Top Selling Items ---------------- */}
-        <CardSection title="Top Selling Items" chip="This Month" colors={colors}>
+        <CardSection
+          title="Top Selling Items"
+          colors={colors}
+          periodValue={topSellingPeriod}
+          isOpen={openDropdown === 'topSelling'}
+          onTogglePeriod={() => setOpenDropdown((d) => (d === 'topSelling' ? null : 'topSelling'))}
+          onSelectPeriod={(v) => {
+            setTopSellingPeriod(v);
+            setOpenDropdown(null);
+          }}
+        >
           {productsLoading ? (
             <ActivityIndicator style={{ paddingVertical: 20 }} color={colors.primary} />
           ) : topSellingItems.length === 0 ? (
@@ -511,7 +694,17 @@ export default function HomeScreen() {
         </CardSection>
 
         {/* ---------------- Purchase Order ---------------- */}
-        <CardSection title="Purchase Order" chip="This Month" colors={colors}>
+        <CardSection
+          title="Purchase Order"
+          colors={colors}
+          periodValue={purchaseOrderPeriod}
+          isOpen={openDropdown === 'purchaseOrder'}
+          onTogglePeriod={() => setOpenDropdown((d) => (d === 'purchaseOrder' ? null : 'purchaseOrder'))}
+          onSelectPeriod={(v) => {
+            setPurchaseOrderPeriod(v);
+            setOpenDropdown(null);
+          }}
+        >
           <View style={styles.purchaseOrderRow}>
             <View style={styles.purchaseOrderCol}>
               <Text style={[styles.purchaseOrderLabel, { color: colors.mutedForeground }]}>Items Ordered</Text>
@@ -530,13 +723,23 @@ export default function HomeScreen() {
             <ActivityIndicator style={{ paddingVertical: 12 }} color={colors.primary} />
           ) : purchases.length === 0 ? (
             <Text style={[styles.comingSoonText, { color: colors.mutedForeground, marginTop: 10 }]}>
-              No purchases recorded this month.
+              No purchases recorded for this period.
             </Text>
           ) : null}
         </CardSection>
 
         {/* ---------------- Sales Order ---------------- */}
-        <CardSection title="Sales Order" chip="This Month" colors={colors}>
+        <CardSection
+          title="Sales Order"
+          colors={colors}
+          periodValue={salesOrderPeriod}
+          isOpen={openDropdown === 'salesOrder'}
+          onTogglePeriod={() => setOpenDropdown((d) => (d === 'salesOrder' ? null : 'salesOrder'))}
+          onSelectPeriod={(v) => {
+            setSalesOrderPeriod(v);
+            setOpenDropdown(null);
+          }}
+        >
           <View style={[styles.tableHeaderRow, { borderBottomColor: colors.border }]}>
             {['Channel', 'Pending', 'Confirmed', 'Packed', 'Shipped', 'Invoiced'].map((h) => (
               <Text key={h} style={[styles.tableHeaderCell, { color: colors.mutedForeground }]}>
@@ -550,7 +753,7 @@ export default function HomeScreen() {
           ) : salesOrderMatrix.length === 0 ? (
             <View style={styles.centeredComingSoon}>
               <Text style={[styles.comingSoonText, { color: colors.mutedForeground }]}>
-                No sales orders placed this month.
+                No sales orders placed for this period.
               </Text>
             </View>
           ) : (
@@ -570,34 +773,76 @@ export default function HomeScreen() {
         </CardSection>
 
       </ScrollView>
+
+      <AIAssistantButton topOffset={aiButtonTopOffset} />
+
     </View>
-  );
+
+);
 }
 
 /* ---------------- Reusable pieces ---------------- */
 
 function CardSection({
   title,
-  chip,
   colors,
   children,
+  periodValue,
+  isOpen,
+  onTogglePeriod,
+  onSelectPeriod,
 }: {
   title: string;
-  chip?: string;
   colors: any;
   children: React.ReactNode;
+  periodValue?: PeriodFilter;
+  isOpen?: boolean;
+  onTogglePeriod?: () => void;
+  onSelectPeriod?: (v: PeriodFilter) => void;
 }) {
+  const chipLabel = periodValue ? PERIOD_OPTIONS.find((o) => o.value === periodValue)?.label : undefined;
+
   return (
     <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={[styles.sectionCardHeader, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
         <Text style={[styles.sectionCardTitle, { color: colors.foreground }]}>{title}</Text>
-        {chip && (
-          <View style={styles.chip}>
-            <Text style={[styles.chipText, { color: colors.mutedForeground }]}>{chip}</Text>
-            <Feather name="chevron-down" size={12} color={colors.mutedForeground} />
-          </View>
+        {chipLabel && (
+          <Pressable onPress={onTogglePeriod} style={styles.chip} hitSlop={8}>
+            <Text style={[styles.chipText, { color: colors.mutedForeground }]}>{chipLabel}</Text>
+            <Feather name={isOpen ? 'chevron-up' : 'chevron-down'} size={12} color={colors.mutedForeground} />
+          </Pressable>
         )}
       </View>
+
+      {isOpen && (
+        <View style={[styles.periodInlineRow, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
+          {PERIOD_OPTIONS.map((opt) => {
+            const active = opt.value === periodValue;
+            return (
+              <Pressable
+                key={opt.value}
+                onPress={() => onSelectPeriod?.(opt.value)}
+                style={[
+                  styles.periodInlinePill,
+                  { backgroundColor: active ? colors.primary : colors.card, borderColor: active ? colors.primary : colors.border },
+                ]}
+              >
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontFamily: 'Inter_500Medium',
+                    color: active ? colors.primaryForeground : colors.foreground,
+                    fontWeight: active ? '700' : '500',
+                  }}
+                >
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+
       <View style={styles.sectionCardBody}>{children}</View>
     </View>
   );
@@ -696,7 +941,9 @@ function DonutPercent({
 const styles = StyleSheet.create({
   container: { flex: 1 },
 
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerRow: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
+  headerIconWrapper: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   profileButton: {
     width: 38,
     height: 38,
@@ -705,20 +952,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
+    flexShrink: 0,
   },
   profileAvatar: { width: 38, height: 38, borderRadius: 19 },
 
-  searchWrapper: { width: '68%' },
+  // Desktop default — a wide-but-not-full search bar. On tablet/mobile this
+  // is overridden by tabletSearchWrapper/mobileSearchWrapper (flex: 1) so the
+  // bell + profile never get pushed off-screen.
+  searchWrapper: { width: '68%', flexShrink: 1 },
+  tabletSearchWrapper: { flex: 1, width: undefined, minWidth: 0 },
+  mobileSearchWrapper: { flex: 1, width: undefined, minWidth: 0 },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     minHeight: 38,
+    minWidth: 0,
     borderRadius: 11,
     borderWidth: 1,
     paddingHorizontal: 12,
   },
-  searchInput: { flex: 1, fontSize: 13.5, fontFamily: 'Inter_500Medium', paddingVertical: 0 },
+  searchInput: { flex: 1, minWidth: 0, fontSize: 13.5, fontFamily: 'Inter_500Medium', paddingVertical: 0 },
 
   /* Search area: dropdown is anchored right below the header row, full width, no page dimming */
   searchAreaWrap: { position: 'relative', zIndex: 30 as any, marginBottom: 18 },
@@ -729,7 +983,7 @@ const styles = StyleSheet.create({
     right: 0,
     borderWidth: 1,
     borderRadius: 14,
-    maxHeight: 320,
+    maxHeight: 360,
     overflow: 'hidden',
     // @ts-ignore - web-only shadow, harmless no-op on native
     boxShadow: '0 12px 28px rgba(0,0,0,0.14)',
@@ -740,9 +994,19 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     zIndex: 31 as any,
   },
+  searchSectionLabel: {
+    fontSize: 10.5,
+    fontFamily: 'Inter_700Bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
   searchResultRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
   searchResultIcon: { width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  searchResultText: { fontSize: 13.5, fontFamily: 'Inter_500Medium', flex: 1 },
+  searchResultText: { fontSize: 13.5, fontFamily: 'Inter_500Medium' },
+  searchResultSubText: { fontSize: 11, fontFamily: 'Inter_500Medium', marginTop: 1 },
   searchEmptyText: { fontSize: 13, fontFamily: 'Inter_500Medium', textAlign: 'center', paddingVertical: 18 },
 
   actionRow: { flexDirection: 'row', flexWrap: 'wrap',gap: 18, marginBottom: 22 },
@@ -750,24 +1014,55 @@ const styles = StyleSheet.create({
   actionIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   actionLabel: { fontSize: 10.5, fontFamily: 'Inter_500Medium', textAlign: 'center', lineHeight: 13 },
 
-  /* Card section shell (matches the boxed header-bar reference look) */
+  /* Card section shell (matches the boxed header-bar reference look).
+     No overflow:hidden here — a clipped card would cut off the anchored
+     period dropdown, so the header gets its own top corner radius instead. */
   sectionCard: { borderWidth: 1, borderRadius: 16, marginBottom: 16, overflow: 'hidden' },
-  sectionCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderBottomWidth: 1,
-  },
-  sectionCardTitle: { fontSize: 13.5, fontFamily: 'Inter_700Bold' },
-  sectionCardBody: { padding: 14 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  chipText: { fontSize: 11.5, fontFamily: 'Inter_500Medium' },
+sectionCardHeader: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  paddingHorizontal: 14,
+  paddingVertical: 11,
+  borderBottomWidth: 1,
+},
+sectionCardTitle: { fontSize: 13.5, fontFamily: 'Inter_700Bold' },
+sectionCardBody: { padding: 14 },
+chip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 2 },
+chipText: { fontSize: 11.5, fontFamily: 'Inter_500Medium' },
 
-  /* Sales Activity stat grid — columns are set inline (flexBasis) based on screen width */
+periodInlineRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1 },
+periodInlinePill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+
+  /* Period dropdown — anchored directly under its chip */
+  periodMenu: {
+    position: 'absolute',
+    top: '100%',
+    right: 0,
+    marginTop: 6,
+    width: 150,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 4,
+    // @ts-ignore - web-only shadow, harmless no-op on native
+    boxShadow: '0 10px 24px rgba(0,0,0,0.14)',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    zIndex: 100,
+  },
+  periodMenuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 9 },
+
+  /* Sales Activity stat grid — columns are set inline (flexBasis) based on screen width.
+     The negative margin on statGrid must match statCell's horizontal padding, or the
+     grid overflows the card horizontally on narrow phones — statGridMobile/statCellMobile
+     shrink both together instead of leaving statGrid at -14 on a small screen. */
   statGrid: { flexDirection: 'row', flexWrap: 'wrap', margin: -14 },
+  statGridMobile: { margin: -8 },
   statCell: { paddingVertical: 16, paddingHorizontal: 14 },
+  statCellMobile: { paddingHorizontal: 8 },
   statValue: { fontSize: 19, fontFamily: 'Inter_700Bold', marginBottom: 2 },
   statUnit: { fontSize: 10.5, fontFamily: 'Inter_500Medium', marginBottom: 6 },
   statCaption: { flexDirection: 'row', alignItems: 'center', gap: 5 },

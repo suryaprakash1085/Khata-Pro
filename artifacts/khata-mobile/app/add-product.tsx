@@ -102,7 +102,9 @@ function SectionCard({
   );
 }
 
-// Two-column responsive row — stacks to one column on narrow/mobile.
+// Two-column responsive row — wraps to one column on narrow/mobile widths
+// via flexWrap + flexBasis (works identically on web and native, no
+// platform-width branching needed).
 function FieldRow({ children, z }: { children: React.ReactNode; z?: number }) {
   return <View style={[styles.fieldRow, { zIndex: z ?? 1, position: 'relative' }]}>{children}</View>;
 }
@@ -204,7 +206,7 @@ export default function AddProductScreen() {
   const [description, setDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(!isEditMode);
-const [image, setImage] = useState('');
+  const [image, setImage] = useState('');
   // ---- Barcode section ----
   const [barcodeType, setBarcodeType] = useState<'auto' | 'manual'>('manual');
   const [barcodeLocked, setBarcodeLocked] = useState(false);
@@ -333,6 +335,17 @@ const [image, setImage] = useState('');
   const productList = toArray(productsData);
   const vendorList = toArray(vendorsData);
 
+  useEffect(() => {
+    if (isEditMode && existingProduct && vendorList.length > 0 && !vendor) {
+      const vid = (existingProduct as any)?.vendor_id;
+      if (vid != null) {
+        const match = vendorList.find((v: any) => v.id === vid);
+        if (match) setVendor(match.name);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, existingProduct, vendorList]);
+
   const categorySuggestions = uniqStrings(productList.map((p: any) => p?.category));
   const brandSuggestions = uniqStrings(productList.map((p: any) => p?.brand));
   const vendorSuggestions = uniqStrings(vendorList.map((v: any) => v?.name));
@@ -435,8 +448,8 @@ const [image, setImage] = useState('');
       return;
     }
 
-    const matchedVendor = !isEditMode ? findMatchedVendor() : undefined;
-    if (!isEditMode && vendor.trim().length > 0 && !matchedVendor) {
+    const matchedVendor = findMatchedVendor();
+    if (vendor.trim().length > 0 && !matchedVendor) {
       setError('Select an existing vendor from the list, or tap "+ Add Vendor" to create one first.');
       return;
     }
@@ -453,12 +466,13 @@ const [image, setImage] = useState('');
 
     const payload = {
       business_id: business.id,
+      vendor_id: matchedVendor?.id ?? undefined,
       name: finalName,
       barcode: barcode.trim() || undefined,
       category: category.trim() || undefined,
       brand: brand.trim() || undefined,
       description: description.trim() || undefined,
-      image: image.trim() || undefined,  
+      image: image.trim() || undefined,
       unit: (unit || 'pcs') as any,
       gst_rate: gstRate ? parseFloat(gstRate) : 0,
       cost_price: parsedCost,
@@ -680,36 +694,37 @@ const [image, setImage] = useState('');
               <Text style={styles.charCount}>{description.length} / 250</Text>
             </FieldCol>
           </FieldRow>
+
           <FieldRow z={52}>
-  <FieldCol>
-    <Text style={styles.fieldLabel}>Product Image URL</Text>
-    <TextInput
-      placeholder="https://example.com/product.jpg"
-      placeholderTextColor={THEME.placeholder}
-      value={image}
-      onChangeText={setImage}
-      autoCapitalize="none"
-      style={styles.textInput}
-    />
-  </FieldCol>
-  <FieldCol>
-    <Text style={styles.fieldLabel}>Preview</Text>
-    <View style={styles.previewCard}>
-      {image.trim().length > 0 ? (
-        <Image
-          source={{ uri: image.trim() }}
-          style={{ width: 100, height: 100, borderRadius: 8 }}
-          resizeMode="cover"
-        />
-      ) : (
-        <View style={styles.previewEmpty}>
-          <Feather name="image" size={22} color={THEME.placeholder} />
-          <Text style={styles.previewEmptyText}>Paste an image URL to preview</Text>
-        </View>
-      )}
-    </View>
-  </FieldCol>
-</FieldRow>
+            <FieldCol>
+              <Text style={styles.fieldLabel}>Product Image URL</Text>
+              <TextInput
+                placeholder="https://example.com/product.jpg"
+                placeholderTextColor={THEME.placeholder}
+                value={image}
+                onChangeText={setImage}
+                autoCapitalize="none"
+                style={styles.textInput}
+              />
+            </FieldCol>
+            <FieldCol>
+              <Text style={styles.fieldLabel}>Preview</Text>
+              <View style={styles.previewCard}>
+                {image.trim().length > 0 ? (
+                  <Image
+                    source={{ uri: image.trim() }}
+                    style={{ width: 100, height: 100, borderRadius: 8 }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.previewEmpty}>
+                    <Feather name="image" size={22} color={THEME.placeholder} />
+                    <Text style={styles.previewEmptyText}>Paste an image URL to preview</Text>
+                  </View>
+                )}
+              </View>
+            </FieldCol>
+          </FieldRow>
         </SectionCard>
 
         {/* ============================ CARD 2 — BARCODE & IDENTIFICATION ============================ */}
@@ -977,26 +992,30 @@ const [image, setImage] = useState('');
             </FieldCol>
           </FieldRow>
 
+          {/* ---- Stock summary — one clean row: icon + current stock + status
+              pill, a thin divider, then a caption-style info line. Replaces
+              the old 3-tile layout that duplicated the status pill and left
+              "Status Info" floating with no visual anchor. ---- */}
           <View style={styles.stockSummaryRow}>
             <View style={styles.stockSummaryTile}>
               <View style={[styles.stockIconWrap, { backgroundColor: THEME.primarySoft }]}>
                 <Feather name="box" size={14} color={THEME.primary} />
               </View>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.stockSummaryLabel}>Current Stock</Text>
                 <Text style={styles.stockSummaryValue}>
                   {numStock} <Text style={styles.stockSummaryUnit}>{unit}</Text>
                 </Text>
               </View>
-            </View>
-            <View style={styles.stockSummaryTile}>
-              <Text style={styles.stockSummaryLabel}>Stock Status</Text>
               <View style={[styles.stockStatusPill, { backgroundColor: stockStatus.bg }]}>
                 <Text style={[styles.stockStatusPillText, { color: stockStatus.color }]}>{stockStatus.label}</Text>
               </View>
             </View>
-            <View style={[styles.stockSummaryTile, { flex: 1.4 }]}>
-              <Text style={styles.stockSummaryLabel}>Status Info</Text>
+
+            <View style={styles.stockDivider} />
+
+            <View style={styles.stockInfoRow}>
+              <Feather name="info" size={13} color={THEME.muted} style={{ marginTop: 1 }} />
               <Text style={styles.stockInfoText}>Stock will be updated after purchase or manual adjustment.</Text>
             </View>
           </View>
@@ -1256,13 +1275,15 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 15, fontWeight: '700', color: THEME.text, fontFamily: FONT_FAMILY },
 
-  // ---- Field layout ----
+  // ---- Field layout — flexWrap + flexBasis handles responsiveness for both
+  // web and native without any platform/width branching. ----
   fieldRow: {
-    flexDirection: IS_WEB ? 'row' : 'column',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 16,
     marginBottom: 14,
   },
-  fieldCol: { flex: 1, minWidth: IS_WEB ? 220 : undefined },
+  fieldCol: { flexGrow: 1, flexBasis: 240, minWidth: 200 },
   fieldLabel: { fontSize: 12.5, fontWeight: '600', color: THEME.label, marginBottom: 6, fontFamily: FONT_FAMILY },
 
   textInput: {
@@ -1321,7 +1342,7 @@ const styles = StyleSheet.create({
   segmentBtnActive: { backgroundColor: THEME.primary },
   segmentText: { fontSize: 12.5, fontWeight: '600', color: THEME.label, fontFamily: FONT_FAMILY },
   segmentTextActive: { color: '#fff' },
-  barcodeRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  barcodeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
   smallActionBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: THEME.primary, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 },
   smallActionBtnText: { color: '#fff', fontSize: 12, fontWeight: '700', fontFamily: FONT_FAMILY },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
@@ -1366,16 +1387,29 @@ const styles = StyleSheet.create({
   unitChipText: { fontSize: 11.5, color: THEME.label, fontFamily: FONT_FAMILY, textTransform: 'capitalize' },
   unitChipTextActive: { color: '#fff', fontWeight: '700' },
 
-  // ---- Stock summary ----
-  stockSummaryRow: { flexDirection: IS_WEB ? 'row' : 'column', gap: 12, backgroundColor: THEME.primarySoft, borderRadius: 10, padding: 12 },
-  stockSummaryTile: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  stockIconWrap: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  // ---- Stock summary — single grouped row + divider + caption, replacing
+  // the old 3-tile layout that duplicated the status pill. ----
+  stockSummaryRow: {
+    backgroundColor: THEME.primarySoft,
+    borderRadius: 10,
+    padding: 14,
+    gap: 12,
+  },
+  stockSummaryTile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  stockIconWrap: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   stockSummaryLabel: { fontSize: 10.5, color: THEME.muted, fontFamily: FONT_FAMILY, marginBottom: 2 },
-  stockSummaryValue: { fontSize: 15, fontWeight: '700', color: THEME.text, fontFamily: FONT_FAMILY },
-  stockSummaryUnit: { fontSize: 11, fontWeight: '400', color: THEME.muted },
-  stockStatusPill: { alignSelf: 'flex-start', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
+  stockSummaryValue: { fontSize: 16, fontWeight: '700', color: THEME.text, fontFamily: FONT_FAMILY },
+  stockSummaryUnit: { fontSize: 11.5, fontWeight: '400', color: THEME.muted },
+  stockStatusPill: { alignSelf: 'center', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5 },
   stockStatusPillText: { fontSize: 11.5, fontWeight: '700', fontFamily: FONT_FAMILY },
-  stockInfoText: { fontSize: 11, color: THEME.muted, fontFamily: FONT_FAMILY, lineHeight: 15 },
+  stockDivider: { height: 1, backgroundColor: 'rgba(91,33,182,0.12)' },
+  stockInfoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  stockInfoText: { flex: 1, fontSize: 11.5, color: THEME.muted, fontFamily: FONT_FAMILY, lineHeight: 16 },
 
   // ---- Vendor ----
   addVendorBtn: {

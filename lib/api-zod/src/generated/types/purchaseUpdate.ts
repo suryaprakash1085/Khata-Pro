@@ -13,4 +13,5 @@ export interface PurchaseUpdate {
   bill_image_url?: string;
   description?: string;
   entry_date?: Date;
+  due_date?: Date;
 }

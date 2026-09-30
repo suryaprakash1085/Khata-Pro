@@ -3,7 +3,6 @@
   "compileOnSave": false,
   "files": [],
   "include": [
-    "lib/**/*",
     "scripts/**/*"
   ],
   "references": [

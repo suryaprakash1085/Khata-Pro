@@ -69,12 +69,6 @@ catalog:
 
 autoInstallPeers: false
 
-onlyBuiltDependencies:
-  - '@swc/core'
-  - esbuild
-  - msw
-  - unrs-resolver
-
 overrides:
 
   "@react-navigation/native": "7.3.8"
@@ -167,6 +161,8 @@ overrides:
   esbuild: "0.27.3"
 
 allowBuilds:
+  '@google/genai': true
   core-js: true
   dtrace-provider: false
   esbuild: true
+  protobufjs: false

@@ -16,7 +16,7 @@ import {
   CreateProductBody,
   UpdateProductBody,
 } from "@workspace/api-zod";
-
+import { syncLowStockNotification, notifyVendorPaymentOnProductCreate } from "../services/adminNotifications.service";
 const router: IRouter = Router();
 
 router.get("/test", (req, res) => {
@@ -27,6 +27,7 @@ function formatProduct(p: any) {
   return {
     id: Number(p.id),
     business_id: Number(p.businessId),
+    vendor_id: p.vendorId != null ? Number(p.vendorId) : null,
     name: p.name,
     barcode: p.barcode,
     sku: p.sku,
@@ -177,6 +178,7 @@ router.post("/products", requireAuth, async (req, res): Promise<void> => {
   try {
     const [product] = await db.insert(productsTable).values({
       businessId: d.business_id,
+      vendorId: d.vendor_id ?? null,
       name: d.name,
       barcode: d.barcode,
       sku: d.sku,
@@ -191,7 +193,20 @@ router.post("/products", requireAuth, async (req, res): Promise<void> => {
       lowStockAlert: d.low_stock_alert ?? 5,
       image: d.image,
     }).returning();
+    await syncLowStockNotification(product.id);
+
+    if (d.vendor_id && (d.cost_price ?? 0) > 0 && (d.stock_qty ?? 0) > 0) {
+      await notifyVendorPaymentOnProductCreate({
+        businessId: d.business_id,
+        vendorId: d.vendor_id,
+        productId: product.id,
+        productName: product.name,
+        costPrice: d.cost_price ?? 0,
+        stockQty: d.stock_qty ?? 0,
+      }).catch((err) => console.error("[products] vendor payment notification failed:", err));
+    }
     res.status(201).json(formatProduct(product));
+    
   } catch (err: any) {
     // Postgres unique_violation — the products_business_barcode_unique
     // index caught a duplicate barcode (e.g. a race between two devices).
@@ -281,6 +296,7 @@ router.put("/products/:id", requireAuth, async (req, res): Promise<void> => {
   if (d.stock_qty !== undefined) updates.stockQty = d.stock_qty;
   if (d.low_stock_alert !== undefined) updates.lowStockAlert = d.low_stock_alert;
   if (d.image !== undefined) updates.image = d.image;
+  if (d.vendor_id !== undefined) updates.vendorId = d.vendor_id;
 
   try {
     const [product] = await db.update(productsTable).set(updates)
@@ -288,6 +304,9 @@ router.put("/products/:id", requireAuth, async (req, res): Promise<void> => {
     if (!product) {
       res.status(404).json({ error: "Product not found" });
       return;
+    }
+    if (updates.stockQty !== undefined) {
+      await syncLowStockNotification(product.id);
     }
     res.json(formatProduct(product));
   } catch (err: any) {

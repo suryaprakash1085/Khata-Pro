@@ -141,8 +141,12 @@ export default function PromotionsScreen() {
         <View style={styles.colApplies}>
           <Text style={[styles.colLabel, { color: colors.mutedForeground }]}>APPLIES TO</Text>
           <Text style={[styles.colValue, { color: colors.foreground }]}>
-            {item.apply_to === 'all' ? 'All Products' : `${item.product_ids?.length ?? 0} Product${(item.product_ids?.length ?? 0) === 1 ? '' : 's'}`}
-          </Text>
+  {(item as any).apply_to === 'all'
+    ? 'All Products'
+    : (item as any).apply_to === 'category'
+    ? `Category: ${(item as any).category ?? '—'}`
+    : `${item.product_ids?.length ?? 0} Product${(item.product_ids?.length ?? 0) === 1 ? '' : 's'}`}
+</Text>
         </View>
 
         <View style={styles.colPeriod}>

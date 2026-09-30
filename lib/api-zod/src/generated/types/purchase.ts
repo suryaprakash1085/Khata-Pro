@@ -25,6 +25,8 @@ export interface Purchase {
   /** @nullable */
   description?: string | null;
   entry_date: Date;
+  /** @nullable */
+  due_date?: Date | null;
   product_count?: number;
   created_by?: number;
   created_at: Date;

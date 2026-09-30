@@ -1,3 +1,260 @@
+// import React, { useEffect, useState } from 'react';
+// import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+// import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+// import { GestureHandlerRootView } from 'react-native-gesture-handler';
+// import { KeyboardProvider } from 'react-native-keyboard-controller';
+// import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+// import { ErrorBoundary } from '@/components/ErrorBoundary';
+// import {
+//   Inter_400Regular,
+//   Inter_500Medium,
+//   Inter_600SemiBold,
+//   Inter_700Bold,
+//   useFonts,
+// } from '@expo-google-fonts/inter';
+// import { Stack, useRouter, useSegments, usePathname } from 'expo-router';
+// import * as SplashScreen from 'expo-splash-screen';
+// import { Feather } from '@expo/vector-icons';
+// import { setBaseUrl } from '@workspace/api-client-react';
+// import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+// import { BusinessProvider, useBusiness } from '@/contexts/BusinessContext';
+// import { useColors } from '@/hooks/useColors';
+// import { WebSidebar, SIDEBAR_WIDTH } from '@/components/WebSidebar';
+
+
+// // Prevent the splash screen from auto-hiding before asset loading is complete.
+// SplashScreen.preventAutoHideAsync();
+
+// // Set the API base URL - connects mobile app to API server and database
+// setBaseUrl(process.env.EXPO_PUBLIC_API_URL || 'https://khata-pro.onrender.com');
+
+// const queryClient = new QueryClient();
+
+// // Below this window width, the fixed sidebar doesn't fit — switch to a
+// // hamburger + slide-out drawer instead. Tune this to taste.
+// const DESKTOP_BREAKPOINT = 900;
+
+// function RootLayoutNav() {
+//   const colors = useColors();
+//   const { isLoading: authLoading, user } = useAuth();
+//   const { isLoading: bizLoading, hasBusiness } = useBusiness();
+//   const segments = useSegments();
+//   const pathname = usePathname();
+//   const router = useRouter();
+//   const { width } = useWindowDimensions();
+//   const [drawerOpen, setDrawerOpen] = useState(false);
+
+//   useEffect(() => {
+//     if (authLoading) return;
+//     const top = segments[0] as string | undefined;
+//     const inLogin = top === 'login';
+//     const inBusinessSetup = top === 'business-setup';
+
+//     if (!user) {
+//       if (!inLogin) router.replace('/login');
+//       return;
+//     }
+
+//     if (bizLoading) return;
+
+//     if (!hasBusiness) {
+//       if (!inBusinessSetup) router.replace('/business-setup');
+//       return;
+//     }
+
+//     if (inLogin || inBusinessSetup) {
+//       router.replace('/(tabs)');
+//     }
+//   }, [authLoading, user, bizLoading, hasBusiness, segments]);
+
+//   // Auto-close the mobile drawer whenever the route changes.
+//   useEffect(() => {
+//     setDrawerOpen(false);
+//   }, [pathname]);
+
+//   if (authLoading) {
+//     return <View style={{ flex: 1, backgroundColor: colors.background }} />;
+//   }
+
+//   const stackNav = (
+//    <Stack screenOptions={{ headerBackTitle: 'Back' }}>
+//   <Stack.Screen name="login" options={{ headerShown: false, gestureEnabled: false }} />
+//   <Stack.Screen name="business-setup" options={{ headerShown: false, gestureEnabled: false }} />
+//   <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+//   <Stack.Screen name="customer/[id]" options={{ headerShown: false }} />
+//   <Stack.Screen name="all-products" options={{ headerShown: false }} />
+//   <Stack.Screen name="out-of-stock-products" options={{ headerShown: false }} />
+//   <Stack.Screen name="product-list" options={{ headerShown: false }} />
+//   <Stack.Screen name="add-product" options={{ headerShown: false }} />
+//   <Stack.Screen name="create-purchase-order" options={{ headerShown: false }} />
+//   <Stack.Screen name="promotions" options={{ headerShown: false }} />
+//   <Stack.Screen name="delivery-settings" options={{ headerShown: false }} />
+//   <Stack.Screen name="add-expense" options={{ headerShown: false }} />
+//   <Stack.Screen name="add-promotion" options={{ headerShown: false }} />
+
+//   <Stack.Screen
+//     name="add-customer"
+//     options={{
+//       presentation: 'formSheet',
+//       sheetAllowedDetents: [0.8, 1],
+//       sheetGrabberVisible: true,
+//       title: 'New Customer',
+//     }}
+//   />
+//   <Stack.Screen
+//     name="add-transaction"
+//     options={{
+//       presentation: 'formSheet',
+//       sheetAllowedDetents: [0.9, 1],
+//       sheetGrabberVisible: true,
+//       title: 'Add Entry',
+//     }}
+//   />
+// </Stack>
+//   );
+
+//   // Web nav only shows once the user is logged in and has completed business
+//   // setup (keeps login / business-setup screens clean).
+//   const isWebAuthed = Platform.OS === 'web' && !!user && hasBusiness;
+//   const isDesktopWeb = isWebAuthed && width >= DESKTOP_BREAKPOINT;
+//   const isMobileWeb = isWebAuthed && width < DESKTOP_BREAKPOINT;
+//   const showAssistant = !!user && hasBusiness && !authLoading && !bizLoading;
+
+// if (Platform.OS === 'web') {
+//   // @ts-ignore
+//   document.documentElement.style.height = '100%';
+//   // @ts-ignore
+//   document.body.style.height = '100%';
+//   // @ts-ignore
+//   const root = document.getElementById('root');
+//   if (root) root.style.height = '100%';
+// }
+
+// if (isDesktopWeb) {
+//   return (
+//     <View style={{ flex: 1, flexDirection: 'row', minHeight: '100%' as any }}>
+//       <WebSidebar />
+//       <View
+//         style={{
+//           flex: 1,
+//           width: '100%',
+//           alignSelf: 'stretch',
+//           minHeight: '100%' as any,
+//         }}
+//       >
+//         {stackNav}
+
+//         </View>
+      
+//      </View>
+//   );
+// }
+
+//   if (isMobileWeb) {
+//     return (
+//       <View style={{ flex: 1, minHeight: '100%' as any }}>
+//         {/* Compact top bar with hamburger toggle */}
+//         <View style={[styles.mobileTopBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+//           <Pressable onPress={() => setDrawerOpen(true)} hitSlop={10} style={styles.hamburgerBtn}>
+//             <Feather name="menu" size={22} color={colors.foreground} />
+//           </Pressable>
+//           <Text style={[styles.mobileTopBarTitle, { color: colors.foreground }]} numberOfLines={1}>
+//             Khata-Pro
+//           </Text>
+//           <View style={{ width: 22 }} />
+//         </View>
+
+//         <View style={{ flex: 1 }}>{stackNav}</View>
+
+//         {drawerOpen && (
+//           <>
+//             <Pressable style={styles.drawerBackdrop} onPress={() => setDrawerOpen(false)} />
+//             <View style={[styles.drawer, { width: Math.min(SIDEBAR_WIDTH, width * 0.82) }]}>
+//               <WebSidebar />
+//             </View>
+//           </>
+//         )}
+        
+//       </View>
+//     );
+//   }
+
+//   return (
+//    <View style={{ flex: 1 }}>
+//       {stackNav}
+    
+//     </View>
+//   );
+// }
+
+// const styles = StyleSheet.create({
+//   mobileTopBar: {
+//     flexDirection: 'row',
+//     alignItems: 'center',
+//     justifyContent: 'space-between',
+//     paddingHorizontal: 16,
+//     paddingVertical: 12,
+//     borderBottomWidth: 1,
+//   },
+//   hamburgerBtn: { padding: 2 },
+//   mobileTopBarTitle: { fontSize: 16, fontFamily: 'Inter_600SemiBold', fontWeight: '600' },
+//   drawerBackdrop: {
+//     position: 'absolute',
+//     top: 0,
+//     left: 0,
+//     right: 0,
+//     bottom: 0,
+//     backgroundColor: 'rgba(0,0,0,0.4)',
+//     // @ts-ignore - zIndex works fine on RN Web
+//     zIndex: 20,
+//   },
+//   drawer: {
+//     position: 'absolute',
+//     top: 0,
+//     left: 0,
+//     bottom: 0,
+//     // @ts-ignore
+//     zIndex: 21,
+//     // @ts-ignore
+//     boxShadow: '2px 0 12px rgba(0,0,0,0.25)',
+//   },
+// });
+
+// export default function RootLayout() {
+//   const [fontsLoaded, fontError] = useFonts({
+//     Inter_400Regular,
+//     Inter_500Medium,
+//     Inter_600SemiBold,
+//     Inter_700Bold,
+//   });
+
+//   useEffect(() => {
+//     if (fontsLoaded || fontError) {
+//       SplashScreen.hideAsync();
+//     }
+//   }, [fontsLoaded, fontError]);
+
+//   if (!fontsLoaded && !fontError) return null;
+
+//   return (
+//     <SafeAreaProvider>
+//       <ErrorBoundary>
+//         <QueryClientProvider client={queryClient}>
+//           <GestureHandlerRootView>
+//             <KeyboardProvider>
+//               <AuthProvider>
+//                 <BusinessProvider>
+//                   <RootLayoutNav />
+//                 </BusinessProvider>
+//               </AuthProvider>
+//             </KeyboardProvider>
+//           </GestureHandlerRootView>
+//         </QueryClientProvider>
+//       </ErrorBoundary>
+//     </SafeAreaProvider>
+//   );
+// }
 import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -17,10 +274,12 @@ import { Stack, useRouter, useSegments, usePathname } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { Feather } from '@expo/vector-icons';
 import { setBaseUrl } from '@workspace/api-client-react';
+import type { Business } from '@workspace/api-client-react';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { BusinessProvider, useBusiness } from '@/contexts/BusinessContext';
 import { useColors } from '@/hooks/useColors';
 import { WebSidebar, SIDEBAR_WIDTH } from '@/components/WebSidebar';
+
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -34,10 +293,42 @@ const queryClient = new QueryClient();
 // hamburger + slide-out drawer instead. Tune this to taste.
 const DESKTOP_BREAKPOINT = 900;
 
+// ============================================================
+// 💳 Subscription routing (spec §3) — resolves where a logged-in
+// user with a business should land, based on their subscription
+// status. Never hardcoded: reads straight off `business.subscription_status`
+// and `business.trial_end_date`, which the backend already maintains
+// (see subscription-billing.service.ts + the daily trial-expiry check).
+// ============================================================
+type SubscriptionRoute = 'ok' | 'renew' | 'none';
+
+function getSubscriptionRoute(business: Business | null): SubscriptionRoute {
+  if (!business) return 'none';
+  const status = business.subscription_status;
+
+  if (!status) return 'none';
+
+  if (status === 'trial' || status === 'active') {
+    // Frontend safety net only — the backend is the source of truth for
+    // flipping trial → expired once trial_end_date has passed (spec §2).
+    // This just avoids a stale UI flash if the backend hasn't run its
+    // check yet in the same moment the user opens the app.
+    if (status === 'trial' && business.trial_end_date) {
+      const end = new Date(business.trial_end_date);
+      const now = new Date();
+      if (end.getTime() < now.getTime()) return 'renew';
+    }
+    return 'ok';
+  }
+
+  // expired, cancelled
+  return 'renew';
+}
+
 function RootLayoutNav() {
   const colors = useColors();
   const { isLoading: authLoading, user } = useAuth();
-  const { isLoading: bizLoading, hasBusiness } = useBusiness();
+  const { isLoading: bizLoading, hasBusiness, business } = useBusiness();
   const segments = useSegments();
   const pathname = usePathname();
   const router = useRouter();
@@ -49,6 +340,7 @@ function RootLayoutNav() {
     const top = segments[0] as string | undefined;
     const inLogin = top === 'login';
     const inBusinessSetup = top === 'business-setup';
+    const inSubscriptionStatus = top === 'subscription-status';
 
     if (!user) {
       if (!inLogin) router.replace('/login');
@@ -62,10 +354,19 @@ function RootLayoutNav() {
       return;
     }
 
-    if (inLogin || inBusinessSetup) {
+    // 💳 Subscription gate (spec §3) — runs right after the "has a
+    // business" check, before anything else can render.
+    const subRoute = getSubscriptionRoute(business);
+
+    if (subRoute === 'renew' || subRoute === 'none') {
+      if (!inSubscriptionStatus) router.replace('/subscription-status');
+      return;
+    }
+
+    if (inLogin || inBusinessSetup || inSubscriptionStatus) {
       router.replace('/(tabs)');
     }
-  }, [authLoading, user, bizLoading, hasBusiness, segments]);
+  }, [authLoading, user, bizLoading, hasBusiness, business, segments]);
 
   // Auto-close the mobile drawer whenever the route changes.
   useEffect(() => {
@@ -80,12 +381,19 @@ function RootLayoutNav() {
    <Stack screenOptions={{ headerBackTitle: 'Back' }}>
   <Stack.Screen name="login" options={{ headerShown: false, gestureEnabled: false }} />
   <Stack.Screen name="business-setup" options={{ headerShown: false, gestureEnabled: false }} />
+  <Stack.Screen name="subscription-status" options={{ headerShown: false, gestureEnabled: false }} />
   <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-  <Stack.Screen name="customer/[id]" options={{ title: 'Ledger', headerShadowVisible: false }} />
+  <Stack.Screen name="customer/[id]" options={{ headerShown: false }} />
   <Stack.Screen name="all-products" options={{ headerShown: false }} />
   <Stack.Screen name="out-of-stock-products" options={{ headerShown: false }} />
   <Stack.Screen name="product-list" options={{ headerShown: false }} />
   <Stack.Screen name="add-product" options={{ headerShown: false }} />
+  <Stack.Screen name="create-purchase-order" options={{ headerShown: false }} />
+  <Stack.Screen name="promotions" options={{ headerShown: false }} />
+  <Stack.Screen name="delivery-settings" options={{ headerShown: false }} />
+  <Stack.Screen name="add-expense" options={{ headerShown: false }} />
+  <Stack.Screen name="add-promotion" options={{ headerShown: false }} />
+
   <Stack.Screen
     name="add-customer"
     options={{
@@ -107,12 +415,14 @@ function RootLayoutNav() {
 </Stack>
   );
 
-  // Web nav only shows once the user is logged in and has completed business
-  // setup (keeps login / business-setup screens clean).
-  const isWebAuthed = Platform.OS === 'web' && !!user && hasBusiness;
+  // Web nav only shows once the user is logged in, has completed business
+  // setup, AND has a valid (trial/active) subscription — keeps login,
+  // business-setup, and subscription-status screens clean/full-bleed.
+  const subRouteForNav = getSubscriptionRoute(business);
+  const isWebAuthed = Platform.OS === 'web' && !!user && hasBusiness && subRouteForNav === 'ok';
   const isDesktopWeb = isWebAuthed && width >= DESKTOP_BREAKPOINT;
   const isMobileWeb = isWebAuthed && width < DESKTOP_BREAKPOINT;
-
+  const showAssistant = !!user && hasBusiness && subRouteForNav === 'ok' && !authLoading && !bizLoading;
 
 if (Platform.OS === 'web') {
   // @ts-ignore
@@ -137,8 +447,10 @@ if (isDesktopWeb) {
         }}
       >
         {stackNav}
-      </View>
-    </View>
+
+        </View>
+      
+     </View>
   );
 }
 
@@ -166,11 +478,17 @@ if (isDesktopWeb) {
             </View>
           </>
         )}
+        
       </View>
     );
   }
 
-  return stackNav;
+  return (
+   <View style={{ flex: 1 }}>
+      {stackNav}
+    
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

@@ -5,11 +5,13 @@
  * KhataPro CRM API — digital ledger platform for small businesses
  * OpenAPI spec version: 0.1.0
  */
+import type { ListSubscriptionsBillingCycle } from './listSubscriptionsBillingCycle';
 import type { ListSubscriptionsPlan } from './listSubscriptionsPlan';
 import type { ListSubscriptionsStatus } from './listSubscriptionsStatus';
 
 export type ListSubscriptionsParams = {
 plan?: ListSubscriptionsPlan;
+billing_cycle?: ListSubscriptionsBillingCycle;
 status?: ListSubscriptionsStatus;
 page?: number;
 limit?: number;

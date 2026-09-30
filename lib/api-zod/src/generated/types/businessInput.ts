@@ -5,6 +5,8 @@
  * KhataPro CRM API — digital ledger platform for small businesses
  * OpenAPI spec version: 0.1.0
  */
+import type { BusinessInputBillingCycle } from './businessInputBillingCycle';
+import type { BusinessInputPlan } from './businessInputPlan';
 
 export interface BusinessInput {
   business_name: string;
@@ -24,4 +26,6 @@ export interface BusinessInput {
   logo_url?: string;
   currency?: string;
   financial_year_start?: Date;
+  plan: BusinessInputPlan;
+  billing_cycle: BusinessInputBillingCycle;
 }

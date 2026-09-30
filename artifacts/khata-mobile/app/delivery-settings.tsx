@@ -4,12 +4,13 @@
 // (GET /api/delivery-fees/settings, PUT /api/delivery-fees/settings).
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, Switch, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, Switch, ScrollView, ActivityIndicator, Platform, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import {
   useGetDeliveryFeeSettings,
   useUpdateDeliveryFeeSettings,
 } from '@workspace/api-client-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ACCENT = '#7C3AED';
 const TEXT_DARK = '#1E293B';
@@ -30,12 +31,20 @@ function computeExampleFee(distance: number, radius: number, perKm: number) {
 
 export default function DeliverySettingsScreen() {
   const { data, isLoading, isError } = useGetDeliveryFeeSettings();
+  const { user } = useAuth();
+  const isOwner = user?.role === 'owner';
 
   const [radius, setRadius] = useState('5');
   const [perKm, setPerKm] = useState('2');
   const [isActive, setIsActive] = useState(true);
   const [savedMessage, setSavedMessage] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
+
+  const showPermissionAlert = () => {
+    const message = "You don't have permission to do this. Please ask your admin.";
+    if (Platform.OS === 'web') window.alert(message);
+    else Alert.alert('Permission required', message);
+  };
 
   useEffect(() => {
     if (data) {
@@ -55,6 +64,10 @@ export default function DeliverySettingsScreen() {
   });
 
   const handleSave = () => {
+    if (!isOwner) {
+      showPermissionAlert();
+      return;
+    }
     const radiusNum = parseFloat(radius);
     const perKmNum = parseFloat(perKm);
 
@@ -118,10 +131,11 @@ export default function DeliverySettingsScreen() {
             <Text style={styles.fieldLabel}>Free Delivery Radius</Text>
             <View style={styles.inputRow}>
               <TextInput
-                style={styles.input}
+                style={[styles.input, !isOwner && styles.inputDisabled]}
                 keyboardType="numeric"
                 value={radius}
-                onChangeText={setRadius}
+                onChangeText={isOwner ? setRadius : undefined}
+                editable={isOwner}
               />
               <View style={styles.inputSuffix}>
                 <Text style={styles.inputSuffixText}>KM</Text>
@@ -137,10 +151,11 @@ export default function DeliverySettingsScreen() {
                 <Text style={styles.inputPrefixText}>₹</Text>
               </View>
               <TextInput
-                style={styles.input}
+                style={[styles.input, !isOwner && styles.inputDisabled]}
                 keyboardType="numeric"
                 value={perKm}
-                onChangeText={setPerKm}
+                onChangeText={isOwner ? setPerKm : undefined}
+                editable={isOwner}
               />
               <View style={styles.inputSuffix}>
                 <Text style={styles.inputSuffixText}>/ KM</Text>
@@ -154,7 +169,8 @@ export default function DeliverySettingsScreen() {
             <View style={styles.toggleRow}>
               <Switch
                 value={isActive}
-                onValueChange={setIsActive}
+                onValueChange={isOwner ? setIsActive : undefined}
+                disabled={!isOwner}
                 trackColor={{ false: BORDER, true: ACCENT }}
                 thumbColor="#fff"
               />
@@ -170,9 +186,13 @@ export default function DeliverySettingsScreen() {
 
         <View style={styles.saveRow}>
           <Pressable
-            style={({ pressed }) => [styles.saveButton, pressed && { opacity: 0.85 }]}
-            onPress={handleSave}
-            disabled={isPending}
+            style={({ pressed }) => [
+              styles.saveButton,
+              !isOwner && styles.saveButtonDisabled,
+              pressed && { opacity: 0.85 },
+            ]}
+            onPress={isOwner ? handleSave : showPermissionAlert}
+            disabled={isOwner ? isPending : false}
           >
             <Feather name="save" size={16} color="#fff" />
             <Text style={styles.saveButtonText}>
@@ -273,8 +293,8 @@ const styles = StyleSheet.create({
   pageTitle: { fontSize: 24, fontWeight: '700', color: TEXT_DARK, fontFamily: 'Times New Roman' },
   pageSubtitle: { fontSize: 14, color: TEXT_MUTED, marginTop: 4, marginBottom: 20, fontFamily: 'Times New Roman' },
   card: { backgroundColor: CARD_BG, borderRadius: 12, padding: 20, borderWidth: 1, borderColor: BORDER, marginBottom: 20 },
-  halfCard: { flex: 1 },
-  twoColRow: { flexDirection: 'row', gap: 20 },
+  halfCard: { flexGrow: 1, flexBasis: 320, minWidth: 280 },
+  twoColRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 20 },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 10 },
   accentBar: { width: 4, height: 18, backgroundColor: ACCENT, borderRadius: 2 },
   cardTitle: { fontSize: 16, fontWeight: '700', color: TEXT_DARK, fontFamily: 'Times New Roman' },
@@ -283,6 +303,7 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: 13, fontWeight: '600', color: TEXT_DARK, marginBottom: 8, fontFamily: 'Times New Roman' },
   inputRow: { flexDirection: 'row', alignItems: 'stretch', borderWidth: 1, borderColor: BORDER, borderRadius: 8, overflow: 'hidden' },
   input: { flex: 1, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: TEXT_DARK, fontFamily: 'Times New Roman' },
+  inputDisabled: { backgroundColor: PAGE_BG, color: TEXT_MUTED },
   inputPrefix: { paddingHorizontal: 10, justifyContent: 'center', backgroundColor: PAGE_BG, borderRightWidth: 1, borderRightColor: BORDER },
   inputPrefixText: { color: TEXT_MUTED, fontFamily: 'Times New Roman' },
   inputSuffix: { paddingHorizontal: 10, justifyContent: 'center', backgroundColor: PAGE_BG, borderLeftWidth: 1, borderLeftColor: BORDER },
@@ -292,6 +313,7 @@ const styles = StyleSheet.create({
   toggleLabel: { fontSize: 13, fontWeight: '700', fontFamily: 'Times New Roman' },
   saveRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 },
   saveButton: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: ACCENT, paddingHorizontal: 18, paddingVertical: 12, borderRadius: 8 },
+  saveButtonDisabled: { opacity: 0.5 },
   saveButtonText: { color: '#fff', fontWeight: '600', fontFamily: 'Times New Roman' },
   toast: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, padding: 10, backgroundColor: GREEN_BG, borderRadius: 8 },
   toastText: { color: GREEN, fontSize: 13, fontFamily: 'Times New Roman' },

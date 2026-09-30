@@ -9,6 +9,7 @@ import type { ProductInputUnit } from './productInputUnit';
 
 export interface ProductInput {
   business_id: number;
+  vendor_id?: number;
   name: string;
   barcode?: string;
   sku?: string;

@@ -16,5 +16,6 @@ export interface PurchaseInput {
   bill_image_url?: string;
   description?: string;
   entry_date?: Date;
+  due_date?: Date;
   items: PurchaseItemInput[];
 }

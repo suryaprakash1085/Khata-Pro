@@ -1,6 +1,11 @@
 // artifacts/api-server/src/services/notificationService.ts
-import { db, notificationsTable } from "@workspace/db";
+import { db, notificationsTable, customersTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { sendPushNotification } from "./pushNotifications";
 
+// ------------------------------------------------------------
+// DRIVER notifications (unchanged)
+// ------------------------------------------------------------
 type DriverNotificationType =
   | "assigned" | "accepted" | "picked_up" | "out_for_delivery"
   | "completed" | "cancelled" | "fee_earned";
@@ -68,11 +73,62 @@ export const notifyDeliveryCancelled = (driverId: number, salesOrderId: number, 
     message: `Order #${salesOrderId} has been cancelled.`,
   });
 
-// deliveryFeeAmount MUST come from the real stored/calculated fee (e.g. from
-// sales_orders.delivery_fee_amount, per your deliveryFeeService) — never hardcode.
+// deliveryFeeAmount MUST come from the real stored/calculated fee — never hardcode.
 export const notifyDeliveryFeeEarned = (driverId: number, salesOrderId: number, deliveryId: number, deliveryFeeAmount: number) =>
   createDriverNotification({
     driverId, deliveryId, salesOrderId, type: "fee_earned",
     title: "Delivery Fee Earned",
     message: `₹${deliveryFeeAmount} delivery fee has been added to your earnings.`,
   });
+
+// ------------------------------------------------------------
+// CUSTOMER notifications (NEW)
+// Inserts an in-app row (shown in the bell) AND sends a push if the
+// customer has a saved Expo push token. Push failure never throws.
+// ------------------------------------------------------------
+type CustomerNotificationType =
+  | "order_confirmed" | "assigned" | "picked_up"
+  | "out_for_delivery" | "completed" | "cancelled";
+
+interface NotifyCustomerInput {
+  businessId: number;
+  customerId: number;
+  type: CustomerNotificationType;
+  title: string;
+  message: string;
+  deliveryId?: number | null;
+  salesOrderId?: number | null;
+}
+
+export async function notifyCustomer(input: NotifyCustomerInput) {
+  const [row] = await db.insert(notificationsTable).values({
+    businessId: input.businessId,
+    customerId: input.customerId,
+    driverId: null,
+    deliveryId: input.deliveryId ?? null,
+    salesOrderId: input.salesOrderId ?? null,
+    type: input.type,
+    title: input.title,
+    message: input.message,
+  }).returning();
+
+  // Push is a bonus — never let it break the main flow
+  try {
+    const [c] = await db
+      .select({ pushToken: customersTable.pushToken })
+      .from(customersTable)
+      .where(eq(customersTable.id, input.customerId));
+
+    if (c?.pushToken) {
+      await sendPushNotification(c.pushToken, input.title, input.message, {
+        type: input.type,
+        deliveryId: input.deliveryId ?? null,
+        orderId: input.salesOrderId ?? null,
+      });
+    }
+  } catch (err) {
+    console.error("[notifyCustomer] push failed:", err);
+  }
+
+  return row;
+}

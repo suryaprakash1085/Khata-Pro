@@ -21,7 +21,6 @@ import { DriverAuthContext } from '../../context/DriverAuthContext';
 import { COLORS } from '../../components/driver/DriverHomeComponents';
 import { DriverWebShell, DriverShellTab } from '../../components/driver/DriverWebShell';
 import { OrderCardData, OrderFilterKey, OrderStatus } from '../../types/driverOrders.types';
-import { OrderSummaryCard, OrderFilterTabs, OrderCard } from '../../components/driver/DriverOrdersComponents';
 
 // ── Orval-generated hooks ────────────────────────────────────────────────
 import {
@@ -29,11 +28,8 @@ import {
   useUpdateDriver,
   useGetDriverUnreadNotificationCount,
   useRejectDelivery,
+  useCallDeliveryCustomer,
 } from '@workspace/api-client-react';
-import { useCallDeliveryCustomer } from '@workspace/api-client-react';
-
-
-import { getDriverToken } from '../../utils/storage';
 
 const FONT_FAMILY = Platform.select({
   web: '"Times New Roman", Times, serif',
@@ -42,9 +38,8 @@ const FONT_FAMILY = Platform.select({
 const webNoOutlineStyle = (Platform.OS === 'web' ? { outlineStyle: 'none' } : {}) as any;
 const TypedFlatList = FlatList as unknown as React.ComponentType<any>;
 
-// Extra color used only for the "Picked Up" status pill — not part of the
-// shared COLORS palette yet, so it's kept local instead of touching the
-// shared design-system file.
+// Extra color used only for the "Picked Up" status pill — kept local instead
+// of touching the shared COLORS palette.
 const PICKUP_BLUE = '#2563EB';
 const PICKUP_BLUE_LIGHT = '#DBEAFE';
 
@@ -76,10 +71,7 @@ interface ApiDelivery {
   out_for_delivery_at?: string | null;
 }
 
-
-
 function mapStatus(status: string): OrderStatus {
-  // if (status === 'in_transit') return 'in_progress';
   return status as OrderStatus;
 }
 
@@ -117,8 +109,7 @@ function showAlert(title: string, message?: string) {
   }
 }
 
-// Which "step" a card is on determines badge label/colour. Rejection reason
-// is only ever collected for a brand-new, not-yet-accepted assignment.
+// Which "step" a card is on determines badge label/colour.
 function statusMeta(status: OrderStatus) {
   switch (status) {
     case 'pending':
@@ -152,18 +143,7 @@ const PAYMENT_FILTERS: { key: 'all' | 'cod' | 'upi'; label: string }[] = [
   { key: 'upi', label: 'Online / UPI' },
 ];
 
-// Shape rendered by the summary-card grid at the top of the mobile/wide
-// list header. One card per filter, each showing that filter's count.
-interface OrderSummaryItem {
-  key: OrderFilterKey;
-  label: string;
-  count: number;
-}
-
-// ────────────────────────────────────────────────────────────────────────
-// Wide-web horizontal row — mirrors the reference design 1:1.
-// ────────────────────────────────────────────────────────────────────────
-const OrderRowWide: React.FC<{
+interface OrderItemProps {
   order: OrderCardData;
   isRejecting: boolean;
   rejecting: boolean;
@@ -175,7 +155,12 @@ const OrderRowWide: React.FC<{
   onOpen: () => void;
   onCall: () => void;
   onNavigate: () => void;
-}> = ({
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Wide-web horizontal row
+// ────────────────────────────────────────────────────────────────────────
+const OrderRowWide: React.FC<OrderItemProps> = ({
   order,
   isRejecting,
   rejecting,
@@ -186,7 +171,6 @@ const OrderRowWide: React.FC<{
   onConfirmReject,
   onOpen,
   onCall,
-  onNavigate,
 }) => {
   const meta = statusMeta(order.status);
   const isNew = (order.status === 'assigned' || order.status === 'pending') && !(order as any).acceptedAt;
@@ -279,27 +263,14 @@ const OrderRowWide: React.FC<{
           </TouchableOpacity>
         </View>
       )}
-
     </View>
   );
 };
 
 // ────────────────────────────────────────────────────────────────────────
-// Mobile / narrow-web vertical card.
+// Mobile / narrow-web vertical card
 // ────────────────────────────────────────────────────────────────────────
-const OrderCardMobile: React.FC<{
-  order: OrderCardData;
-  isRejecting: boolean;
-  rejecting: boolean;
-  rejectReason: string;
-  onRejectReasonChange: (v: string) => void;
-  onStartReject: () => void;
-  onCancelReject: () => void;
-  onConfirmReject: () => void;
-  onOpen: () => void;
-  onCall: () => void;
-  onNavigate: () => void;
-}> = ({
+const OrderCardMobile: React.FC<OrderItemProps> = ({
   order,
   isRejecting,
   rejecting,
@@ -413,47 +384,39 @@ const EmptyOrdersState: React.FC<{ message: string }> = ({ message }) => (
   </View>
 );
 
-// API base — mirrors the same default used elsewhere in the app.
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL  || ' /api';
-
+// ────────────────────────────────────────────────────────────────────────
+// Screen
+// ────────────────────────────────────────────────────────────────────────
 const DriverOrdersScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const { driver: authDriver, driverLogout } = useContext(DriverAuthContext) as any;
   const driverId = authDriver?.id;
-  const businessId = authDriver?.business_id;
 
   const { width } = useWindowDimensions();
   const isWideWeb = Platform.OS === 'web' && width >= 1000;
 
   const [activeFilter, setActiveFilter] = useState<OrderFilterKey>('all');
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'cod' | 'upi'>('all');
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [markingOutForDeliveryId, setMarkingOutForDeliveryId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState('');
   const [isOnline, setIsOnline] = useState<boolean>(authDriver?.status === 'available');
 
-
   const {
     data: deliveriesResponse,
     isLoading,
     isFetching,
     refetch: refetchDeliveries,
-  } = useListMyDeliveries(
-    { limit: 50 },
-    { query: { enabled: !!driverId } }
-  );
+  } = useListMyDeliveries({ limit: 50 }, { query: { enabled: !!driverId } });
 
-  // Same source of truth as DriverHomeScreen — this is the *unread* count,
-  // not the length of the notifications list. Using the list length (capped
-  // at whatever `limit` was passed) was why this screen showed a stale/wrong
-  // badge number that didn't match Home.
+  // Same source of truth as DriverHomeScreen — the *unread* count.
   const { data: unreadCountResponse } = useGetDriverUnreadNotificationCount();
   const notificationsCount = unreadCountResponse?.count ?? 0;
 
   const rejectDelivery = useRejectDelivery();
+  const updateDriver = useUpdateDriver();
+  const callCustomer = useCallDeliveryCustomer();
 
   // ── Derived view data ──────────────────────────────────────────────────
   const deliveriesPayload: any = deliveriesResponse;
@@ -496,27 +459,10 @@ const DriverOrdersScreen: React.FC = () => {
     return c;
   }, [allOrders]);
 
-  // 👇 ADDED — was referenced in the header JSX further below but never
-  // defined anywhere, causing "Cannot find name 'todayLabel'". This just
-  // formats today's date the same way the rest of the screen formats dates.
+  // Today's date, shown as the subtitle on mobile.
   const todayLabel = useMemo(
     () => new Date().toLocaleDateString(undefined, { weekday: 'long', day: '2-digit', month: 'long' }),
     []
-  );
-
-  // 👇 ADDED — was referenced (via `summaryItems.map(...)`) in the summary
-  // grid further below but never defined, causing "Cannot find name
-  // 'summaryItems'" plus the implicit-`any` warning on the map callback.
-  // One entry per filter tab, each carrying that filter's live count, so
-  // OrderSummaryCard has the same data the filter tabs above it show.
-  const summaryItems: OrderSummaryItem[] = useMemo(
-    () =>
-      FILTERS.map((f) => ({
-        key: f.key,
-        label: f.label,
-        count: f.key === 'all' ? counts.all : (counts as any)[f.key] ?? 0,
-      })),
-    [counts]
   );
 
   const filteredOrders = useMemo(() => {
@@ -544,9 +490,6 @@ const DriverOrdersScreen: React.FC = () => {
     return list;
   }, [allOrders, activeFilter, paymentFilter, search]);
 
-  const updateDriver = useUpdateDriver();
-  const callCustomer = useCallDeliveryCustomer();
-
   // ── Handlers ─────────────────────────────────────────────────────────
   const handleCall = (order: OrderCardData) => {
     if (!order.phone) {
@@ -567,10 +510,9 @@ const DriverOrdersScreen: React.FC = () => {
     Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${query}`);
   };
 
-  // View Details always routes to the single, already-built
-  // DriverOrderDetailsScreen — accept/pickup/OTP/payment/complete all stay
-  // in that one place. Reject is the only action duplicated here, since the
-  // reference design calls for it directly on the list.
+  // View Details always routes to DriverOrderDetailsScreen — accept / pickup /
+  // OTP / payment / complete all live there. Reject is the only action
+  // duplicated on the list.
   const handleOpenOrder = (id: string) => navigation.navigate('DriverOrderDetails', { deliveryId: Number(id) });
 
   const handleStartReject = (id: string) => {
@@ -595,79 +537,19 @@ const DriverOrdersScreen: React.FC = () => {
           refetchDeliveries();
         },
         onError: (err: any) => {
-          showAlert('Could not reject delivery', err?.response?.data?.error ?? 'Please try again.');
-          setUpdatingId(null);
-          const msg = err?.response?.data?.error || err?.error || 'Could not update the order. Please try again.';
-          Alert.alert('Error', msg);
+          const msg = err?.response?.data?.error || err?.error || 'Could not reject the delivery. Please try again.';
+          showAlert('Could not reject delivery', msg);
           refetchDeliveries(); // resync UI in case another action already changed it
         },
       }
     );
   };
 
-   const handleToggleOnline = (value: boolean) => {
+  const handleToggleOnline = (value: boolean) => {
     setIsOnline(value);
     if (!driverId) return;
     updateDriver.mutate({ id: driverId, data: { status: value ? 'available' : 'offline' } });
   };
-
-  // Shared status-update helper used by pickedUp/delivered/cancelled below —
-  // hits the driver's own "/my-status" route with the driver token, same
-  // pattern as handleStartDelivery's out-for-delivery call.
-  const runStatusUpdate = async (id: string, status: 'picked_up' | 'delivered' | 'cancelled') => {
-    setUpdatingId(id);
-    try {
-      const token = await getDriverToken();
-      const res = await fetch(`${API_BASE}/deliveries/${id}/my-status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ status }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.error || 'Failed to update');
-      }
-      refetchDeliveries();
-    } catch (err: any) {
-      showAlert('Error', err?.message || 'Could not update the order. Please try again.');
-    } finally {
-      setUpdatingId(null);
-    }
-  };
-
-  const handleMarkPickedUp = (id: string) => runStatusUpdate(id, 'picked_up');
-
-  // ✅ FIXED — was using the customer-app apiClient (wrong token, caused
-  // 401 Unauthorized). Now uses the driver's own token via getDriverToken(),
-  // the same storage the Orval-generated hooks above already use successfully.
-  const handleStartDelivery = async (id: string) => {
-    setMarkingOutForDeliveryId(id);
-    try {
-      const token = await getDriverToken();
-      const res = await fetch(`${API_BASE}/deliveries/${id}/my-out-for-delivery`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.error || 'Failed to update');
-      }
-      refetchDeliveries();
-    } catch (err: any) {
-      showAlert('Error', err?.message || 'Could not mark as out for delivery. Please try again.');
-    } finally {
-      setMarkingOutForDeliveryId(null);
-    }
-  };
-
-  const handleMarkDelivered = (id: string) => runStatusUpdate(id, 'delivered');
-  const handleUnableToDeliver = (id: string) => runStatusUpdate(id, 'cancelled');
 
   const handleTabPress = (tab: DriverShellTab) => {
     if (tab.key === 'orders') return;
@@ -676,7 +558,7 @@ const DriverOrdersScreen: React.FC = () => {
   };
 
   const renderRow = (item: OrderCardData) => {
-    const shared = {
+    const shared: OrderItemProps = {
       order: item,
       isRejecting: rejectingId === item.id,
       rejecting: rejectDelivery.isPending && rejectingId === item.id,
@@ -692,15 +574,16 @@ const DriverOrdersScreen: React.FC = () => {
     return isWideWeb ? <OrderRowWide {...shared} /> : <OrderCardMobile {...shared} />;
   };
 
+  // ── Header: title + filter tabs + search + filters ─────────────────────
   const headerBlock = (
     <View>
       <View style={isWideWeb ? styles.webHeader : styles.mobileHeader}>
         <View>
           <Text style={styles.headerTitle}>My Orders</Text>
-          <Text style={styles.headerDate}>Manage all your deliveries</Text>
+          <Text style={styles.headerDate}>{isWideWeb ? 'Manage all your deliveries' : todayLabel}</Text>
         </View>
         <TouchableOpacity style={[styles.refreshBtn, webNoOutlineStyle]} onPress={() => refetchDeliveries()}>
-          <Ionicons name="refresh-outline" size={16} color={COLORS.ink} />
+          <Ionicons name="refresh-outline" size={isWideWeb ? 16 : 20} color={COLORS.ink} />
           {isWideWeb && <Text style={styles.refreshBtnText}>Refresh</Text>}
         </TouchableOpacity>
       </View>
@@ -758,7 +641,7 @@ const DriverOrdersScreen: React.FC = () => {
       {showFilters && (
         <View style={[styles.section, styles.filtersPanel]}>
           <Text style={styles.filtersPanelLabel}>Payment Method</Text>
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
             {PAYMENT_FILTERS.map((pf) => {
               const active = paymentFilter === pf.key;
               return (
@@ -777,12 +660,15 @@ const DriverOrdersScreen: React.FC = () => {
     </View>
   );
 
+  // ── The list — shared by wide web AND mobile so both look identical ───
   const listBody = (
     <TypedFlatList
       data={filteredOrders}
       keyExtractor={(item: OrderCardData) => item.id}
       contentContainerStyle={[styles.listContent, !isWideWeb && { paddingBottom: 90 }]}
-      refreshControl={<RefreshControl refreshing={!isLoading && isFetching} onRefresh={refetchDeliveries} tintColor={COLORS.primary} />}
+      refreshControl={
+        <RefreshControl refreshing={!isLoading && isFetching} onRefresh={refetchDeliveries} tintColor={COLORS.primary} />
+      }
       ListHeaderComponent={headerBlock}
       renderItem={({ item }: { item: OrderCardData }) => <View style={styles.cardWrapper}>{renderRow(item)}</View>}
       ListEmptyComponent={
@@ -808,7 +694,9 @@ const DriverOrdersScreen: React.FC = () => {
         onToggleOnline={handleToggleOnline}
         notificationsCount={notificationsCount}
         onTabPress={handleTabPress}
-        onNotificationsPress={() => handleTabPress({ key: 'notifications', label: 'Notifications', icon: 'notifications-outline', screen: 'DriverAlerts' })}
+        onNotificationsPress={() =>
+          handleTabPress({ key: 'notifications', label: 'Notifications', icon: 'notifications-outline', screen: 'DriverAlerts' })
+        }
         onProfilePress={driverLogout}
       >
         <View style={styles.wideListWrap}>{listBody}</View>
@@ -824,155 +712,11 @@ const DriverOrdersScreen: React.FC = () => {
     { key: 'profile', label: 'Profile', icon: 'person-outline', screen: 'DriverProfile' },
   ];
 
-  // ── Mobile / narrow web: single list, same OrderCardMobile design that
-  // mirrors the wide-web row layout, rendered exactly once. ─────────────
+  // ── Mobile / narrow web: SAME design as wide web (listBody), rendered
+  // exactly once, with a single bottom nav. ─────────────────────────────
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.bg} />
-
-
-
-      {isWideWeb && (
-        <View style={styles.webTopBar}>
-          <View style={styles.webTopBarInner}>
-            <Text style={styles.webBrand}>Khata-Pro · Driver</Text>
-            <View style={styles.webTopBarTabs}>
-              {bottomTabs.map((tab) => {
-                const active = tab.key === ACTIVE_TAB;
-                return (
-                  <TouchableOpacity
-                    key={tab.key}
-                    style={[styles.webTopBarTab, webNoOutlineStyle]}
-                    onPress={() => handleTabPress(tab)}
-                  >
-                    <Ionicons name={tab.icon as keyof typeof Ionicons.glyphMap} size={17} color={active ? COLORS.primary : COLORS.slate} />
-                    <Text style={[styles.webTopBarTabLabel, active && { color: COLORS.primary, fontWeight: '700' }]}>{tab.label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        </View>
-      )}
-
-      <TypedFlatList
-        data={filteredOrders}
-        keyExtractor={(item: OrderCardData) => item.id}
-        numColumns={1}
-        key="cols-1"
-        contentContainerStyle={[styles.listContent, !isWideWeb && { paddingBottom: 90 }]}
-        refreshControl={
-          <RefreshControl refreshing={!isLoading && isFetching} onRefresh={refetchDeliveries} tintColor={COLORS.primary} />
-        }
-        ListHeaderComponent={
-          <View style={[styles.webContainer, isWideWeb && styles.webContainerWide]}>
-            {/* Header */}
-            {!isWideWeb ? (
-              <View style={styles.mobileHeader}>
-                <View>
-                  <Text style={styles.headerTitle}>My Orders</Text>
-                  <Text style={styles.headerDate}>{todayLabel}</Text>
-                </View>
-                <TouchableOpacity style={[styles.refreshBtn, webNoOutlineStyle]} onPress={() => refetchDeliveries()} hitSlop={8}>
-                  <Ionicons name="refresh-outline" size={20} color={COLORS.ink} />
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.webHeader}>
-                <View>
-                  <Text style={styles.headerTitle}>My Orders</Text>
-                  <Text style={styles.headerDate}>{todayLabel}</Text>
-                </View>
-                <TouchableOpacity style={[styles.refreshBtn, webNoOutlineStyle]} onPress={() => refetchDeliveries()}>
-                  <Ionicons name="refresh-outline" size={16} color={COLORS.ink} />
-                  <Text style={styles.refreshBtnText}>Refresh</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Summary */}
-            <View style={styles.section}>
-              <View style={styles.summaryGrid}>
-                {summaryItems.map((item: OrderSummaryItem) => (
-                  <View key={item.key} style={styles.summaryGridItem}>
-                    <OrderSummaryCard item={item as any} active={activeFilter === item.key} onPress={() => setActiveFilter(item.key as OrderFilterKey)} />
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Search */}
-            <View style={styles.section}>
-              <View style={styles.searchBar}>
-                <Ionicons name="search-outline" size={16} color={COLORS.slate} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Search by Order ID, customer name or phone"
-                  placeholderTextColor={COLORS.slateLight}
-                  value={search}
-                  onChangeText={setSearch}
-                />
-                {search.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
-                    <Ionicons name="close-circle" size={18} color={COLORS.slateLight} />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-
-            {/* Filter tabs */}
-            <View style={[styles.section, { marginBottom: 4 }]}>
-              <OrderFilterTabs active={activeFilter} onChange={setActiveFilter} />
-            </View>
-          </View>
-        }
-        renderItem={({ item }: { item: OrderCardData }) => (
-          <View style={[styles.cardWrapper, isWideWeb && styles.cardWrapperWide]}>
-            <OrderCard
-              order={item}
-              updating={updatingId === item.id || markingOutForDeliveryId === item.id}
-              onNavigate={() => handleNavigate(item)}
-              onCall={() => handleCall(item)}
-              onMarkPickedUp={() => handleMarkPickedUp(item.id)}
-              onStartDelivery={() => handleStartDelivery(item.id)}
-              onMarkDelivered={() => handleMarkDelivered(item.id)}
-              onUnableToDeliver={() => handleUnableToDeliver(item.id)}
-            />
-          </View>
-        )}
-        ListEmptyComponent={
-          isLoading ? (
-            <View style={styles.loadingWrap}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
-            </View>
-          ) : (
-            <View style={[styles.webContainer, isWideWeb && styles.webContainerWide]}>
-              <EmptyOrdersState
-                message={activeFilter === 'all' ? 'No deliveries assigned yet.' : 'No orders found'}
-              />
-            </View>
-          )
-        }
-      />
-
-      {!isWideWeb && (
-        <View style={styles.bottomNav}>
-          {bottomTabs.map((tab) => {
-            const active = tab.key === ACTIVE_TAB;
-            return (
-              <TouchableOpacity
-                key={tab.key}
-                style={[styles.bottomNavItem, webNoOutlineStyle]}
-                activeOpacity={0.7}
-                onPress={() => handleTabPress(tab)}
-              >
-                <Ionicons name={tab.icon as keyof typeof Ionicons.glyphMap} size={22} color={active ? COLORS.primary : COLORS.slateLight} />
-                <Text style={[styles.bottomNavLabel, { color: active ? COLORS.primary : COLORS.slateLight }]}>{tab.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
 
       {listBody}
 
@@ -986,7 +730,11 @@ const DriverOrdersScreen: React.FC = () => {
               activeOpacity={0.7}
               onPress={() => handleTabPress(tab)}
             >
-              <Ionicons name={tab.icon as keyof typeof Ionicons.glyphMap} size={22} color={active ? COLORS.primary : COLORS.slateLight} />
+              <Ionicons
+                name={tab.icon as keyof typeof Ionicons.glyphMap}
+                size={22}
+                color={active ? COLORS.primary : COLORS.slateLight}
+              />
               <Text style={[styles.bottomNavLabel, { color: active ? COLORS.primary : COLORS.slateLight }]}>{tab.label}</Text>
             </TouchableOpacity>
           );
@@ -1078,7 +826,7 @@ const styles = StyleSheet.create({
 
   rowColActions: { alignItems: 'flex-end', gap: 8, minWidth: 130 },
 
-  rejectBtn: { borderWidth: 1.5, borderColor: COLORS.danger, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 9 },
+  rejectBtn: { borderWidth: 1.5, borderColor: COLORS.danger, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 9, alignItems: 'center', justifyContent: 'center' },
   rejectBtnText: { fontFamily: FONT_FAMILY, fontSize: 12.5, fontWeight: '700', color: COLORS.danger },
   viewDetailsBtnWide: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: COLORS.secondary, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10 },
   viewDetailsBtnText: { fontFamily: FONT_FAMILY, fontSize: 12.5, fontWeight: '700', color: '#FFFFFF' },
@@ -1111,20 +859,6 @@ const styles = StyleSheet.create({
   emptyTitle: { fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '700', color: COLORS.ink, marginTop: 10 },
   emptyText: { fontFamily: FONT_FAMILY, fontSize: 12, color: COLORS.slate, marginTop: 4, textAlign: 'center' },
   loadingWrap: { paddingVertical: 60, alignItems: 'center' },
-
-  // ── Additional styles ──────────────────────────────────────────────
-  columnWrapper: { gap: 12 },
-  webContainer: { paddingHorizontal: 20 },
-  webContainerWide: { paddingHorizontal: 0 },
-  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  summaryGridItem: { flex: 1, minWidth: 80 },
-  cardWrapperWide: { paddingHorizontal: 0, marginTop: 14 },
-  webTopBar: { backgroundColor: COLORS.card, borderBottomWidth: 1, borderBottomColor: COLORS.border, paddingVertical: 12 },
-  webTopBarInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, maxWidth: 1200, alignSelf: 'center', width: '100%' },
-  webBrand: { fontFamily: FONT_FAMILY, fontSize: 16, fontWeight: '700', color: COLORS.ink },
-  webTopBarTabs: { flexDirection: 'row', gap: 24 },
-  webTopBarTab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 },
-  webTopBarTabLabel: { fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '600', color: COLORS.slate },
 
   bottomNav: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', backgroundColor: COLORS.card, borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 8, paddingBottom: 20 },
   bottomNavItem: { flex: 1, alignItems: 'center', gap: 3 },

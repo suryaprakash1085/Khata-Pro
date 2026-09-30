@@ -127,6 +127,76 @@
       "when": 1788437430421,
       "tag": "0017_deep_living_tribunal",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788774539741,
+      "tag": "0018_swift_vertigo",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789466728441,
+      "tag": "0019_nebulous_sabra",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1789472126176,
+      "tag": "0020_marvelous_black_bird",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1789472514663,
+      "tag": "0021_aspiring_cloak",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1789644735576,
+      "tag": "0022_dapper_galactus",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1789645736272,
+      "tag": "0023_workable_network",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1789799381213,
+      "tag": "0024_fine_morlun",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1789984745148,
+      "tag": "0025_giant_argent",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790055411953,
+      "tag": "0026_tearful_mother_askani",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790227608601,
+      "tag": "0027_tidy_anthem",
+      "breakpoints": true
     }
   ]
 }

@@ -46,8 +46,6 @@ function toLocalTimeStr(d: Date): string {
 }
 
 // ---- Create expense mutation ----
-// NOTE: adjust the endpoint path + payload keys once you confirm your
-// `expenses` table column names — see note at the bottom of chat.
 function useCreateExpense() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -61,6 +59,18 @@ function useCreateExpense() {
       queryClient.invalidateQueries({ queryKey: ['reports', 'expenses'], exact: false });
     },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Small layout helper — puts two fields side by side on wide screens,
+// stacks them on narrow ones, so the form uses horizontal space instead
+// of stretching vertically with one field per row.
+// ---------------------------------------------------------------------------
+function FieldGrid({ children }: { children: React.ReactNode }) {
+  return <View style={styles.fieldGrid}>{children}</View>;
+}
+function FieldCol({ children }: { children: React.ReactNode }) {
+  return <View style={styles.fieldCol}>{children}</View>;
 }
 
 export default function AddExpenseScreen() {
@@ -91,48 +101,48 @@ export default function AddExpenseScreen() {
   const isValid = amount.trim().length > 0 && !isNaN(Number(amount)) && Number(amount) > 0;
 
   const handleSave = () => {
-  if (!isValid) {
-    Alert.alert('Missing info', 'Please enter a valid amount');
-    return;
-  }
+    if (!isValid) {
+      Alert.alert('Missing info', 'Please enter a valid amount');
+      return;
+    }
 
-  const paymentDetails: Record<string, any> =
-    paymentMethod === 'bank_transfer'
-      ? { bank_name: bankName.trim(), account_number: accountNumber.trim(), reference_number: refNumber.trim() }
-      : paymentMethod === 'card'
-      ? { card_type: cardType, card_last4: cardLast4.trim() }
-      : paymentMethod === 'upi'
-      ? { upi_id: upiId.trim() }
-      : {};
+    const paymentDetails: Record<string, any> =
+      paymentMethod === 'bank_transfer'
+        ? { bank_name: bankName.trim(), account_number: accountNumber.trim(), reference_number: refNumber.trim() }
+        : paymentMethod === 'card'
+        ? { card_type: cardType, card_last4: cardLast4.trim() }
+        : paymentMethod === 'upi'
+        ? { upi_id: upiId.trim() }
+        : {};
 
-  const payload = {
-    business_id: business?.id,
-    category: CATEGORY_VALUE_MAP[category],
-    payee_name: payeeName.trim(),
-    description: description.trim(),
-    amount: Number(amount),
-    entry_date: toLocalISODate(date),
-    payment_mode: paymentMethod,        // matches new enum: cash | bank_transfer | card | upi
-    payment_details: paymentDetails,    // goes straight into the jsonb column
+    const payload = {
+      business_id: business?.id,
+      category: CATEGORY_VALUE_MAP[category],
+      payee_name: payeeName.trim(),
+      description: description.trim(),
+      amount: Number(amount),
+      entry_date: toLocalISODate(date),
+      payment_mode: paymentMethod,
+      payment_details: paymentDetails,
+    };
+
+    createExpense.mutate(payload, {
+      onSuccess: () => {
+        Alert.alert('Saved', 'Expense recorded successfully', [{ text: 'OK', onPress: () => router.back() }]);
+      },
+      onError: (err: any) => {
+        Alert.alert('Error', err?.message ?? 'Could not save expense. Please try again.');
+      },
+    });
   };
-
-  createExpense.mutate(payload, {
-    onSuccess: () => {
-      Alert.alert('Saved', 'Expense recorded successfully', [{ text: 'OK', onPress: () => router.back() }]);
-    },
-    onError: (err: any) => {
-      Alert.alert('Error', err?.message ?? 'Could not save expense. Please try again.');
-    },
-  });
-};
 
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: insets.bottom + 40, paddingHorizontal: 20 }}
+      contentContainerStyle={{ paddingTop: insets.top + 14, paddingBottom: insets.bottom + 16, paddingHorizontal: 16 }}
       keyboardShouldPersistTaps="handled"
     >
-      <View style={{ maxWidth: 560, width: '100%', alignSelf: 'center' }}>
+      <View style={{ width: '100%' }}>
         <View style={styles.headerRow}>
           <Pressable onPress={() => router.back()} hitSlop={10} style={{ marginRight: 10 }}>
             <Feather name="arrow-left" size={20} color={colors.foreground} />
@@ -157,52 +167,52 @@ export default function AddExpenseScreen() {
               );
             })}
           </View>
-          
-          {/* Payee Name */}
-<View style={styles.fieldRow}>
-  <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Payee Name</Text>
-  <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.background }]}>
-    <TextInput
-      value={payeeName}
-      onChangeText={setPayeeName}
-      placeholder="e.g. Landlord, Electricity Board"
-      placeholderTextColor={colors.mutedForeground}
-      style={{ fontFamily: FONT_REGULAR, fontSize: 13, color: colors.foreground, paddingVertical: 2 }}
-    />
-  </View>
-</View>
-          {/* Description */}
-          <View style={styles.fieldRow}>
-            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Description</Text>
-            <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.background }]}>
-              <TextInput
-                value={description}
-                onChangeText={setDescription}
-                placeholder="e.g. Shop rent - August"
-                placeholderTextColor={colors.mutedForeground}
-                style={{ fontFamily: FONT_REGULAR, fontSize: 13, color: colors.foreground, paddingVertical: 2 }}
-              />
-            </View>
-          </View>
 
-          {/* Amount */}
-          <View style={styles.fieldRow}>
-            <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Amount</Text>
-            <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.background }]}>
-              <TextInput
-                value={amount}
-                onChangeText={setAmount}
-                placeholder="0.00"
-                placeholderTextColor={colors.mutedForeground}
-                keyboardType="decimal-pad"
-                style={{ fontFamily: FONT_REGULAR, fontSize: 13, color: colors.foreground, paddingVertical: 2 }}
-              />
-            </View>
-          </View>
+          {/* Payee Name + Description — side by side */}
+          <FieldGrid>
+            <FieldCol>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Payee Name</Text>
+              <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                <TextInput
+                  value={payeeName}
+                  onChangeText={setPayeeName}
+                  placeholder="e.g. Landlord"
+                  placeholderTextColor={colors.mutedForeground}
+                  style={{ fontFamily: FONT_REGULAR, fontSize: 13, color: colors.foreground, paddingVertical: 2 }}
+                />
+              </View>
+            </FieldCol>
+            <FieldCol>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Description</Text>
+              <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                <TextInput
+                  value={description}
+                  onChangeText={setDescription}
+                  placeholder="e.g. Shop rent - August"
+                  placeholderTextColor={colors.mutedForeground}
+                  style={{ fontFamily: FONT_REGULAR, fontSize: 13, color: colors.foreground, paddingVertical: 2 }}
+                />
+              </View>
+            </FieldCol>
+          </FieldGrid>
 
-          {/* Date + Time side by side */}
-          <View style={[styles.fieldRow, { flexDirection: 'row', gap: 10 }]}>
-            <View style={{ flex: 1 }}>
+          {/* Amount + Date + Time — three across on wide screens */}
+          <View style={styles.fieldGrid}>
+            <View style={styles.fieldColThird}>
+              <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Amount</Text>
+              <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.background }]}>
+                <TextInput
+                  value={amount}
+                  onChangeText={setAmount}
+                  placeholder="0.00"
+                  placeholderTextColor={colors.mutedForeground}
+                  keyboardType="decimal-pad"
+                  style={{ fontFamily: FONT_REGULAR, fontSize: 13, color: colors.foreground, paddingVertical: 2 }}
+                />
+              </View>
+            </View>
+
+            <View style={styles.fieldColThird}>
               <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Date</Text>
               <Pressable
                 onPress={() => setShowDatePicker(true)}
@@ -220,7 +230,8 @@ export default function AddExpenseScreen() {
                 />
               )}
             </View>
-            <View style={{ flex: 1 }}>
+
+            <View style={styles.fieldColThird}>
               <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Time</Text>
               <Pressable
                 onPress={() => setShowTimePicker(true)}
@@ -241,7 +252,7 @@ export default function AddExpenseScreen() {
           </View>
 
           {/* Payment Method */}
-          <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 4 }]}>Payment Method</Text>
+          <Text style={[styles.label, { color: colors.mutedForeground, marginTop: 2 }]}>Payment Method</Text>
           <View style={styles.chipRow}>
             {PAYMENT_METHODS.map((m) => {
               const active = m.key === paymentMethod;
@@ -261,23 +272,25 @@ export default function AddExpenseScreen() {
             })}
           </View>
 
-          {/* Conditional: Bank Transfer details */}
+          {/* Conditional: Bank Transfer details — fields side by side */}
           {paymentMethod === 'bank_transfer' && (
             <View style={[styles.detailBox, { borderColor: colors.border, backgroundColor: colors.background }]}>
               <Text style={[styles.detailHeading, { color: colors.foreground }]}>Bank Details</Text>
-              <View style={styles.fieldRow}>
-                <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Bank Name</Text>
-                <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.card }]}>
-                  <TextInput value={bankName} onChangeText={setBankName} placeholder="e.g. HDFC Bank" placeholderTextColor={colors.mutedForeground} style={{ fontFamily: FONT_REGULAR, fontSize: 13, color: colors.foreground }} />
-                </View>
-              </View>
-              <View style={styles.fieldRow}>
-                <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Account Number</Text>
-                <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.card }]}>
-                  <TextInput value={accountNumber} onChangeText={setAccountNumber} placeholder="XXXX1234" placeholderTextColor={colors.mutedForeground} keyboardType="number-pad" style={{ fontFamily: FONT_REGULAR, fontSize: 13, color: colors.foreground }} />
-                </View>
-              </View>
-              <View style={styles.fieldRow}>
+              <FieldGrid>
+                <FieldCol>
+                  <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Bank Name</Text>
+                  <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                    <TextInput value={bankName} onChangeText={setBankName} placeholder="e.g. HDFC Bank" placeholderTextColor={colors.mutedForeground} style={{ fontFamily: FONT_REGULAR, fontSize: 13, color: colors.foreground }} />
+                  </View>
+                </FieldCol>
+                <FieldCol>
+                  <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Account Number</Text>
+                  <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                    <TextInput value={accountNumber} onChangeText={setAccountNumber} placeholder="XXXX1234" placeholderTextColor={colors.mutedForeground} keyboardType="number-pad" style={{ fontFamily: FONT_REGULAR, fontSize: 13, color: colors.foreground }} />
+                  </View>
+                </FieldCol>
+              </FieldGrid>
+              <View style={styles.fieldRowLast}>
                 <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Reference / UTR Number</Text>
                 <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.card }]}>
                   <TextInput value={refNumber} onChangeText={setRefNumber} placeholder="Transaction ref no." placeholderTextColor={colors.mutedForeground} style={{ fontFamily: FONT_REGULAR, fontSize: 13, color: colors.foreground }} />
@@ -290,26 +303,31 @@ export default function AddExpenseScreen() {
           {paymentMethod === 'card' && (
             <View style={[styles.detailBox, { borderColor: colors.border, backgroundColor: colors.background }]}>
               <Text style={[styles.detailHeading, { color: colors.foreground }]}>Card Details</Text>
-              <View style={[styles.chipRow, { marginBottom: 12 }]}>
-                {(['debit', 'credit'] as CardType[]).map((t) => {
-                  const active = t === cardType;
-                  return (
-                    <Pressable
-                      key={t}
-                      onPress={() => setCardType(t)}
-                      style={[styles.chip, { borderColor: active ? ACCENT : colors.border, backgroundColor: active ? ACCENT + '15' : 'transparent' }]}
-                    >
-                      <Text style={{ fontSize: 12, fontFamily: FONT_REGULAR, color: active ? ACCENT : colors.foreground, textTransform: 'capitalize' }}>{t}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <View style={styles.fieldRow}>
-                <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Card Last 4 Digits</Text>
-                <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.card }]}>
-                  <TextInput value={cardLast4} onChangeText={setCardLast4} placeholder="1234" placeholderTextColor={colors.mutedForeground} keyboardType="number-pad" maxLength={4} style={{ fontFamily: FONT_REGULAR, fontSize: 13, color: colors.foreground }} />
-                </View>
-              </View>
+              <FieldGrid>
+                <FieldCol>
+                  <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Card Type</Text>
+                  <View style={[styles.chipRow, { marginBottom: 0 }]}>
+                    {(['debit', 'credit'] as CardType[]).map((t) => {
+                      const active = t === cardType;
+                      return (
+                        <Pressable
+                          key={t}
+                          onPress={() => setCardType(t)}
+                          style={[styles.chip, { borderColor: active ? ACCENT : colors.border, backgroundColor: active ? ACCENT + '15' : 'transparent' }]}
+                        >
+                          <Text style={{ fontSize: 12, fontFamily: FONT_REGULAR, color: active ? ACCENT : colors.foreground, textTransform: 'capitalize' }}>{t}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </FieldCol>
+                <FieldCol>
+                  <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>Card Last 4 Digits</Text>
+                  <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.card }]}>
+                    <TextInput value={cardLast4} onChangeText={setCardLast4} placeholder="1234" placeholderTextColor={colors.mutedForeground} keyboardType="number-pad" maxLength={4} style={{ fontFamily: FONT_REGULAR, fontSize: 13, color: colors.foreground }} />
+                  </View>
+                </FieldCol>
+              </FieldGrid>
             </View>
           )}
 
@@ -317,7 +335,7 @@ export default function AddExpenseScreen() {
           {paymentMethod === 'upi' && (
             <View style={[styles.detailBox, { borderColor: colors.border, backgroundColor: colors.background }]}>
               <Text style={[styles.detailHeading, { color: colors.foreground }]}>UPI Details</Text>
-              <View style={styles.fieldRow}>
+              <View style={styles.fieldRowLast}>
                 <Text style={[styles.fieldLabel, { color: colors.mutedForeground }]}>UPI ID</Text>
                 <View style={[styles.inputWrap, { borderColor: colors.border, backgroundColor: colors.card }]}>
                   <TextInput value={upiId} onChangeText={setUpiId} placeholder="name@bank" placeholderTextColor={colors.mutedForeground} autoCapitalize="none" style={{ fontFamily: FONT_REGULAR, fontSize: 13, color: colors.foreground }} />
@@ -339,19 +357,31 @@ export default function AddExpenseScreen() {
   );
 }
 
+const IS_WEB = Platform.OS === 'web';
+
 const styles = StyleSheet.create({
-  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  title: { fontSize: 20, fontFamily: FONT_BOLD, fontWeight: '700' },
-  card: { padding: 18, borderWidth: StyleSheet.hairlineWidth },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  title: { fontSize: 19, fontFamily: FONT_BOLD, fontWeight: '700' },
+  card: { padding: 16, borderWidth: StyleSheet.hairlineWidth },
+
   label: { fontSize: 11, fontFamily: FONT_REGULAR, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 8 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 18 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 },
   chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, borderWidth: 1 },
   methodChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
-  fieldRow: { marginBottom: 16 },
+
+  // ---- Grid layout: fields sit side by side instead of stacking ----
+  fieldGrid: { flexDirection: IS_WEB ? 'row' : 'column', gap: 12, marginBottom: 12 },
+  fieldCol: { flex: 1, minWidth: IS_WEB ? 200 : undefined },
+  fieldColThird: { flex: 1, minWidth: IS_WEB ? 140 : undefined },
+
   fieldLabel: { fontSize: 11, fontFamily: FONT_REGULAR, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 },
-  inputWrap: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 },
-  detailBox: { borderWidth: 1, borderRadius: 10, padding: 14, marginBottom: 18 },
-  detailHeading: { fontSize: 12.5, fontFamily: FONT_BOLD, fontWeight: '700', marginBottom: 12 },
-  saveBtn: { marginTop: 8, paddingVertical: 13, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  inputWrap: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9 },
+
+  fieldRowLast: { marginBottom: 0 },
+
+  detailBox: { borderWidth: 1, borderRadius: 10, padding: 14, marginBottom: 14 },
+  detailHeading: { fontSize: 12.5, fontFamily: FONT_BOLD, fontWeight: '700', marginBottom: 10 },
+
+  saveBtn: { marginTop: 4, paddingVertical: 13, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   saveBtnText: { color: '#fff', fontSize: 14, fontFamily: FONT_BOLD, fontWeight: '700' },
 });

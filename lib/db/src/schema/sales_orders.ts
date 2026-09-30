@@ -1,12 +1,3 @@
-
-
-// TARGET PATH: lib/db/src/schema/sales_orders.ts
-// EDIT EXISTING FILE — full updated version below.
-// Only change: 4 new nullable snapshot columns after shippingAddress, plus
-// customerLatitude/customerLongitude to record exactly where the distance
-// was measured to (so a later address edit can't quietly change history).
-// All nullable — existing/non-delivery orders won't have these.
-
 import { pgTable, bigserial, bigint, varchar, text, decimal, date, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -35,15 +26,22 @@ export const salesOrdersTable = pgTable("sales_orders", {
   description: text("description"),
   shippingAddress: varchar("shipping_address", { length: 500 }),
 
-  // 👇 NEW: delivery-fee snapshot, frozen at order-creation time.
+  // Delivery-fee snapshot, frozen at order-creation time.
   // Never recompute these from current delivery_fee_settings — that's the
-  // whole point of a snapshot (spec section 15/19).
+  // whole point of a snapshot.
   deliveryDistanceKm: decimal("delivery_distance_km", { precision: 6, scale: 2 }),
   deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }),
   deliveryFeeRadius: decimal("delivery_fee_radius", { precision: 6, scale: 2 }),
   deliveryFeePerKm: decimal("delivery_fee_per_km", { precision: 8, scale: 2 }),
   customerLatitude: decimal("customer_latitude", { precision: 10, scale: 7 }),
   customerLongitude: decimal("customer_longitude", { precision: 10, scale: 7 }),
+
+  // NOTE: payment mode is intentionally NOT stored here. It's sourced from
+  // the linked deliveriesTable.payment_method row (see routes/sales-orders.ts
+  // formatSalesOrder()) — that's the established source of truth, set at
+  // order-creation time when a deliveries row is created for orders that
+  // have a shipping_address. Orders without a shipping_address (in-store
+  // pickup online orders) have no payment mode at all, by design.
 
   entryDate: date("entry_date", { mode: "string" }).notNull(),
   transactionId: bigint("transaction_id", { mode: "number" }),

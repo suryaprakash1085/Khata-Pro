@@ -7,7 +7,6 @@
  */
 
 export interface PlanBreakdown {
-  free: number;
   pro: number;
   premium: number;
 }

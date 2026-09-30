@@ -16,6 +16,7 @@ export const purchasesTable = pgTable("purchases", {
   billImageUrl: varchar("bill_image_url", { length: 500 }),
   description: text("description"),
   entryDate: date("entry_date", { mode: "string" }).notNull(),
+  dueDate: date("due_date", { mode: "string" }),
   createdBy: bigint("created_by", { mode: "number" }).notNull(),
   isDeleted: boolean("is_deleted").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

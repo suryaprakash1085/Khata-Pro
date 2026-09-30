@@ -10,7 +10,6 @@ export type SubscriptionUpdatePlan = typeof SubscriptionUpdatePlan[keyof typeof 
 
 
 export const SubscriptionUpdatePlan = {
-  free: 'free',
   pro: 'pro',
   premium: 'premium',
 } as const;

@@ -10,7 +10,6 @@ export type ListSubscriptionsPlan = typeof ListSubscriptionsPlan[keyof typeof Li
 
 
 export const ListSubscriptionsPlan = {
-  free: 'free',
   pro: 'pro',
   premium: 'premium',
 } as const;

@@ -131,18 +131,33 @@ router.post("/promotions", requireAuth, async (req, res): Promise<void> => {
   }
   const applyTo = d.apply_to ?? "selected";
 
-  if (d.promotion_type === "bogo") {
-    if (applyTo === "category") {
-      res.status(400).json({ error: "Category-wise apply_to is only valid for percentage promotions" });
-      return;
-    }
-    if (applyTo === "selected" && (!d.product_ids || d.product_ids.length === 0)) {
-      res.status(400).json({ error: "Select at least one product for this promotion" });
-      return;
-    }
+  // if (d.promotion_type === "bogo") {
+  //   if (applyTo === "category") {
+  //     res.status(400).json({ error: "Category-wise apply_to is only valid for percentage promotions" });
+  //     return;
+  //   }
+  //   if (applyTo === "selected" && (!d.product_ids || d.product_ids.length === 0)) {
+  //     res.status(400).json({ error: "Select at least one product for this promotion" });
+  //     return;
+  //   }
+  // }
+
+  if (d.promotion_type === "bogo" && applyTo === "category") {
+    res.status(400).json({ error: "Category-wise apply_to is only valid for percentage promotions" });
+    return;
+  }
+  if (applyTo === "selected" && (!d.product_ids || d.product_ids.length === 0)) {
+    res.status(400).json({ error: "Select at least one product for this promotion" });
+    return;
   }
 
-  let discountPercentage: string | null = null;
+  // let discountPercentage: string | null = null;if (d.promotion_type === "bogo" && applyTo === "selected" && d.product_ids?.length > 0) {
+  //     await db.insert(promotionProductsTable).values(
+  //       d.product_ids.map((productId: number) => ({ promotionId: promo.id, productId })),
+  //     );
+  //   }
+  // if (d.promotion_type === "percentage") {
+    let discountPercentage: string | null = null;
   if (d.promotion_type === "percentage") {
     const pct = Number(d.discount_percentage);
     if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
@@ -183,7 +198,7 @@ router.post("/promotions", requireAuth, async (req, res): Promise<void> => {
       bannerImage: toNullIfEmpty(d.banner_image),
     }).returning();
 
-    if (d.promotion_type === "bogo" && applyTo === "selected" && d.product_ids?.length > 0) {
+    if (applyTo === "selected" && d.product_ids?.length > 0) {
       await db.insert(promotionProductsTable).values(
         d.product_ids.map((productId: number) => ({ promotionId: promo.id, productId })),
       );
@@ -220,17 +235,25 @@ router.put("/promotions/:id", requireAuth, async (req, res): Promise<void> => {
 
   const effectiveApplyTo = d.apply_to ?? existing.applyTo;
 
-  if (existing.promotionType === "bogo") {
-    if (effectiveApplyTo === "category") {
-      res.status(400).json({ error: "Category-wise apply_to is only valid for percentage promotions" });
-      return;
-    }
-    if (effectiveApplyTo === "selected" && d.product_ids !== undefined && d.product_ids.length === 0) {
-      res.status(400).json({ error: "Select at least one product for this promotion" });
-      return;
-    }
-  }
+  // if (existing.promotionType === "bogo") {
+  //   if (effectiveApplyTo === "category") {
+  //     res.status(400).json({ error: "Category-wise apply_to is only valid for percentage promotions" });
+  //     return;
+  //   }
+  //   if (effectiveApplyTo === "selected" && d.product_ids !== undefined && d.product_ids.length === 0) {
+  //     res.status(400).json({ error: "Select at least one product for this promotion" });
+  //     return;
+  //   }
+  // }
 
+   if (existing.promotionType === "bogo" && effectiveApplyTo === "category") {
+    res.status(400).json({ error: "Category-wise apply_to is only valid for percentage promotions" });
+    return;
+  }
+  if (effectiveApplyTo === "selected" && d.product_ids !== undefined && d.product_ids.length === 0) {
+    res.status(400).json({ error: "Select at least one product for this promotion" });
+    return;
+  }
   // discount_percentage: CHANGED — was previously blocked from ever being
   // updated ("stays fixed at 10"). Now editable for percentage promotions,
   // with the same 1–100 validation as create.
@@ -270,7 +293,16 @@ if (d.banner_image !== undefined) updates.bannerImage = d.banner_image;
   const [promo] = await db.update(promotionsTable).set(updates)
     .where(and(eq(promotionsTable.id, id), eq(promotionsTable.isDeleted, false))).returning();
 
-  if (existing.promotionType === "bogo" && d.product_ids !== undefined) {
+  // if (existing.promotionType === "bogo" && d.product_ids !== undefined) {
+  //   await db.delete(promotionProductsTable).where(eq(promotionProductsTable.promotionId, id));
+  //   if (d.product_ids.length > 0) {
+  //     await db.insert(promotionProductsTable).values(
+  //       d.product_ids.map((productId: number) => ({ promotionId: id, productId })),
+  //     );
+  //   }
+  // }
+
+  if (d.product_ids !== undefined) {
     await db.delete(promotionProductsTable).where(eq(promotionProductsTable.promotionId, id));
     if (d.product_ids.length > 0) {
       await db.insert(promotionProductsTable).values(

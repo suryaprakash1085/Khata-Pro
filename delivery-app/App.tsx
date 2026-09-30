@@ -1,7 +1,5 @@
-
-
-
 import React from 'react';
+import { Platform, View, StyleSheet } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
@@ -38,24 +36,42 @@ const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
-        <AuthProvider>
-          <DriverAuthProvider>
-            <SelectedBusinessProvider>
-              <AddressProvider>
-                <CartProvider>
-                  <OrderProvider>
-                    <DeliveryProvider>
-                      <AppNavigator />
-                    </DeliveryProvider>
-                  </OrderProvider>
-                </CartProvider>
-              </AddressProvider>
-            </SelectedBusinessProvider>
-          </DriverAuthProvider>
-        </AuthProvider>
+        {/* ✅ Web root: exactly the visible viewport height, so the bottom
+            tab bar is never pushed below the visible area / clipped. */}
+        <View style={styles.root}>
+          <AuthProvider>
+            <DriverAuthProvider>
+              <SelectedBusinessProvider>
+                <AddressProvider>
+                  <CartProvider>
+                    <OrderProvider>
+                      <DeliveryProvider>
+                        <AppNavigator />
+                      </DeliveryProvider>
+                    </OrderProvider>
+                  </CartProvider>
+                </AddressProvider>
+              </SelectedBusinessProvider>
+            </DriverAuthProvider>
+          </AuthProvider>
+        </View>
       </SafeAreaProvider>
     </QueryClientProvider>
   );
 };
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    ...(Platform.OS === 'web'
+      ? ({
+          width: '100%',
+          height: '100dvh',
+          maxHeight: '100dvh',
+          overflow: 'hidden',
+        } as any)
+      : {}),
+  },
+});
 
 export default App;

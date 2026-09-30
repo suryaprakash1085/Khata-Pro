@@ -50,7 +50,8 @@ const THEME = {
 };
 
 const IS_WEB = Platform.OS === 'web';
-const FONT_FAMILY = Platform.OS === 'ios' ? 'System' : 'sans-serif';
+// Times New Roman across the app's theme
+const FONT_FAMILY = 'Times New Roman';
 
 const showAlert = (title: string, message: string, onOk?: () => void) => {
   if (Platform.OS === 'web') {
@@ -66,7 +67,28 @@ const showAlert = (title: string, message: string, onOk?: () => void) => {
 const formatMoney = (n: number) => `\u20b9${n.toFixed(2)}`;
 
 type Vendor = { id: number; name: string; phone?: string | null };
-type Product = { id: number; name: string; barcode?: string | null; stock_qty?: number; unit?: string; cost_price?: number };
+type Product = {
+  id: number;
+  name: string;
+  barcode?: string | null;
+  stock_qty?: number;
+  unit?: string;
+  cost_price?: number;
+  vendor_id?: number | null; // used to filter products by selected vendor
+  // Some backends may use a different field name — checked defensively below.
+  vendorId?: number | null;
+  supplier_id?: number | null;
+  vendor?: { id?: number } | null;
+};
+
+// Reads a product's vendor id regardless of which field name the backend
+// actually uses. Returns null/undefined if the product has no vendor
+// linkage at all — those products are treated as "unassigned" and still
+// shown (rather than silently hidden) so the screen isn't empty while the
+// backend field name gets confirmed.
+function getProductVendorId(p: Product): number | null | undefined {
+  return p.vendor_id ?? p.vendorId ?? p.supplier_id ?? p.vendor?.id;
+}
 
 type OrderItem = {
   productId: number;
@@ -77,6 +99,12 @@ type OrderItem = {
   unitCost: string; // kept as string for the input, parsed on submit/total calc
   qty: number;
 };
+
+const PAYMENT_METHODS = ['Cash', 'UPI', 'Bank Transfer', 'Credit'] as const;
+type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+const PAYMENT_STATUSES = ['Unpaid', 'Partial', 'Paid'] as const;
+type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
 // ---------------------------------------------------------------------------
 // Section wrapper — matches Add Product screen's card/section styling
@@ -132,6 +160,11 @@ export default function CreatePurchaseOrderScreen() {
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  // ---- Payment ----
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Cash');
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('Unpaid');
+  const [amountPaid, setAmountPaid] = useState('');
+
   // ---- Vendors — reuse the exact same hook Add Product uses ----
   const vendorsParams = { business_id: business?.id as number };
   const { data: vendorsData } = useListVendors(vendorsParams, {
@@ -153,9 +186,16 @@ export default function CreatePurchaseOrderScreen() {
   });
   const productList: Product[] = toArray(productsData);
 
+  // If a vendor is selected, product search prioritises that vendor's
+  // products. Products with no vendor linkage at all are still shown
+  // (marked "unassigned") since hiding everything isn't useful while the
+  // backend's vendor field name gets confirmed — this is a temporary
+  // safety net, not the intended long-term behaviour.
   const filteredProducts = productFocused
     ? productList
         .filter((p) => {
+          const pVendorId = getProductVendorId(p);
+          if (selectedVendor && pVendorId !== selectedVendor.id) return false;
           const q = productQuery.trim().toLowerCase();
           if (!q) return true;
           return p.name.toLowerCase().includes(q) || (p.barcode ?? '').includes(q);
@@ -197,6 +237,23 @@ export default function CreatePurchaseOrderScreen() {
     setProductFocused(false);
   };
 
+  // If the vendor changes (or is cleared) after items were already added,
+  // drop any items that no longer belong to the selected vendor.
+  const handleSelectVendor = (v: Vendor) => {
+    setSelectedVendor(v);
+    setVendorFocused(false);
+    setItems((prev) =>
+      prev.filter((it) => {
+        const product = productList.find((p) => p.id === it.productId);
+        if (!product) return false;
+        const pVendorId = getProductVendorId(product);
+        // Keep items whose product has no vendor linkage at all (same
+        // "unassigned" leniency as the search filter above).
+        return pVendorId == null || pVendorId === v.id;
+      }),
+    );
+  };
+
   const updateQty = (productId: number, delta: number) => {
     setItems((prev) =>
       prev.map((it) => (it.productId === productId ? { ...it, qty: Math.max(1, it.qty + delta) } : it)),
@@ -213,6 +270,8 @@ export default function CreatePurchaseOrderScreen() {
   const totalItems = items.length;
   const totalQty = items.reduce((sum, it) => sum + it.qty, 0);
   const purchaseTotal = items.reduce((sum, it) => sum + it.qty * (parseFloat(it.unitCost) || 0), 0);
+  const amountPaidNum = paymentStatus === 'Unpaid' ? 0 : parseFloat(amountPaid) || 0;
+  const balanceDue = Math.max(0, purchaseTotal - amountPaidNum);
 
   // ---- Create PO ----
   const createPurchaseOrder = useMutation({
@@ -245,6 +304,17 @@ export default function CreatePurchaseOrderScreen() {
         return;
       }
     }
+    if (paymentStatus !== 'Unpaid') {
+      const paid = parseFloat(amountPaid);
+      if (isNaN(paid) || paid < 0) {
+        setError('Enter a valid amount paid.');
+        return;
+      }
+      if (paymentStatus === 'Paid' && paid < purchaseTotal) {
+        setError('Amount paid must cover the full purchase total for a Paid status.');
+        return;
+      }
+    }
 
     const payload = {
       business_id: business.id,
@@ -255,12 +325,42 @@ export default function CreatePurchaseOrderScreen() {
         qty: it.qty,
         unit_cost: parseFloat(it.unitCost),
       })),
+      payment_method: paymentMethod,
+      payment_status: paymentStatus,
+      amount_paid: amountPaidNum,
+      balance_due: balanceDue,
     };
 
     createPurchaseOrder.mutate(payload, {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['/api/purchase-orders'], exact: false });
-        showAlert('Success', 'Purchase Order created successfully.', () => router.back());
+        // Reports.tsx reads purchases via queryKey ['purchases', ...] /
+        // ['purchases', 'pending-total', ...], and the Dashboard reads them
+        // through the generated useListPurchases() hook (a different key
+        // shape). Rather than hardcode either shape — which will drift once
+        // purchase-order codegen lands — invalidate anything whose key
+        // mentions "purchase", catching both screens in one go.
+        queryClient.invalidateQueries({
+          predicate: (query) => JSON.stringify(query.queryKey).toLowerCase().includes('purchase'),
+        });
+        // Also nudge the Dashboard's business-stats card (today_sales, etc.)
+        // in case purchase totals feed into it.
+        queryClient.invalidateQueries({
+          predicate: (query) => JSON.stringify(query.queryKey).toLowerCase().includes('stats'),
+        });
+
+        // Reset the form in place so the screen is ready for the next
+        // purchase order, instead of navigating back.
+        setSelectedVendor(null);
+        setVendorQuery('');
+        setProductQuery('');
+        setItems([]);
+        setNotes('');
+        setPaymentMethod('Cash');
+        setPaymentStatus('Unpaid');
+        setAmountPaid('');
+        setError(null);
+
+        showAlert('Success', 'Purchase Order created successfully. Ready to create the next one.');
       },
       onError: () => setError('Could not create purchase order. Please try again.'),
     });
@@ -361,10 +461,7 @@ export default function CreatePurchaseOrderScreen() {
                         <TouchableOpacity
                           key={v.id}
                           style={styles.suggestionItem}
-                          onPress={() => {
-                            setSelectedVendor(v);
-                            setVendorFocused(false);
-                          }}
+                          onPress={() => handleSelectVendor(v)}
                         >
                           <Text style={styles.suggestionText}>{v.name}</Text>
                           {v.phone ? <Text style={styles.suggestionSubtext}>{v.phone}</Text> : null}
@@ -377,6 +474,11 @@ export default function CreatePurchaseOrderScreen() {
               {vendorList.length === 0 ? (
                 <Text style={styles.hintText}>No vendors found. Add a vendor from the Add Product screen first.</Text>
               ) : null}
+              <Text style={styles.hintText}>
+                {selectedVendor
+                  ? `Product search below is limited to ${selectedVendor.name}'s products.`
+                  : 'Select a vendor to narrow product search, or search all products below.'}
+              </Text>
             </View>
           </SectionCard>
 
@@ -387,7 +489,11 @@ export default function CreatePurchaseOrderScreen() {
                 <View style={styles.selectLikeInput}>
                   <Feather name="search" size={14} color={THEME.placeholder} />
                   <TextInput
-                    placeholder="Search product by name, barcode..."
+                    placeholder={
+                      selectedVendor
+                        ? `Search ${selectedVendor.name}'s products by name, barcode...`
+                        : 'Search product by name, barcode...'
+                    }
                     placeholderTextColor={THEME.placeholder}
                     value={productQuery}
                     onChangeText={setProductQuery}
@@ -406,6 +512,13 @@ export default function CreatePurchaseOrderScreen() {
                         </Text>
                       </TouchableOpacity>
                     ))}
+                  </View>
+                ) : null}
+                {productFocused && productQuery.trim() && filteredProducts.length === 0 && selectedVendor ? (
+                  <View style={styles.suggestionBox}>
+                    <View style={styles.suggestionItem}>
+                      <Text style={styles.suggestionSubtext}>No products found for {selectedVendor.name}.</Text>
+                    </View>
                   </View>
                 ) : null}
               </View>
@@ -476,18 +589,84 @@ export default function CreatePurchaseOrderScreen() {
             )}
           </SectionCard>
 
-          {/* 4. NOTES */}
-          <SectionCard icon="file-text" number={4} title="Notes / Remarks (Optional)" last>
-            <TextInput
-              multiline
-              numberOfLines={4}
-              maxLength={250}
-              placeholder="Enter any notes or remarks about this purchase order..."
-              placeholderTextColor={THEME.placeholder}
-              value={notes}
-              onChangeText={setNotes}
-              style={[styles.textInput, styles.textArea]}
-            />
+          {/* 4. PAYMENT INFORMATION */}
+          <SectionCard icon="credit-card" number={4} title="Payment Information">
+            <Text style={styles.fieldLabel}>Payment Method</Text>
+            <View style={styles.pillRow}>
+              {PAYMENT_METHODS.map((m) => {
+                const active = paymentMethod === m;
+                return (
+                  <TouchableOpacity
+                    key={m}
+                    onPress={() => setPaymentMethod(m)}
+                    style={[styles.choicePill, active && styles.choicePillActive]}
+                  >
+                    <Text style={[styles.choicePillText, active && styles.choicePillTextActive]}>{m}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Payment Status</Text>
+            <View style={styles.pillRow}>
+              {PAYMENT_STATUSES.map((s) => {
+                const active = paymentStatus === s;
+                return (
+                  <TouchableOpacity
+                    key={s}
+                    onPress={() => {
+                      setPaymentStatus(s);
+                      if (s === 'Unpaid') setAmountPaid('');
+                      if (s === 'Paid') setAmountPaid(purchaseTotal ? purchaseTotal.toFixed(2) : '');
+                    }}
+                    style={[styles.choicePill, active && styles.choicePillActive]}
+                  >
+                    <Text style={[styles.choicePillText, active && styles.choicePillTextActive]}>{s}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {paymentStatus !== 'Unpaid' ? (
+              <FieldRow>
+                <FieldCol>
+                  <Text style={styles.fieldLabel}>Amount Paid</Text>
+                  <TextInput
+                    value={amountPaid}
+                    onChangeText={(v) => setAmountPaid(v.replace(/[^0-9.]/g, ''))}
+                    keyboardType="decimal-pad"
+                    placeholder="0.00"
+                    placeholderTextColor={THEME.placeholder}
+                    style={styles.textInput}
+                    editable={paymentStatus === 'Partial'}
+                  />
+                </FieldCol>
+                <FieldCol>
+                  <Text style={styles.fieldLabel}>Balance Due</Text>
+                  <View style={[styles.textInput, styles.inputDisabled]}>
+                    <Text style={styles.disabledText}>{formatMoney(balanceDue)}</Text>
+                  </View>
+                </FieldCol>
+              </FieldRow>
+            ) : (
+              <Text style={styles.hintText}>Full amount will be recorded as a pending balance.</Text>
+            )}
+          </SectionCard>
+
+          {/* 5. NOTES */}
+          <SectionCard icon="file-text" number={5} title="Notes / Remarks (Optional)" last>
+            <View style={styles.notesBox}>
+              <TextInput
+                multiline
+                numberOfLines={2}
+                maxLength={250}
+                placeholder="Add a short note..."
+                placeholderTextColor={THEME.placeholder}
+                value={notes}
+                onChangeText={setNotes}
+                style={styles.notesInput}
+              />
+            </View>
             <Text style={styles.charCount}>{notes.length} / 250 characters</Text>
           </SectionCard>
 
@@ -501,6 +680,12 @@ export default function CreatePurchaseOrderScreen() {
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Total Quantity</Text>
               <Text style={styles.summaryValue}>{totalQty} pcs</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Payment</Text>
+              <Text style={styles.summaryValue}>
+                {paymentMethod} · {paymentStatus}
+              </Text>
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryRow}>
@@ -604,12 +789,45 @@ const styles = StyleSheet.create({
   },
   inputDisabled: { backgroundColor: '#F3F4F6', justifyContent: 'center' },
   disabledText: { fontSize: 13.5, color: THEME.muted, fontFamily: FONT_FAMILY },
-  textArea: { minHeight: 80, textAlignVertical: 'top' },
   charCount: { fontSize: 10.5, color: THEME.placeholder, textAlign: 'right', marginTop: 4, fontFamily: FONT_FAMILY },
+
+  // Compact "mini" notes box
+  notesBox: {
+    borderWidth: 1,
+    borderColor: THEME.border,
+    borderRadius: 8,
+    backgroundColor: THEME.card,
+    maxWidth: 320,
+  },
+  notesInput: {
+    fontSize: 12.5,
+    color: THEME.text,
+    fontFamily: FONT_FAMILY,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minHeight: 44,
+    maxHeight: 60,
+    textAlignVertical: 'top',
+    ...(IS_WEB ? ({ outlineStyle: 'none' } as any) : {}),
+  },
 
   statusPill: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusPillText: { fontSize: 12.5, fontWeight: '700', fontFamily: FONT_FAMILY },
+
+  // Payment method / status choice pills
+  pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  choicePill: {
+    borderWidth: 1,
+    borderColor: THEME.border,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: THEME.card,
+  },
+  choicePillActive: { borderColor: THEME.primary, backgroundColor: THEME.primarySoft },
+  choicePillText: { fontSize: 12.5, fontWeight: '600', color: THEME.muted, fontFamily: FONT_FAMILY },
+  choicePillTextActive: { color: THEME.primary },
 
   selectLikeInput: {
     flexDirection: 'row',

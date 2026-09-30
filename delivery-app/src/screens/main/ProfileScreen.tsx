@@ -1,5 +1,3 @@
-
-
 import React, { useContext, useState } from 'react';
 import {
   View,
@@ -18,9 +16,25 @@ import { AuthContext } from '../../context/AuthContext';
 import { CartContext } from '../../context/CartContext';
 import { OrderContext } from '../../context/OrderContext';
 
-// ✅ Theme color — matched to Address / Payment / Orders / Tracking screens' purple/indigo
-const THEME_COLOR = '#6C5CE7';
-const THEME_COLOR_DARK = '#5541D7';
+// ✅ KhataPro Delivery brand palette
+const COLORS = {
+  primary: '#6C5CE7',
+  primaryDark: '#5541D7',
+  lightPurple: '#F1EEFF',
+  softPurple: '#EDE9FE',
+  accent: '#8B7CF6',
+  success: '#22C55E',
+  danger: '#EF4444',
+  dangerBg: '#FEF2F2',
+  dangerBorder: '#FCDCDC',
+  textMain: '#1E1B2E',
+  textSecondary: '#8A85A0',
+  border: '#EFEDF7',
+  background: '#FAFAFD',
+  white: '#FFFFFF',
+};
+
+const FONT_FAMILY = 'Times New Roman';
 
 // ✅ Same constants as AppNavigator's WebTopNavBar — kept in sync so this
 // screen always clears the fixed top navbar on desktop web, no matter
@@ -39,8 +53,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   const { user, logout } = useContext(AuthContext);
 
   const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
-
-  
 
   const resetToLogin = () => {
     let nav = navigation;
@@ -89,8 +101,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     }
   };
 
- 
-
   const accountItems = [
     {
       id: 1,
@@ -98,7 +108,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
       label: 'Edit Profile',
       sublabel: 'Name, email, phone number',
       onPress: () => navigation.navigate('EditProfile'),
-      color: THEME_COLOR,
+      color: COLORS.primary,
+      iconBg: COLORS.softPurple,
     },
     {
       id: 2,
@@ -106,7 +117,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
       label: 'Your Orders',
       sublabel: 'Track, view history & receipts',
       onPress: () => navigation.navigate('OrdersSummary'),
-      color: '#28a745',
+      color: COLORS.success,
+      iconBg: '#DCFCE7',
     },
   ];
 
@@ -121,217 +133,355 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
       onPress={item.onPress}
       activeOpacity={0.6}
     >
-      <View style={[styles.menuIconContainer, { backgroundColor: item.color + '18' }]}>
+      <View style={[styles.menuIconContainer, { backgroundColor: item.iconBg }]}>
         <Icon name={item.icon} size={20} color={item.color} />
       </View>
       <View style={styles.menuTextGroup}>
         <Text style={styles.menuLabel}>{item.label}</Text>
         <Text style={styles.menuSublabel}>{item.sublabel}</Text>
       </View>
-      <Icon name="chevron-forward" size={18} color="#c7c7cc" />
+      <Icon name="chevron-forward" size={18} color={COLORS.textSecondary} />
     </TouchableOpacity>
   );
 
-  
-
   const initial = user?.name ? user.name.charAt(0).toUpperCase() : 'U';
 
-  return (
-    <SafeAreaView style={[styles.container, isDesktopWeb && { paddingTop: WEB_NAV_HEIGHT }]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+  // ============================================================
+  // PROFILE HERO CARD (shared between mobile & desktop)
+  // ============================================================
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* PROFILE CARD */}
-        <View style={styles.profileCard}>
-          <View style={styles.avatarRing}>
-            <View style={styles.avatarContainer}>
-              <Text style={styles.avatarText}>{initial}</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.avatarEditBadge}
-              onPress={() => navigation.navigate('EditProfile')}
-              activeOpacity={0.8}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            >
-              <Icon name="pencil" size={12} color="#ffffff" />
-            </TouchableOpacity>
-          </View>
+  const renderProfileHero = () => (
+    <View style={[styles.profileCard, isDesktopWeb && styles.profileCardDesktop]}>
+      {/* subtle decorative purple glow shapes */}
+      <View style={styles.decorShapeTopRight} pointerEvents="none" />
+      <View style={styles.decorShapeBottomLeft} pointerEvents="none" />
 
-          <Text style={styles.userName}>{user?.name || 'User'}</Text>
+      <View style={styles.avatarRing}>
+        <View style={styles.avatarContainer}>
+          <Text style={styles.avatarText}>{initial}</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.avatarEditBadge}
+          onPress={() => navigation.navigate('EditProfile')}
+          activeOpacity={0.8}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <Icon name="pencil" size={12} color={COLORS.white} />
+        </TouchableOpacity>
+      </View>
 
-          <View style={styles.contactRow}>
-            <Icon name="mail-outline" size={13} color="#8a8d99" />
-            <Text style={styles.contactText}>{user?.email || 'user@email.com'}</Text>
-          </View>
-          {user?.phone && (
-            <View style={styles.contactRow}>
-              <Icon name="call-outline" size={13} color="#8a8d99" />
-              <Text style={styles.contactText}>{user.phone}</Text>
-            </View>
+      <Text style={styles.userName}>{user?.name || 'User'}</Text>
+
+      <View style={styles.contactRow}>
+        <Icon name="mail-outline" size={14} color={COLORS.textSecondary} />
+        <Text style={styles.contactText}>{user?.email || 'user@email.com'}</Text>
+      </View>
+      {user?.phone ? (
+        <View style={styles.contactRow}>
+          <Icon name="call-outline" size={14} color={COLORS.textSecondary} />
+          <Text style={styles.contactText}>{user.phone}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+
+  // ============================================================
+  // ACCOUNT + SESSION SECTIONS (shared)
+  // ============================================================
+
+  const renderAccountAndSession = () => (
+    <>
+      <Text style={styles.sectionLabel}>ACCOUNT</Text>
+      <View style={[styles.menuContainer, isDesktopWeb && styles.menuContainerDesktop]}>
+        {accountItems.map((item, idx) => renderMenuItem(item, idx === accountItems.length - 1))}
+      </View>
+
+      <Text style={styles.sectionLabel}>SESSION</Text>
+      <TouchableOpacity
+        style={[
+          styles.logoutButton,
+          isDesktopWeb && styles.logoutButtonDesktop,
+          isLoggingOut && styles.logoutButtonDisabled,
+        ]}
+        onPress={handleLogout}
+        disabled={isLoggingOut}
+        activeOpacity={0.7}
+      >
+        <View style={styles.logoutIconContainer}>
+          {isLoggingOut ? (
+            <ActivityIndicator size="small" color={COLORS.danger} />
+          ) : (
+            <Icon name="log-out-outline" size={18} color={COLORS.danger} />
           )}
         </View>
+        <Text style={styles.logoutText}>
+          {isLoggingOut ? 'Logging out...' : 'Logout'}
+        </Text>
+        {!isLoggingOut && (
+          <Icon name="chevron-forward" size={16} color={COLORS.danger} style={{ marginLeft: 'auto' }} />
+        )}
+      </TouchableOpacity>
+    </>
+  );
 
-        {/* ACCOUNT SECTION */}
-        <Text style={styles.sectionLabel}>ACCOUNT</Text>
-        <View style={styles.menuContainer}>
-          {accountItems.map((item, idx) => renderMenuItem(item, idx === accountItems.length - 1))}
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
+
+      {/* TOP HEADER (mobile only — desktop web uses the app's sidebar/navbar) */}
+      {!isDesktopWeb && (
+        <View style={styles.header}>
+          {navigation?.canGoBack?.() ? (
+            <TouchableOpacity
+              style={styles.headerBackButton}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Icon name="chevron-back" size={24} color={COLORS.textMain} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.headerBackButtonPlaceholder} />
+          )}
+          <Text style={styles.headerTitle}>Profile</Text>
+          <View style={styles.headerBackButtonPlaceholder} />
         </View>
+      )}
 
-        {/* LOGOUT SECTION */}
-        <Text style={styles.sectionLabel}>SESSION</Text>
-        <TouchableOpacity
-          style={[styles.logoutButton, isLoggingOut && styles.logoutButtonDisabled]}
-          onPress={handleLogout}
-          disabled={isLoggingOut}
-          activeOpacity={0.7}
-        >
-          <View style={styles.logoutIconContainer}>
-            {isLoggingOut ? (
-              <ActivityIndicator size="small" color="#dc3545" />
-            ) : (
-              <Icon name="log-out-outline" size={18} color="#dc3545" />
-            )}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollContent,
+          isDesktopWeb && { paddingTop: WEB_NAV_HEIGHT + 24 },
+        ]}
+      >
+        {isDesktopWeb ? (
+          <View style={styles.desktopContentWrap}>
+            <Text style={styles.desktopPageTitle}>Profile</Text>
+            {renderProfileHero()}
+            {renderAccountAndSession()}
           </View>
-          <Text style={styles.logoutText}>
-            {isLoggingOut ? 'Logging out...' : 'Logout'}
-          </Text>
-        </TouchableOpacity>
+        ) : (
+          <>
+            {renderProfileHero()}
+            {renderAccountAndSession()}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 };
 
-
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
     paddingBottom: 40,
   },
 
-  // Profile card
+  // Mobile header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.white,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  headerBackButton: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerBackButtonPlaceholder: {
+    width: 36,
+    height: 36,
+  },
+  headerTitle: {
+    fontFamily: FONT_FAMILY,
+    fontSize: 19,
+    fontWeight: '700',
+    color: COLORS.textMain,
+  },
+
+  // Desktop content wrapper
+  desktopContentWrap: {
+    width: '100%',
+    maxWidth: 1080,
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+  },
+  desktopPageTitle: {
+    fontFamily: FONT_FAMILY,
+    fontSize: 30,
+    fontWeight: '700',
+    color: COLORS.textMain,
+    marginBottom: 20,
+  },
+
+  // Profile hero card
   profileCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     marginHorizontal: 16,
     marginTop: 18,
-    borderRadius: 20,
-    paddingVertical: 26,
-    paddingHorizontal: 20,
+    borderRadius: 24,
+    paddingVertical: 32,
+    paddingHorizontal: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#f0f0f5',
-    shadowColor: THEME_COLOR,
+    borderColor: COLORS.lightPurple,
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
-    shadowRadius: 12,
+    shadowRadius: 14,
     elevation: 2,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  profileCardDesktop: {
+    marginHorizontal: 0,
+    marginTop: 0,
+    paddingVertical: 44,
+  },
+  decorShapeTopRight: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: COLORS.lightPurple,
+    opacity: 0.6,
+  },
+  decorShapeBottomLeft: {
+    position: 'absolute',
+    bottom: -50,
+    left: -50,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: COLORS.softPurple,
+    opacity: 0.4,
   },
   avatarRing: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 92,
+    height: 92,
+    borderRadius: 46,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2.5,
-    borderColor: '#EDE9FE',
+    borderColor: COLORS.softPurple,
+    backgroundColor: COLORS.white,
   },
   avatarContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: THEME_COLOR,
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: {
-    fontSize: 28,
+    fontFamily: FONT_FAMILY,
+    fontSize: 30,
     fontWeight: '700',
-    color: '#ffffff',
+    color: COLORS.white,
   },
   avatarEditBadge: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: THEME_COLOR_DARK,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: COLORS.primaryDark,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#ffffff',
+    borderColor: COLORS.white,
   },
   userName: {
-    fontSize: 19,
+    fontFamily: FONT_FAMILY,
+    fontSize: 22,
     fontWeight: '700',
-    color: '#282c3f',
-    marginTop: 14,
+    color: COLORS.textMain,
+    marginTop: 16,
   },
   contactRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: 8,
     gap: 6,
   },
   contactText: {
-    fontSize: 13,
-    color: '#8a8d99',
+    fontFamily: FONT_FAMILY,
+    fontSize: 14,
+    color: COLORS.textSecondary,
   },
 
   // Section label
   sectionLabel: {
-    fontSize: 11.5,
+    fontFamily: FONT_FAMILY,
+    fontSize: 12.5,
     fontWeight: '700',
-    color: '#a2a4b0',
-    letterSpacing: 0.6,
-    marginTop: 24,
-    marginBottom: 8,
+    color: COLORS.textSecondary,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginTop: 26,
+    marginBottom: 10,
     marginHorizontal: 20,
   },
 
   // Menu list
   menuContainer: {
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
     marginHorizontal: 16,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#f0f0f5',
+    borderColor: COLORS.border,
     overflow: 'hidden',
+  },
+  menuContainerDesktop: {
+    marginHorizontal: 0,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 13,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f4f4f8',
+    borderBottomColor: COLORS.border,
   },
   menuItemLast: {
     borderBottomWidth: 0,
   },
   menuIconContainer: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   menuTextGroup: {
     flex: 1,
   },
   menuLabel: {
-    fontSize: 14.5,
-    fontWeight: '600',
-    color: '#282c3f',
+    fontFamily: FONT_FAMILY,
+    fontSize: 15.5,
+    fontWeight: '700',
+    color: COLORS.textMain,
   },
   menuSublabel: {
-    fontSize: 11.5,
-    color: '#9a9ca8',
-    marginTop: 2,
+    fontFamily: FONT_FAMILY,
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
+    marginTop: 3,
   },
 
   // Logout
@@ -339,29 +489,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    backgroundColor: '#FEF2F2',
-    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    backgroundColor: COLORS.dangerBg,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#FCDCDC',
+    borderColor: COLORS.dangerBorder,
+  },
+  logoutButtonDesktop: {
+    marginHorizontal: 0,
   },
   logoutButtonDisabled: {
     opacity: 0.6,
   },
   logoutIconContainer: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#ffffff',
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: COLORS.white,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   logoutText: {
-    fontSize: 14.5,
+    fontFamily: FONT_FAMILY,
+    fontSize: 15.5,
     fontWeight: '700',
-    color: '#dc3545',
+    color: COLORS.danger,
   },
 });
 

@@ -10,6 +10,7 @@ export type ListSubscriptionsStatus = typeof ListSubscriptionsStatus[keyof typeo
 
 
 export const ListSubscriptionsStatus = {
+  trial: 'trial',
   active: 'active',
   expired: 'expired',
   cancelled: 'cancelled',

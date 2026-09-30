@@ -5,12 +5,25 @@
  * KhataPro CRM API — digital ledger platform for small businesses
  * OpenAPI spec version: 0.1.0
  */
+import type { SubscriptionPlanFeatures } from './subscriptionPlanFeatures';
+import type { SubscriptionPlanPlan } from './subscriptionPlanPlan';
 
-export type SubscriptionPlan = typeof SubscriptionPlan[keyof typeof SubscriptionPlan];
-
-
-export const SubscriptionPlan = {
-  free: 'free',
-  pro: 'pro',
-  premium: 'premium',
-} as const;
+export interface SubscriptionPlan {
+  id: number;
+  plan: SubscriptionPlanPlan;
+  monthly_price: number;
+  quarterly_price: number;
+  half_yearly_price: number;
+  yearly_price: number;
+  trial_days: number;
+  max_users: number;
+  max_branches: number;
+  max_products: number;
+  max_customers: number;
+  max_vendors: number;
+  max_orders: number;
+  features: SubscriptionPlanFeatures;
+  is_active: boolean;
+  created_at: Date;
+  updated_at: Date;
+}

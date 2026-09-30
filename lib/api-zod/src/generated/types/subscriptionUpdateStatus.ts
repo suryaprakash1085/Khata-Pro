@@ -10,6 +10,7 @@ export type SubscriptionUpdateStatus = typeof SubscriptionUpdateStatus[keyof typ
 
 
 export const SubscriptionUpdateStatus = {
+  trial: 'trial',
   active: 'active',
   expired: 'expired',
   cancelled: 'cancelled',
