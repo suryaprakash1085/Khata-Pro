@@ -2,11 +2,12 @@
 
 import React, { createContext, useState, ReactNode, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_URL } from '@env';
+
 
 // TODO: replace with your api-server's actual base URL
 // const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000';
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000') + '/api';
+const API_BASE_URL =
+  (process.env.EXPO_PUBLIC_API_BASE_URL || 'https://khata-pro-ipct.onrender.com').replace(/\/$/, '') + '/api';
 
 
 // const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || API_URL || 'http://localhost:3000/api').replace(/\/$/, '');
@@ -197,18 +198,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         business_plan: result.customer.business_plan || 'FREE',
       };
 
-      console.log('👤 LOGIN - USER WITH BUSINESS:', JSON.stringify(userWithBusiness));
+    await AsyncStorage.setItem('userData', JSON.stringify(userWithBusiness));
+    setUser(userWithBusiness);
 
-      setUser(userWithBusiness);
-      await AsyncStorage.setItem('userData', JSON.stringify(userWithBusiness));
-
-      return { success: true, message: 'Logged in successfully!', user: userWithBusiness };
+    return { success: true, message: 'Logged in successfully!', user: userWithBusiness };
 
     } catch (error: any) {
       console.error('Login error:', error);
       return { success: false, message: error.message || 'Login failed' };
-    } finally {
-      setLoading(false);
     }
   };
 

@@ -8,21 +8,24 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EAS_BUILD_PACKAGE_MANAGER": "pnpm"
+        "EAS_BUILD_PACKAGE_MANAGER": "pnpm",
+        "EXPO_PUBLIC_API_BASE_URL": "https://khata-pro-ipct.onrender.com"
       }
     },
      "preview": {
       "distribution": "internal",
       "node": "22.13.0",
       "env": {
-        "EAS_BUILD_PACKAGE_MANAGER": "pnpm"
+        "EAS_BUILD_PACKAGE_MANAGER": "pnpm",
+        "EXPO_PUBLIC_API_BASE_URL": "https://khata-pro-ipct.onrender.com"
       }
     },
      "production": {
       "autoIncrement": true,
       "node": "22.13.0",
       "env": {
-        "EAS_BUILD_PACKAGE_MANAGER": "pnpm"
+        "EAS_BUILD_PACKAGE_MANAGER": "pnpm",
+        "EXPO_PUBLIC_API_BASE_URL": "https://khata-pro-ipct.onrender.com"
       }
     }
   },

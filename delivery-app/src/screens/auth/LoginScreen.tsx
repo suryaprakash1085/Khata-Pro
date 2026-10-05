@@ -112,18 +112,16 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
     } else if (phone.trim().length !== 10) {
       setPhoneError('Phone number must be 10 digits');
       hasError = true;
-    }
+    }else {
+    setPhoneError('');
+  }
 
     if (!password) {
       setPasswordError('Password cannot be empty');
       hasError = true;
     } else {
-      const passwordValidation = validatePasswordFormat(password);
-      if (!passwordValidation.isValid) {
-        setPasswordError(passwordValidation.message);
-        hasError = true;
-      }
-    }
+    setPhoneError('');
+  }
 
     if (hasError) {
       return;
@@ -134,7 +132,7 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
     try {
       const result = await login(phone.trim(), password);
 
-      if (result.success) {
+      if (!result.success) {
         Alert.alert(
           '✅ Success',
           'Login successful!',
