@@ -1,5 +1,3 @@
-
-import axios from 'axios';
 import apiClient from '../api/client';
 
 export interface Promotion {
@@ -24,11 +22,12 @@ export interface Promotion {
 class PromotionService {
   async getActivePromotions(businessId: number): Promise<Promotion[]> {
     try {
-      // const response = await axios.get(`${API_URL}/public/promotions/active`, {
-      const response = await axios.get(`${apiClient}/promotions/active`, {
-        params: { business_id: businessId }
+      // The apiClient interceptor already returns response.data,
+      // so `data` here is the response body itself (no `.data` needed).
+      const data = await apiClient.get('/public/promotions/active', {
+        params: { business_id: businessId },
       });
-      return response.data;
+      return data as unknown as Promotion[];
     } catch (error) {
       console.error('Failed to fetch active promotions:', error);
       throw error;
