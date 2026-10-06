@@ -18,6 +18,9 @@ export interface SalesOrder {
   status: SalesOrderStatus;
   amount: number;
   tax: number;
+  discount?: number;
+  /** @nullable */
+  promo_code?: string | null;
   /** @nullable */
   description?: string | null;
   /** @nullable */

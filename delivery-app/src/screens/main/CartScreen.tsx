@@ -20,7 +20,8 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import axios from 'axios';
 import { API_BASE_URL } from '../../config/api';
-
+import { AddressContext } from '../../context/AddressContext';
+import deliveryFeeService from '../../services/deliveryFeeService';
 
 // ✅ Import Razorpay with proper error handling
 let RazorpayCheckout: any = null;
@@ -111,7 +112,19 @@ const PaymentSuccessModal = ({ visible, onClose, orderDetails, onViewOrders, onC
   );
 };
 
-const OrderSummaryModal = ({ visible, onClose, subtotal, deliveryFee, tax, total, distanceInfo, isCalculating, cartItems, discount }: any) => {
+const OrderSummaryModal = ({
+  visible,
+  onClose,
+  subtotal,
+  deliveryFee,
+  deliveryFeeKnown,
+  tax,
+  total,
+  distanceInfo,
+  isCalculating,
+  cartItems,
+  discount,
+}: any) => {
   if (!visible) return null;
 
   return (
@@ -140,7 +153,15 @@ const OrderSummaryModal = ({ visible, onClose, subtotal, deliveryFee, tax, total
 
             <View style={styles.modalSummaryRow}>
               <Text style={styles.modalSummaryLabel}>Delivery Fee</Text>
-              <Text style={styles.modalSummaryValue}>₹{deliveryFee}</Text>
+              <Text style={styles.modalSummaryValue}>
+                {isCalculating
+                  ? 'Calculating…'
+                  : !deliveryFeeKnown
+                  ? 'Calculated at checkout'
+                  : deliveryFee === 0
+                  ? 'FREE'
+                  : `₹${deliveryFee}`}
+              </Text>
             </View>
 
             {discount > 0 && (
@@ -154,15 +175,15 @@ const OrderSummaryModal = ({ visible, onClose, subtotal, deliveryFee, tax, total
           {distanceInfo && !isCalculating && (
             <View style={styles.distanceBreakdown}>
               <Text style={styles.distanceText}>
-                📍 Distance: {distanceInfo.distance_km?.toFixed(1) || 'N/A'} KM
+                📍 Distance: {Number(distanceInfo.distance_km ?? 0).toFixed(1)} KM
               </Text>
               {distanceInfo.is_free_delivery ? (
                 <Text style={styles.freeDeliveryText}>
-                  ✅ Free delivery within {distanceInfo.free_delivery_radius || 5} KM
+                  ✅ Free delivery within {distanceInfo.free_delivery_radius ?? 5} KM
                 </Text>
               ) : (
                 <Text style={styles.chargeableText}>
-                  Charged for {distanceInfo.chargeable_distance_km || 0} KM beyond {distanceInfo.free_delivery_radius || 5} KM
+                  Charged for {distanceInfo.chargeable_distance_km || 0} KM beyond {distanceInfo.free_delivery_radius ?? 5} KM
                 </Text>
               )}
             </View>
@@ -195,6 +216,9 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
 
   const { addOrder } = useContext(OrderContext);
   const { selectedBusiness } = useContext(SelectedBusinessContext);
+  // ⚠️ Check AddressContext.tsx — if the variable name is different
+  // (e.g. defaultAddress), change it here.
+  const { selectedAddress } = useContext(AddressContext) as any;
 
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [isRazorpayReady, setIsRazorpayReady] = useState<boolean>(false);
@@ -204,8 +228,10 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
 
   const [showSummaryModal, setShowSummaryModal] = useState<boolean>(false);
 
-  const [deliveryFeeData, setDeliveryFeeData] = useState<any>(null);
-  const [isCalculatingFee, setIsCalculatingFee] = useState<boolean>(false);
+  // 👇 delivery fee (estimate based on selected address)
+  const [feeInfo, setFeeInfo] = useState<any>(null);
+  const [feeLoading, setFeeLoading] = useState<boolean>(false);
+  const [feeError, setFeeError] = useState<string | null>(null);
 
   const [recommendedProducts, setRecommendedProducts] = useState<any[]>([]);
   const [loadingRecommendations, setLoadingRecommendations] = useState<boolean>(false);
@@ -240,6 +266,43 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
   const clearStoreCart = () => {
     storeCartItems.forEach((item) => removeFromCart(item.id, item.restaurantId));
   };
+
+  // 👇 Delivery fee from API using the selected address location
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadFee = async () => {
+      const businessId = getStoreId();
+      if (!businessId || !selectedAddress?.latitude || !selectedAddress?.longitude) {
+        setFeeInfo(null);
+        setFeeError(null);
+        return;
+      }
+
+      setFeeLoading(true);
+      setFeeError(null);
+      try {
+        const result = await deliveryFeeService.calculateWithValidation({
+          businessId,
+          customerLatitude: Number(selectedAddress.latitude),
+          customerLongitude: Number(selectedAddress.longitude),
+        });
+        if (!cancelled) setFeeInfo(result);
+      } catch (e: any) {
+        if (!cancelled) {
+          setFeeInfo(null);
+          setFeeError(e?.message || e?.error || 'Could not calculate delivery fee');
+        }
+      } finally {
+        if (!cancelled) setFeeLoading(false);
+      }
+    };
+
+    loadFee();
+    return () => {
+      cancelled = true;
+    };
+  }, [storeId, selectedAddress?.latitude, selectedAddress?.longitude]);
 
   useEffect(() => {
     if (storeCartItems.length > 0) {
@@ -313,28 +376,6 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
     }
   };
 
-  const calculateDeliveryFeeFromAPI = async () => {
-    const businessId = getStoreId();
-    if (!businessId) {
-      console.warn('No business ID found for delivery fee calculation');
-      return;
-    }
-
-    setIsCalculatingFee(true);
-
-    try {
-      const customerLat = 28.6139;
-      const customerLng = 77.2090;
-
-      const fee = await calculateDeliveryFee(customerLat, customerLng);
-      console.log('✅ Delivery fee from API:', fee);
-    } catch (error) {
-      console.error('❌ Failed to calculate delivery fee:', error);
-    } finally {
-      setIsCalculatingFee(false);
-    }
-  };
-
   useEffect(() => {
     console.log('🔍 Platform:', Platform.OS);
 
@@ -369,37 +410,6 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
       setIsRazorpayReady(true);
     }
   }, []);
-
-  const calculateDeliveryFee = async (customerLat: number, customerLng: number) => {
-    const businessId = getStoreId();
-    if (!businessId) {
-      console.warn('No business ID found for delivery fee calculation');
-      return 30;
-    }
-
-    try {
-      const response = await axios.post(`${API_BASE_URL}/delivery-fees/calculate`, {
-        business_id: businessId,
-        customer_latitude: customerLat,
-        customer_longitude: customerLng,
-      });
-
-      console.log('✅ Delivery fee calculated:', response.data);
-
-      setDeliveryFeeData({
-        delivery_fee: response.data.delivery_fee || 30,
-        distance_km: response.data.distance_km || 0,
-        free_delivery_radius: response.data.free_delivery_radius || 5,
-        chargeable_distance_km: response.data.chargeable_distance_km || 0,
-        is_free_delivery: response.data.is_free_delivery || false,
-      });
-
-      return response.data.delivery_fee || 30;
-    } catch (error) {
-      console.error('❌ Failed to calculate delivery fee:', error);
-      return 30;
-    }
-  };
 
   // 👇 returns cart items eligible for a given promotion
   const getEligibleCartItems = (promo: Promotion) => {
@@ -470,8 +480,9 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
   };
 
   // 👇 GST for ALL items is combined into a single number here (this is
-  // the one source of truth for tax — the modal just displays it as-is,
-  // it no longer recomputes/splits it by rate).
+  // the one source of truth for tax — the modal just displays it as-is).
+  // Delivery fee comes from the API (feeInfo) — 0 until an address with a
+  // valid location is selected. Final fee is always confirmed on Payment screen.
   const calculateTotal = () => {
     const subtotal = storeCartItems.reduce(
       (sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1),
@@ -486,11 +497,11 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
       const itemTotal = (item.price || 0) * (item.quantity || 1);
       const discountedItemTotal = itemTotal - itemTotal * discountRatio; // discount applied per item
       const gstRate = item.gst_rate || 0;
-      return sum + discountedItemTotal * (gstRate / 100); // 👈 summed together regardless of rate
+      return sum + discountedItemTotal * (gstRate / 100);
     }, 0);
-    const roundedGST = Math.round(totalGST); // 👈 single combined GST value
+    const roundedGST = Math.round(totalGST);
 
-    const deliveryFee = 30;
+    const deliveryFee = feeInfo ? Number(feeInfo.delivery_fee) || 0 : 0;
     const total = subtotal - discount + roundedGST + deliveryFee;
 
     return { subtotal, tax: roundedGST, deliveryFee, discount, total };
@@ -1046,7 +1057,7 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
             <TouchableOpacity
               style={styles.quantityButtonSmall}
               onPress={() => handleUpdateQuantity(
-                { id: item.id, restaurantId: item.id },
+                { id: item.id, restaurantId: storeId ?? item.id },
                 quantity - 1
               )}
             >
@@ -1056,7 +1067,7 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
             <TouchableOpacity
               style={styles.quantityButtonSmall}
               onPress={() => handleUpdateQuantity(
-                { id: item.id, restaurantId: item.id },
+                { id: item.id, restaurantId: storeId ?? item.id },
                 quantity + 1
               )}
             >
@@ -1353,11 +1364,12 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
         onClose={() => setShowSummaryModal(false)}
         subtotal={subtotal}
         deliveryFee={deliveryFee}
+        deliveryFeeKnown={!!feeInfo}
         tax={tax}
         total={total}
         discount={discount}
-        distanceInfo={deliveryFeeData}
-        isCalculating={isCalculatingFee}
+        distanceInfo={feeInfo}
+        isCalculating={feeLoading}
         cartItems={storeCartItems}
       />
 

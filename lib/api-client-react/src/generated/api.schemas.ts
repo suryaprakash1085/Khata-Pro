@@ -887,6 +887,9 @@ export interface SalesOrder {
   status: SalesOrderStatus;
   amount: number;
   tax: number;
+  discount?: number;
+  /** @nullable */
+  promo_code?: string | null;
   /** @nullable */
   description?: string | null;
   /** @nullable */
@@ -941,6 +944,7 @@ export interface SalesOrderInput {
   customer_id: number;
   channel?: SalesOrderInputChannel;
   tax?: number;
+  promo_code?: string;
   description?: string;
   shipping_address?: string;
   customer_latitude?: number;

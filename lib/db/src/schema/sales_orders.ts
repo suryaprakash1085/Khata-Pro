@@ -32,6 +32,8 @@ export const salesOrdersTable = pgTable("sales_orders", {
   deliveryDistanceKm: decimal("delivery_distance_km", { precision: 6, scale: 2 }),
   deliveryFee: decimal("delivery_fee", { precision: 10, scale: 2 }),
   deliveryFeeRadius: decimal("delivery_fee_radius", { precision: 6, scale: 2 }),
+  discount: decimal("discount", { precision: 12, scale: 2 }).notNull().default("0"),
+  promoCode: varchar("promo_code", { length: 50 }),
   deliveryFeePerKm: decimal("delivery_fee_per_km", { precision: 8, scale: 2 }),
   customerLatitude: decimal("customer_latitude", { precision: 10, scale: 7 }),
   customerLongitude: decimal("customer_longitude", { precision: 10, scale: 7 }),

@@ -14,6 +14,7 @@ export interface SalesOrderInput {
   customer_id: number;
   channel?: SalesOrderInputChannel;
   tax?: number;
+  promo_code?: string;
   description?: string;
   shipping_address?: string;
   customer_latitude?: number;

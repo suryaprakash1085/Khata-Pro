@@ -25,6 +25,8 @@ import {
 } from "../services/deliveryFee.service";
 import { getNextDeliveryNumber } from "../services/deliveryCounter";
 import { createNewOrderNotification, syncLowStockNotification, createOrderCancelledNotification } from "../services/adminNotifications.service";
+import { calculatePromoDiscount, PromoError } from "../services/promoDiscount.service";
+
 const router: IRouter = Router();
 
 
@@ -41,6 +43,8 @@ function formatSalesOrder(so: any, customerName?: string, itemCount?: number, pa
     status: so.status,
     amount: parseFloat(so.amount ?? "0"),
     tax: parseFloat(so.tax ?? "0"),
+    discount: parseFloat(so.discount ?? "0"),
+    promo_code: so.promoCode ?? null,
     gst_rate: parseFloat(so.gstRate ?? "0"),
     invoice_no: so.invoiceNo ?? null,
     description: so.description,
@@ -358,7 +362,19 @@ router.post("/public/sales-orders", async (req, res): Promise<void> => {
     // Authoritative recalculation, ignores anything the client may have
     // precomputed and displayed in the checkout preview.
     const deliveryFeeResult = await resolveDeliveryFee(d);
-    const amount = itemsTotal + tax + deliveryFeeResult.fee;
+
+let promo;
+try {
+  promo = await calculatePromoDiscount(d.business_id, (req.body as any)?.promo_code, d.items);
+} catch (err) {
+  if (err instanceof PromoError) {
+    res.status(400).json({ error: err.message });
+    return;
+  }
+  throw err;
+}
+
+const amount = itemsTotal - promo.discount + tax + deliveryFeeResult.fee;
 
     const [order] = await db
       .insert(salesOrdersTable)
@@ -369,6 +385,8 @@ router.post("/public/sales-orders", async (req, res): Promise<void> => {
         status: "pending",
         amount: amount.toString(),
         tax: tax.toString(),
+        discount: promo.discount.toString(),
+        promoCode: promo.promoCode,
         gstRate: (d.tax ?? 0).toString(),
         description: d.description,
         shippingAddress: d.shipping_address,

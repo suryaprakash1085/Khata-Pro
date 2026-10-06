@@ -8,6 +8,7 @@ export interface Promotion {
   apply_to: string;
   start_date: string;
   end_date: string;
+  category: string | null;
   status: string;
   discount_percentage: number | null;
   description: string | null;
@@ -24,8 +25,8 @@ class PromotionService {
     try {
       // The apiClient interceptor already returns response.data,
       // so `data` here is the response body itself (no `.data` needed).
-      const data = await apiClient.get('/public/promotions/active', {
-        params: { business_id: businessId },
+      const data = await apiClient.get('/promotions/active', {
+      params: { business_id: businessId },
       });
       return data as unknown as Promotion[];
     } catch (error) {

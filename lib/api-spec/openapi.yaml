@@ -4185,6 +4185,10 @@ components:
           type: number
         tax:
           type: number
+        discount:
+          type: number
+        promo_code:
+          type: ["string", "null"]
         description:
           type: ["string", "null"]
         shipping_address:
@@ -4233,6 +4237,8 @@ components:
         tax:
           type: number
           default: 0
+        promo_code:
+          type: string
         description:
           type: string
         shipping_address:
