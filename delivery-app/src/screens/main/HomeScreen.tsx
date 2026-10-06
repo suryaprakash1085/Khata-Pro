@@ -14,7 +14,8 @@
   import Icon from 'react-native-vector-icons/Ionicons';
   import { colors } from '../../constants/colors';
   import axios from 'axios';
-  import { API_URL } from '@env';
+ import { API_BASE_URL } from '../../config/api';
+
   import { AuthContext } from '../../context/AuthContext';
   import { CartContext } from '../../context/CartContext';
   import { businessAPI } from '../../api/endpoints';
@@ -148,7 +149,7 @@ useEffect(() => {
         return;
       }
       axios
-        .get(`${API_URL}/public/products`, { params: { business_id: selectedBusinessId } })
+        .get(`${API_BASE_URL}/public/products`, { params: { business_id: selectedBusinessId } })
         .then((res) => setProducts(res.data))
         .catch((err) => console.error('Failed to load products:', err));
     }, [selectedBusinessId]);
@@ -162,7 +163,7 @@ useEffect(() => {
     }
 
     try {
-      const res = await axios.get(`${API_URL}/public/search`, {
+      const res = await axios.get(`${API_BASE_URL}/public/search`, {
         params: { q: text },
       });
       setFilteredBusinesses(res.data.data || []);
@@ -186,7 +187,7 @@ useEffect(() => {
     setSearchText(''); // search box clear pannunga, confusion varaadhu
 
     try {
-      const res = await axios.get(`${API_URL}/public/businesses/by-category`, {
+      const res = await axios.get(`${API_BASE_URL}/public/businesses/by-category`, {
         params: { category: categoryLabel },
       });
       setFilteredBusinesses(res.data.data || []);

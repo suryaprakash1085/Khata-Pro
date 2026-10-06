@@ -1,28 +1,19 @@
 // delivery-app/src/api/customerNotifications.ts
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_URL } from '@env';
+import apiClient from './client';
 
-// Token comes from AsyncStorage ('authToken' — saved by AuthContext on login).
-// The backend reads the customer id from this token, so we never send customer_id.
-const authConfig = async (extra: any = {}) => {
-  const token = await AsyncStorage.getItem('authToken');
-  return {
-    ...extra,
-    headers: { Authorization: `Bearer ${token}` },
-  };
-};
+// apiClient already adds the auth token and returns response.data,
+// so we re-wrap as { data } to keep existing callers (res.data) working.
+const wrap = async (request: Promise<any>): Promise<{ data: any }> => ({
+  data: await request,
+});
 
 export const customerNotificationAPI = {
-  list: async (limit = 50) =>
-    axios.get(`${API_URL}/notifications/me`, await authConfig({ params: { limit } })),
+  list: (limit = 50) =>
+    wrap(apiClient.get('/notifications/me', { params: { limit } })),
 
-  unreadCount: async () =>
-    axios.get(`${API_URL}/notifications/me/unread-count`, await authConfig()),
+  unreadCount: () => wrap(apiClient.get('/notifications/me/unread-count')),
 
-  markRead: async (id: number) =>
-    axios.post(`${API_URL}/notifications/me/mark-read`, { id }, await authConfig()),
+  markRead: (id: number) => wrap(apiClient.post('/notifications/me/mark-read', { id })),
 
-  markAllRead: async () =>
-    axios.post(`${API_URL}/notifications/me/mark-all-read`, {}, await authConfig()),
+  markAllRead: () => wrap(apiClient.post('/notifications/me/mark-all-read', {})),
 };

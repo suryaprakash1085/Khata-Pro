@@ -1,6 +1,6 @@
 
 import axios from 'axios';
-
+import { API_BASE_URL as API_URL } from '../config/api';
 
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000') + '/api';
 

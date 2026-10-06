@@ -4,8 +4,9 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import { API_BASE_URL } from '../config/api';
 
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000') + '/api';
+
 
 // const API_BASE_URL = process.env.REACT_APP_API_URL || ' /api';
 Notifications.setNotificationHandler({

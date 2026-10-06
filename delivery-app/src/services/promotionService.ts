@@ -1,6 +1,6 @@
 
 import axios from 'axios';
-import { API_URL } from '@env';
+import apiClient from '../api/client';
 
 export interface Promotion {
   id: number;
@@ -25,7 +25,7 @@ class PromotionService {
   async getActivePromotions(businessId: number): Promise<Promotion[]> {
     try {
       // const response = await axios.get(`${API_URL}/public/promotions/active`, {
-      const response = await axios.get(`${API_URL}/promotions/active`, {
+      const response = await axios.get(`${apiClient}/promotions/active`, {
         params: { business_id: businessId }
       });
       return response.data;

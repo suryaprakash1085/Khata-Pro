@@ -19,7 +19,8 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import axios from 'axios';
-import { API_URL } from '@env';
+import { API_BASE_URL } from '../../config/api';
+
 
 // ✅ Import Razorpay with proper error handling
 let RazorpayCheckout: any = null;
@@ -267,7 +268,7 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
         return;
       }
 
-      const response = await axios.get(`${API_URL}/public/products/suggestions`, {
+      const response = await axios.get(`${API_BASE_URL}/public/products/suggestions`, {
         params: {
           product_ids: productIds.join(','),
         },
@@ -377,7 +378,7 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
     }
 
     try {
-      const response = await axios.post(`${API_URL}/delivery-fees/calculate`, {
+      const response = await axios.post(`${API_BASE_URL}/delivery-fees/calculate`, {
         business_id: businessId,
         customer_latitude: customerLat,
         customer_longitude: customerLng,
@@ -687,7 +688,7 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
 
       console.log('🔍 [CartScreen] COD Order payload:', orderData);
 
-      const response = await axios.post(`${API_URL}/public/sales-orders`, orderData);
+      const response = await axios.post(`${API_BASE_URL}/public/sales-orders`, orderData);
       console.log('✅ [CartScreen] COD Order created:', response.data);
 
       const newOrder = {
@@ -782,7 +783,7 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
 
       console.log('🔍 [CartScreen] Razorpay Order payload:', orderData);
 
-      const orderResponse = await axios.post(`${API_URL}/public/sales-orders`, orderData);
+      const orderResponse = await axios.post(`${API_BASE_URL}/public/sales-orders`, orderData);
       console.log('✅ [CartScreen] Order created for Razorpay:', orderResponse.data);
 
       const orderId = orderResponse.data.id;
