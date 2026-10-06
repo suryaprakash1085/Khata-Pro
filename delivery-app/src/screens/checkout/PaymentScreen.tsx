@@ -135,6 +135,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
     subtotal = 0,
     discount = 0,
     promoCode = null,
+    promoId = null,
   } = route.params || {};
 
   // ==========================================================
@@ -350,8 +351,7 @@ useEffect(() => {
       tax: finalTax,
       discount: finalDiscount,
       promo_code: promoCode,
-      // map local selectedMethod ('razorpay'/'cash') to the
-      // backend's payment_method enum ('online'/'cod')
+      promotion_id: promoId,
       payment_method: selectedMethod === 'cash' ? 'cod' : 'online',
       items: formattedItems,
     };

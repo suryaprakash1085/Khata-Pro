@@ -365,7 +365,12 @@ router.post("/public/sales-orders", async (req, res): Promise<void> => {
 
 let promo;
 try {
-  promo = await calculatePromoDiscount(d.business_id, (req.body as any)?.promo_code, d.items);
+  promo = await calculatePromoDiscount(
+  d.business_id,
+  (req.body as any)?.promo_code,
+  d.items,
+  (req.body as any)?.promotion_id,
+);
 } catch (err) {
   if (err instanceof PromoError) {
     res.status(400).json({ error: err.message });

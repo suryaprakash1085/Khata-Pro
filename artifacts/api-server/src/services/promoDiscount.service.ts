@@ -1,9 +1,11 @@
 // TARGET PATH: artifacts/api-server/src/services/promoDiscount.service.ts
-// NEW FILE
 //
 // Server-side promo discount calculation. The client only sends a
-// promo_code; the discount amount is ALWAYS recomputed here, so a
-// tampered client can never fake a discount.
+// promo_code and/or a promotion_id; the discount amount is ALWAYS
+// recomputed here, so a tampered client can never fake a discount.
+//
+// promotion_id exists because offers shown in "Offers for You" may have
+// no promo_code at all — those can only be identified by id.
 
 import { db, promotionsTable, promotionProductsTable, productsTable } from "@workspace/db";
 import { and, eq, gte, lte, inArray } from "drizzle-orm";
@@ -27,13 +29,24 @@ export class PromoError extends Error {
   }
 }
 
+const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
+
 export async function calculatePromoDiscount(
   businessId: number,
   promoCode: string | null | undefined,
   items: PromoItemInput[],
+  promotionId?: number | string | null,
 ): Promise<PromoResult> {
   const code = typeof promoCode === "string" ? promoCode.trim() : "";
-  if (!code) return { discount: 0, promoCode: null, promotionId: null };
+
+  const pidRaw =
+    promotionId !== null && promotionId !== undefined && promotionId !== ""
+      ? Number(promotionId)
+      : null;
+  const pid = pidRaw !== null && Number.isFinite(pidRaw) ? pidRaw : null;
+
+  // Nothing to apply
+  if (!code && pid === null) return { discount: 0, promoCode: null, promotionId: null };
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -50,8 +63,15 @@ export async function calculatePromoDiscount(
       ),
     );
 
-  const promo: any = promos.find((p: any) => p.promoCode?.toUpperCase() === code.toUpperCase());
-  if (!promo) throw new PromoError("Invalid or expired promo code");
+  // The selected offer card (id) wins; otherwise match by typed code.
+  const promo: any =
+    pid !== null
+      ? promos.find((p: any) => Number(p.id) === pid)
+      : promos.find((p: any) => p.promoCode?.toUpperCase() === code.toUpperCase());
+
+  if (!promo) {
+    throw new PromoError(pid !== null ? "This offer is no longer available" : "Invalid or expired promo code");
+  }
 
   const subtotal = items.reduce((sum, it) => sum + it.qty * it.unit_price, 0);
   const minOrder = promo.minOrderAmount !== null && promo.minOrderAmount !== undefined
@@ -84,7 +104,7 @@ export async function calculatePromoDiscount(
     if (!promo.applyTo || promo.applyTo === "all") return true;
     if (promo.applyTo === "selected") return selectedIds.has(it.product_id);
     if (promo.applyTo === "category") {
-      return !!promo.category && categoryMap.get(it.product_id) === promo.category;
+      return !!promo.category && norm(categoryMap.get(it.product_id)) === norm(promo.category);
     }
     return false;
   });
@@ -118,5 +138,9 @@ export async function calculatePromoDiscount(
   // Discount can never exceed the order's item total.
   discount = Math.min(Math.max(discount, 0), subtotal);
 
-  return { discount, promoCode: promo.promoCode ?? code, promotionId: Number(promo.id) };
+  return {
+    discount,
+    promoCode: promo.promoCode ?? (code || null),
+    promotionId: Number(promo.id),
+  };
 }

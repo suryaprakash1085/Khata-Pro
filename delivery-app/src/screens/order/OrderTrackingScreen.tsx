@@ -47,6 +47,14 @@ interface OrderTrackingScreenProps {
   route: any;
 }
 
+// Order fields the backend returns that may not be on the CustomerOrder type yet.
+type OrderWithBilling = CustomerOrder & {
+  discount?: number | string | null;
+  delivery_fee?: number | string | null;
+  tax?: number | string | null;
+  promo_code?: string | null;
+};
+
 // Customer-facing stage metadata — icon/label/message only, no business logic here.
 const STAGE_META: Record<string, { label: string; icon: string; message: string }> = {
   ORDER_PLACED: { label: 'Order Placed', icon: 'time-outline', message: 'Your order has been placed.' },
@@ -66,6 +74,11 @@ const maskPhone = (phone?: string | null): string => {
   const last3 = digits.slice(-3);
   const masked = 'X'.repeat(digits.length - 3);
   return `${masked}${last3}`;
+};
+
+const toNum = (v: unknown): number => {
+  const n = typeof v === 'string' ? parseFloat(v) : (v as number);
+  return Number.isFinite(n) ? n : 0;
 };
 
 const POLL_INTERVAL_MS = 15000; // fallback polling — swap for Supabase Realtime later if enabled
@@ -224,6 +237,21 @@ const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ navigation, r
   const currentStepIndex = CUSTOMER_TRACKING_STEPS.indexOf(trackingStatus as any);
   const activeMeta = STAGE_META[trackingStatus] ?? STAGE_META.ORDER_PLACED;
 
+  // ── Bill breakdown values ──────────────────────────────────
+  const billing = order as OrderWithBilling;
+  const items = order.items ?? [];
+  const itemTotal = items.reduce((s, it) => s + toNum(it.qty) * toNum(it.unit_price), 0);
+  const discountAmt = toNum(billing.discount);
+  const deliveryFeeAmt = billing.delivery_fee == null ? null : toNum(billing.delivery_fee);
+  const taxAmt = toNum(billing.tax);
+
+  const renderBillRow = (label: string, value: string, color?: string) => (
+    <View style={styles.billRow}>
+      <Text style={styles.billLabel}>{label}</Text>
+      <Text style={[styles.billValue, color ? { color } : null]}>{value}</Text>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
@@ -256,11 +284,8 @@ const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ navigation, r
             <View style={styles.summaryInfo}>
               <Text style={styles.summaryOrderName}>Order #{order.id}</Text>
               {order.business_name && (
-    <Text style={styles.summaryShopName}>from {order.business_name}</Text>
-  )}
-  <Text style={styles.summaryTime}>
-    Placed on {new Date(order.entry_date).toLocaleDateString()}
-  </Text>
+                <Text style={styles.summaryShopName}>from {order.business_name}</Text>
+              )}
               <Text style={styles.summaryTime}>
                 Placed on {new Date(order.entry_date).toLocaleDateString()}
               </Text>
@@ -366,27 +391,46 @@ const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ navigation, r
             </View>
           </View>
         )}
-        {/* Ordered items */}
-{order.items && order.items.length > 0 && (
-  <View style={[styles.card, styles.detailsCard, isDesktopWeb && styles.cardDesktop]}>
-    <Text style={styles.detailsTitle}>Items Ordered</Text>
-    {order.items.map((item, index) => (
-      <View
-        key={item.id}
-        style={[
-          styles.itemRow,
-          index === order.items.length - 1 && { borderBottomWidth: 0 },
-        ]}
-      >
-        <View style={{ flex: 1 }}>
-          <Text style={styles.itemName}>{item.product_name}</Text>
-          <Text style={styles.itemQty}>Qty: {item.qty}</Text>
-        </View>
-        <Text style={styles.itemPrice}>₹{(item.qty * item.unit_price).toFixed(2)}</Text>
-      </View>
-    ))}
-  </View>
-)}
+
+        {/* Ordered items + bill breakdown */}
+        {items.length > 0 && (
+          <View style={[styles.card, styles.detailsCard, isDesktopWeb && styles.cardDesktop]}>
+            <Text style={styles.detailsTitle}>Items Ordered</Text>
+            {items.map((item, index) => (
+              <View
+                key={item.id}
+                style={[
+                  styles.itemRow,
+                  index === items.length - 1 && { borderBottomWidth: 0 },
+                ]}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.itemName}>{item.product_name}</Text>
+                  <Text style={styles.itemQty}>Qty: {item.qty}</Text>
+                </View>
+                <Text style={styles.itemPrice}>₹{(item.qty * item.unit_price).toFixed(2)}</Text>
+              </View>
+            ))}
+
+            <View style={styles.billBox}>
+              {renderBillRow('Item total', `₹${itemTotal.toFixed(2)}`)}
+              {discountAmt > 0 &&
+                renderBillRow(
+                  `Discount${billing.promo_code ? ` (${billing.promo_code})` : ''}`,
+                  `- ₹${discountAmt.toFixed(2)}`,
+                  SUCCESS,
+                )}
+              {deliveryFeeAmt !== null &&
+                renderBillRow('Delivery fee', deliveryFeeAmt === 0 ? 'Free' : `₹${deliveryFeeAmt.toFixed(2)}`)}
+              {taxAmt > 0 && renderBillRow('Tax (GST)', `₹${taxAmt.toFixed(2)}`)}
+              <View style={[styles.billRow, styles.billTotalRow]}>
+                <Text style={styles.billTotalLabel}>Total</Text>
+                <Text style={styles.billTotalValue}>₹{order.amount}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {trackingStatus === 'DELIVERED' && (
           <TouchableOpacity
             style={[styles.homeButton, isDesktopWeb && styles.homeButtonDesktop]}
@@ -445,15 +489,25 @@ const styles = StyleSheet.create({
   summaryInfo: { marginLeft: 12, flex: 1 },
   summaryOrderName: { fontFamily: FONT_FAMILY, fontSize: 15.5, fontWeight: '700', color: TEXT_MAIN },
   summaryShopName: { fontFamily: FONT_FAMILY, fontSize: 12.5, color: PURPLE_DARK, fontWeight: '600', marginTop: 1 },
-
   summaryTime: { fontFamily: FONT_FAMILY, fontSize: 12, color: TEXT_SECONDARY, marginTop: 1 },
   amountBadge: { backgroundColor: PURPLE_LIGHT, paddingHorizontal: 11, paddingVertical: 5, borderRadius: 18 },
   amountBadgeText: { fontFamily: FONT_FAMILY, fontSize: 13, color: PURPLE_DARK, fontWeight: '700' },
-  
+
+  // Items
   itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: BORDER },
-itemName: { fontFamily: FONT_FAMILY, fontSize: 13.5, fontWeight: '600', color: TEXT_MAIN },
-itemQty: { fontFamily: FONT_FAMILY, fontSize: 11.5, color: TEXT_SECONDARY, marginTop: 1 },
-itemPrice: { fontFamily: FONT_FAMILY, fontSize: 13.5, fontWeight: '700', color: PURPLE_DARK },
+  itemName: { fontFamily: FONT_FAMILY, fontSize: 13.5, fontWeight: '600', color: TEXT_MAIN },
+  itemQty: { fontFamily: FONT_FAMILY, fontSize: 11.5, color: TEXT_SECONDARY, marginTop: 1 },
+  itemPrice: { fontFamily: FONT_FAMILY, fontSize: 13.5, fontWeight: '700', color: PURPLE_DARK },
+
+  // Bill breakdown
+  billBox: { marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: BORDER },
+  billRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 3 },
+  billLabel: { fontFamily: FONT_FAMILY, fontSize: 12.5, color: TEXT_SECONDARY },
+  billValue: { fontFamily: FONT_FAMILY, fontSize: 12.5, color: TEXT_MAIN, fontWeight: '600' },
+  billTotalRow: { marginTop: 6, paddingTop: 8, borderTopWidth: 1, borderTopColor: BORDER },
+  billTotalLabel: { fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '700', color: TEXT_MAIN },
+  billTotalValue: { fontFamily: FONT_FAMILY, fontSize: 15, fontWeight: '700', color: PURPLE_DARK },
+
   // Status card
   statusCard: { alignItems: 'center', padding: 14 },
   statusIconWrap: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },

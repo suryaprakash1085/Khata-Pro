@@ -213,6 +213,17 @@ function formatCustomerOrder(order: any, delivery: any | null, driver: any | nul
     business_name: businessName ?? null,
     customer_id: Number(order.customerId),
     amount: parseFloat(order.amount ?? "0"),
+    tax: parseFloat(order.tax ?? "0"),
+discount: parseFloat(order.discount ?? "0"),
+promo_code: order.promoCode ?? null,
+delivery_fee:
+  order.deliveryFee !== null && order.deliveryFee !== undefined
+    ? parseFloat(order.deliveryFee)
+    : null,
+  delivery_distance_km:
+  order.deliveryDistanceKm !== null && order.deliveryDistanceKm !== undefined
+    ? parseFloat(order.deliveryDistanceKm)
+    : null, 
     entry_date: order.entryDate,
     created_at: order.createdAt,
     sales_order_status: order.status,
