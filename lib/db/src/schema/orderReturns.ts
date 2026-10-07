@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, varchar, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, varchar, text, timestamp, jsonb } from "drizzle-orm/pg-core";
 
 export const orderReturnsTable = pgTable("order_returns", {
   id: serial("id").primaryKey(),
@@ -11,4 +11,5 @@ export const orderReturnsTable = pgTable("order_returns", {
   adminNote: text("admin_note"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   resolvedAt: timestamp("resolved_at"),
+  items: jsonb("items"),
 });

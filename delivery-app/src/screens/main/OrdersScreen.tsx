@@ -14,9 +14,16 @@ import {
   useWindowDimensions,
   Modal,
   TextInput,
+  ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { ordersApi, CustomerOrder, CustomerTrackingStatus, ReturnReason } from '../../api/orders';
+import {
+  ordersApi,
+  CustomerOrder,
+  CustomerOrderItem,
+  CustomerTrackingStatus,
+  ReturnReason,
+} from '../../api/orders';
 
 const CompatibleFlatList: any = FlatList;
 
@@ -99,6 +106,10 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
   const [returnReason, setReturnReason] = useState<ReturnReason | null>(null);
   const [returnDesc, setReturnDesc] = useState('');
   const [returnSubmitting, setReturnSubmitting] = useState(false);
+  // Which product(s) of the order are being returned (product_id -> qty)
+  const [returnItems, setReturnItems] = useState<CustomerOrderItem[]>([]);
+  const [returnItemsLoading, setReturnItemsLoading] = useState(false);
+  const [selectedReturnQty, setSelectedReturnQty] = useState<Record<number, number>>({});
 
   // ── Orders: real backend fetch ──────────────────────────────
   const fetchOrders = useCallback(async (silent = false) => {
@@ -220,21 +231,71 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
   };
 
   // ── Return order ─────────────────────────────────────────────
-  const openReturnModal = (item: CustomerOrder) => {
+  const resetReturnForm = () => {
+    setReturnTarget(null);
+    setReturnReason(null);
+    setReturnDesc('');
+    setReturnItems([]);
+    setSelectedReturnQty({});
+  };
+
+  const openReturnModal = async (item: CustomerOrder) => {
     setReturnTarget(item);
     setReturnReason(null);
     setReturnDesc('');
+    setSelectedReturnQty({});
+    setReturnItems([]);
+    setReturnItemsLoading(true);
+    try {
+      // List response has no items, so load them from the tracking endpoint
+      const detail = await ordersApi.getOrderTracking(item.id);
+      const items = detail?.items ?? [];
+      setReturnItems(items);
+      // Single-product order: auto-select it so the customer only picks a reason
+      if (items.length === 1) {
+        setSelectedReturnQty({ [items[0].product_id]: items[0].qty });
+      }
+    } catch (e) {
+      showMessage('Error', 'Could not load order items. Please try again.');
+      resetReturnForm();
+    } finally {
+      setReturnItemsLoading(false);
+    }
   };
 
   const closeReturnModal = () => {
     if (returnSubmitting) return;
-    setReturnTarget(null);
-    setReturnReason(null);
-    setReturnDesc('');
+    resetReturnForm();
+  };
+
+  const toggleReturnItem = (it: CustomerOrderItem) => {
+    setSelectedReturnQty((prev) => {
+      const next = { ...prev };
+      if (next[it.product_id]) delete next[it.product_id];
+      else next[it.product_id] = it.qty;
+      return next;
+    });
+  };
+
+  const changeReturnQty = (it: CustomerOrderItem, delta: number) => {
+    setSelectedReturnQty((prev) => {
+      const cur = prev[it.product_id];
+      if (!cur) return prev;
+      return { ...prev, [it.product_id]: Math.min(it.qty, Math.max(1, cur + delta)) };
+    });
   };
 
   const submitReturn = async () => {
     if (!returnTarget) return;
+
+    const items = returnItems
+      .filter((it) => selectedReturnQty[it.product_id])
+      .map((it) => ({ product_id: it.product_id, qty: selectedReturnQty[it.product_id] }));
+
+    if (items.length === 0) {
+      showMessage('Select product', 'Please select the product(s) you want to return.');
+      return;
+    }
     if (!returnReason) {
       showMessage('Select a reason', 'Please select a reason for the return.');
       return;
@@ -248,12 +309,11 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
       await ordersApi.requestReturn(returnTarget.id, {
         reason: returnReason,
         description: returnDesc.trim() || undefined,
+        items,
       });
       const id = returnTarget.id;
       setReturnSubmitting(false);
-      setReturnTarget(null);
-      setReturnReason(null);
-      setReturnDesc('');
+      resetReturnForm();
       // optimistic update so the Return button disappears immediately
       setOrdersList((prev) =>
         prev.map((o) =>
@@ -558,7 +618,60 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.modalLabel}>Why are you returning this order?</Text>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <Text style={styles.modalLabel}>Which product are you returning?</Text>
+            {returnItemsLoading ? (
+              <ActivityIndicator size="small" color={PURPLE} style={{ marginVertical: 14 }} />
+            ) : (
+              returnItems.map((it) => {
+                const qty = selectedReturnQty[it.product_id];
+                const selected = !!qty;
+                return (
+                  <TouchableOpacity
+                    key={it.id}
+                    style={[styles.reasonRow, selected && styles.reasonRowSelected]}
+                    onPress={() => toggleReturnItem(it)}
+                    activeOpacity={0.8}
+                  >
+                    <Icon
+                      name={selected ? 'checkbox' : 'square-outline'}
+                      size={20}
+                      color={selected ? PURPLE : '#c9c6d8'}
+                    />
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text
+                        style={[styles.itemNameText, selected && styles.reasonTextSelected]}
+                        numberOfLines={1}
+                      >
+                        {it.product_name}
+                      </Text>
+                      <Text style={styles.itemSubText}>
+                        Ordered: {it.qty} × ₹{it.unit_price}
+                      </Text>
+                    </View>
+                    {selected && it.qty > 1 && (
+                      <View style={styles.qtyStepper}>
+                        <TouchableOpacity
+                          onPress={() => changeReturnQty(it, -1)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Icon name="remove" size={16} color={PURPLE} />
+                        </TouchableOpacity>
+                        <Text style={styles.qtyStepperText}>{qty}</Text>
+                        <TouchableOpacity
+                          onPress={() => changeReturnQty(it, 1)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Icon name="add" size={16} color={PURPLE} />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })
+            )}
+
+            <Text style={[styles.modalLabel, { marginTop: 8 }]}>Why are you returning it?</Text>
             {RETURN_REASONS.map((r) => {
               const selected = returnReason === r.key;
               return (
@@ -602,6 +715,7 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
                 <Text style={styles.submitReturnText}>Submit Return Request</Text>
               )}
             </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -759,6 +873,10 @@ const styles = StyleSheet.create({
   modalLabel: { fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '700', color: TEXT_MAIN, marginBottom: 10 },
   reasonRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: BORDER, marginBottom: 8, backgroundColor: BG },
   reasonRowSelected: { borderColor: PURPLE, backgroundColor: PURPLE_LIGHT },
+  itemNameText: { fontFamily: FONT_FAMILY, fontSize: 14, color: TEXT_MAIN },
+  itemSubText: { fontFamily: FONT_FAMILY, fontSize: 11.5, color: TEXT_SECONDARY, marginTop: 2 },
+  qtyStepper: { flexDirection: 'row', alignItems: 'center', backgroundColor: BG, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, gap: 10, borderWidth: 1, borderColor: PURPLE_SOFT },
+  qtyStepperText: { fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '700', color: TEXT_MAIN, minWidth: 14, textAlign: 'center' },
   reasonText: { flex: 1, marginLeft: 10, fontFamily: FONT_FAMILY, fontSize: 14, color: TEXT_MAIN },
   reasonTextSelected: { fontWeight: '700', color: PURPLE_DARK },
   reasonInput: { marginTop: 6, borderWidth: 1, borderColor: BORDER, borderRadius: 12, padding: 12, minHeight: 78, fontFamily: FONT_FAMILY, fontSize: 14, color: TEXT_MAIN, backgroundColor: BG_SOFT },

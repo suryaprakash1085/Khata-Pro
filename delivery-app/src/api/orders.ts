@@ -1,4 +1,3 @@
-
 import apiClient from './client';
 
 export const CUSTOMER_TRACKING_STEPS = [
@@ -12,6 +11,18 @@ export const CUSTOMER_TRACKING_STEPS = [
 
 export type CustomerTrackingStatus = typeof CUSTOMER_TRACKING_STEPS[number] | 'CANCELLED';
 
+export type ReturnReason =
+  | 'EXPIRED_PRODUCT'
+  | 'WRONG_PRODUCT'
+  | 'DAMAGED'
+  | 'MISSING_ITEM'
+  | 'OTHER';
+
+export interface ReturnItemInput {
+  product_id: number;
+  qty: number;
+}
+
 export interface CustomerOrderDelivery {
   id: number;
   driver_id: number | null;
@@ -23,6 +34,7 @@ export interface CustomerOrderDelivery {
   picked_up_at: string | null;
   delivered_at: string | null;
 }
+
 export interface CustomerOrderItem {
   id: number;
   product_id: number;
@@ -31,10 +43,17 @@ export interface CustomerOrderItem {
   unit_price: number;
 }
 
+export interface CustomerOrderReturnRequest {
+  id: number;
+  status: 'REQUESTED' | 'APPROVED' | 'REJECTED';
+  reason: string;
+  items?: { product_id: number; product_name: string; qty: number }[];
+}
+
 export interface CustomerOrder {
   id: number;
   business_id: number;
-  business_name?: string | null; 
+  business_name?: string | null;
   customer_id: number;
   amount: number;
   tax?: number | null;
@@ -50,11 +69,9 @@ export interface CustomerOrder {
   tracking_steps: readonly string[];
   items: CustomerOrderItem[];
   delivery: CustomerOrderDelivery | null;
-store_name?: string;
-description?: string;
-
-return_request?: { id: number; status: 'REQUESTED' | 'APPROVED' | 'REJECTED'; reason: string } | null;
-
+  store_name?: string;
+  description?: string;
+  return_request?: CustomerOrderReturnRequest | null;
 }
 
 export interface CancelOrderResponse {
@@ -69,7 +86,7 @@ export const ordersApi = {
   getMyOrders: (): Promise<{ data: CustomerOrder[] }> =>
     apiClient.get('/customers/me/orders') as unknown as Promise<{ data: CustomerOrder[] }>,
 
-  /** Single order tracking detail — used by OrderTrackingScreen */
+  /** Single order tracking detail — used by OrderTrackingScreen and the Return modal (has items) */
   getOrderTracking: (orderId: number): Promise<CustomerOrder> =>
     apiClient.get(`/customers/me/orders/${orderId}/tracking`) as unknown as Promise<CustomerOrder>,
 
@@ -77,10 +94,10 @@ export const ordersApi = {
   cancelOrder: (orderId: number): Promise<CancelOrderResponse> =>
     apiClient.put(`/customers/me/orders/${orderId}/cancel`) as unknown as Promise<CancelOrderResponse>,
 
-  requestReturn: (orderId: number, payload: { reason: ReturnReason; description?: string }): Promise<any> =>
-  apiClient.post(`/customers/me/orders/${orderId}/return`, payload) as unknown as Promise<any>,
+  /** Request a return for a delivered order — used by OrdersScreen's Return button */
+  requestReturn: (
+    orderId: number,
+    payload: { reason: ReturnReason; description?: string; items?: ReturnItemInput[] },
+  ): Promise<any> =>
+    apiClient.post(`/customers/me/orders/${orderId}/return`, payload) as unknown as Promise<any>,
 };
-
-export type ReturnReason = 'EXPIRED_PRODUCT' | 'WRONG_PRODUCT' | 'DAMAGED' | 'MISSING_ITEM' | 'OTHER';
-
-

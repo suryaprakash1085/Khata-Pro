@@ -224,7 +224,7 @@ async function getReturnsByOrder(orderIds: number[]): Promise<Map<number, any>> 
   return new Map(
     rows.map((r: any) => [
       Number(r.salesOrderId),
-      { id: Number(r.id), status: r.status, reason: r.reason },
+      { id: Number(r.id), status: r.status, reason: r.reason, items: r.items ?? [] },
     ]),
   );
 }
@@ -551,7 +551,57 @@ router.post("/customers/me/orders/:id/return", requireCustomerAuth, async (req, 
     res.status(409).json({ error: "A return has already been requested for this order." });
     return;
   }
+ 
+    // 🔶 Which product(s) are being returned
+  const orderItems = await db
+    .select({
+      productId: salesOrderItemsTable.productId,
+      productName: productsTable.name,
+      qty: salesOrderItemsTable.qty,
+      unitPrice: salesOrderItemsTable.unitPrice,
+    })
+    .from(salesOrderItemsTable)
+    .innerJoin(productsTable, eq(salesOrderItemsTable.productId, productsTable.id))
+    .where(eq(salesOrderItemsTable.salesOrderId, orderId));
 
+  const requested: any[] = Array.isArray(req.body?.items) ? req.body.items : [];
+  let returnItems: { product_id: number; product_name: string; qty: number; unit_price: number }[] = [];
+
+  if (requested.length === 0) {
+    if (orderItems.length === 1) {
+      const only = orderItems[0];
+      returnItems = [{
+        product_id: Number(only.productId),
+        product_name: only.productName,
+        qty: parseFloat(only.qty as any),
+        unit_price: parseFloat(only.unitPrice as any),
+      }];
+    } else {
+      res.status(400).json({ error: "Please select the product(s) you want to return." });
+      return;
+    }
+  } else {
+    for (const r of requested) {
+      const productId = parseInt(r?.product_id, 10);
+      const qty = Number(r?.qty);
+      const orderedItem = orderItems.find((oi: any) => Number(oi.productId) === productId);
+      if (!orderedItem) {
+        res.status(400).json({ error: "Selected product is not part of this order." });
+        return;
+      }
+      if (!qty || qty <= 0 || qty > parseFloat(orderedItem.qty as any)) {
+        res.status(400).json({ error: `Invalid return quantity for ${orderedItem.productName}.` });
+        return;
+      }
+      returnItems.push({
+        product_id: productId,
+        product_name: orderedItem.productName,
+        qty,
+        unit_price: parseFloat(orderedItem.unitPrice as any),
+      });
+    }
+  }
+  
   const [created] = await db
     .insert(orderReturnsTable)
     .values({
