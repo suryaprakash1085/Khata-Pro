@@ -1,7 +1,3 @@
-// lib/db/schema/notifications.ts
-// ADDITIVE UPDATE — adds productId/vendorId columns + 4 new type enum values
-// for the admin notification system. Nothing existing changes shape.
-
 import { pgTable, bigserial, bigint, text, boolean, timestamp, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -45,6 +41,7 @@ export const notificationsTable = pgTable("notifications", {
       "vendor_payment_pending",
       "vendor_payment_overdue",
       "order_cancelled",
+      "return_requested",
       "subscription_renewal",
       "subscription_renewal_success",
       "subscription_trial_expiring",

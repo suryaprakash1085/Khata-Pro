@@ -1,9 +1,3 @@
-// artifacts/api-server/src/routes/adminNotifications.ts
-//
-// Mount with requireAuth at the app level:
-//   import adminNotificationsRouter from "./routes/adminNotifications";
-//   app.use("/api/admin-notifications", requireAuth, adminNotificationsRouter);
-
 import { Router, type IRouter } from "express";
 import { db, notificationsTable } from "@workspace/db";
 import { eq, and, desc, count, inArray } from "drizzle-orm";
@@ -14,6 +8,7 @@ const router: IRouter = Router();
 const TYPE_GROUPS: Record<string, string[]> = {
   NEW_ORDERS: ["new_order"],
   ORDER_CANCELLED: ["order_cancelled"],
+  RETURNS: ["return_requested"],
   LOW_STOCK: ["low_stock"],
   VENDOR_PAYMENTS: ["vendor_payment_pending", "vendor_payment_overdue"],
   SUBSCRIPTION: [
