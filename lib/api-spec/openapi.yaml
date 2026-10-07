@@ -4238,7 +4238,9 @@ components:
           type: number
           default: 0
         promo_code:
-          type: string
+          type: ["string", "null"]
+        promotion_id:
+          type: ["integer", "null"]
         description:
           type: string
         shipping_address:

@@ -14,7 +14,10 @@ export interface SalesOrderInput {
   customer_id: number;
   channel?: SalesOrderInputChannel;
   tax?: number;
-  promo_code?: string;
+  /** @nullable */
+  promo_code?: string | null;
+  /** @nullable */
+  promotion_id?: number | null;
   description?: string;
   shipping_address?: string;
   customer_latitude?: number;

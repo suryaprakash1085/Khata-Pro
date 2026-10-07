@@ -19,8 +19,8 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import * as Location from 'expo-location';
 import { AddressContext, Address } from '../../context/AddressContext';
 import { CartContext } from '../../context/CartContext';
+import { API_BASE_URL } from '../../config/api';
 
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000') + '/api';
 
 const COLORS = {
   primary: '#6C5CE7',

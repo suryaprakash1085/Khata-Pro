@@ -346,12 +346,11 @@ useEffect(() => {
       delivery_distance_km: feeInfo?.distance_km,
       delivery_fee_radius: feeInfo?.free_delivery_radius,
       delivery_fee_per_km: feeInfo?.per_km_charge,
-      description:
-        cartItems.map((item: any) => `${item.name} x${item.quantity}`).join(', ') || 'Order',
+      description: cartItems.map((item: any) => `${item.name} x${item.quantity}`).join(', ') || 'Order',
       tax: finalTax,
       discount: finalDiscount,
-      promo_code: promoCode,
-      promotion_id: promoId,
+      ...(promoCode ? { promo_code: promoCode } : {}),
+      ...(promoId ? { promotion_id: Number(promoId) } : {}),
       payment_method: selectedMethod === 'cash' ? 'cod' : 'online',
       items: formattedItems,
     };
