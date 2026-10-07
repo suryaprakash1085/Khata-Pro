@@ -38,10 +38,10 @@ export interface CustomerOrder {
   customer_id: number;
   amount: number;
   tax?: number | null;
-discount?: number | null;
-delivery_fee?: number | null;
-delivery_distance_km?: number | null;
-promo_code?: string | null;
+  discount?: number | null;
+  delivery_fee?: number | null;
+  delivery_distance_km?: number | null;
+  promo_code?: string | null;
   entry_date: string;
   created_at?: string;
   sales_order_status: string;
