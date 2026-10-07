@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, customersTable, salesOrdersTable, deliveriesTable, driversTable, businessesTable, salesOrderItemsTable, productsTable} from "@workspace/db";
+import { db, customersTable, salesOrdersTable, deliveriesTable, driversTable, businessesTable, salesOrderItemsTable, productsTable, orderReturnsTable } from "@workspace/db";
 import { eq, and, or, ilike, count, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import {
@@ -13,6 +13,11 @@ import { requireCustomerAuth } from "../middlewares/customerAuth";
 import { createOrderCancelledNotification } from "../services/adminNotifications.service";
 
 const router: IRouter = Router();
+
+// ── Cancel / Return rules ────────────────────────────────────────────────
+const CANCEL_WINDOW_MS = 24 * 60 * 60 * 1000; // customer can cancel only within 1 day of placing
+const RETURN_WINDOW_MS = 2 * 24 * 60 * 60 * 1000; // keep same as RETURN_WINDOW_MS in OrdersScreen.tsx
+const RETURN_REASONS = ["EXPIRED_PRODUCT", "WRONG_PRODUCT", "DAMAGED", "MISSING_ITEM", "OTHER"];
 
 function formatCustomer(c: any) {
   return {
@@ -46,13 +51,13 @@ router.get("/customers", requireAuth, async (req, res): Promise<void> => {
 
   const conditions: any[] = [eq(customersTable.businessId, businessId), eq(customersTable.isDeleted, false)];
   if (search) {
-  conditions.push(
-    or(
-      ilike(customersTable.name, `%${search}%`),
-      ilike(customersTable.phone, `%${search}%`),
-    ),
-  );
-}
+    conditions.push(
+      or(
+        ilike(customersTable.name, `%${search}%`),
+        ilike(customersTable.phone, `%${search}%`),
+      ),
+    );
+  }
   if (category) conditions.push(eq(customersTable.category, category as any));
 
   const [customers, totalResult] = await Promise.all([
@@ -168,8 +173,6 @@ router.put("/customers/me/push-token", requireCustomerAuth, async (req, res): Pr
   res.json({ success: true });
 });
 
-
-
 const CUSTOMER_TRACKING_STEPS = [
   "ORDER_PLACED",
   "ORDER_CONFIRMED",
@@ -179,33 +182,64 @@ const CUSTOMER_TRACKING_STEPS = [
   "DELIVERED",
 ] as const;
 
-
 function mapToCustomerStatus(
   salesOrderStatus: string,
   deliveryStatus?: string | null,
-  outForDeliveryAt?: Date | string | null,   // ✅ NEW param
+  outForDeliveryAt?: Date | string | null,
 ): string {
   if (deliveryStatus && deliveryStatus !== "pending") {
     switch (deliveryStatus) {
       case "assigned": return "DRIVER_ASSIGNED";
       case "picked_up":
-        // ✅ Once the driver marks "out for delivery" (our own flag),
-        // show that stage even though `status` is still "picked_up" —
-        // teammate's `status` transitions are untouched.
+        // Once the driver marks "out for delivery" (our own flag),
+        // show that stage even though `status` is still "picked_up".
         return outForDeliveryAt ? "OUT_FOR_DELIVERY" : "PICKED_UP";
-      case "in_transit": return "OUT_FOR_DELIVERY"; // still respected if teammate's flow sets this too
+      case "in_transit": return "OUT_FOR_DELIVERY";
       case "delivered": return "DELIVERED";
       case "cancelled": return "CANCELLED";
     }
   }
-  if (salesOrderStatus === "invoiced") return "ORDER_CONFIRMED";
+  // 🔶 CHANGED — any admin-confirmed stage now shows as ORDER_CONFIRMED
+  // (previously only "invoiced"), so the app hides the Cancel button
+  // as soon as the admin confirms the order.
+  if (
+    salesOrderStatus === "invoiced" ||
+    salesOrderStatus === "confirmed" ||
+    salesOrderStatus === "packed" ||
+    salesOrderStatus === "shipped"
+  ) {
+    return "ORDER_CONFIRMED";
+  }
   if (salesOrderStatus === "cancelled") return "CANCELLED";
   return "ORDER_PLACED";
 }
-function formatCustomerOrder(order: any, delivery: any | null, driver: any | null, businessName?: string | null, items?: any[]) {
+
+// 🔶 NEW — fetch return requests for a set of orders in one query
+async function getReturnsByOrder(orderIds: number[]): Promise<Map<number, any>> {
+  if (!orderIds.length) return new Map();
+  const rows = await db
+    .select()
+    .from(orderReturnsTable)
+    .where(inArray(orderReturnsTable.salesOrderId, orderIds));
+  return new Map(
+    rows.map((r: any) => [
+      Number(r.salesOrderId),
+      { id: Number(r.id), status: r.status, reason: r.reason },
+    ]),
+  );
+}
+
+function formatCustomerOrder(
+  order: any,
+  delivery: any | null,
+  driver: any | null,
+  businessName?: string | null,
+  items?: any[],
+  returnRequest?: any | null, // 🔶 NEW
+) {
   const trackingStatus = mapToCustomerStatus(
     order.status, delivery?.status ?? null,
-     delivery?.outForDeliveryAt ?? null,
+    delivery?.outForDeliveryAt ?? null,
   );
   return {
     id: Number(order.id),
@@ -214,16 +248,16 @@ function formatCustomerOrder(order: any, delivery: any | null, driver: any | nul
     customer_id: Number(order.customerId),
     amount: parseFloat(order.amount ?? "0"),
     tax: parseFloat(order.tax ?? "0"),
-discount: parseFloat(order.discount ?? "0"),
-promo_code: order.promoCode ?? null,
-delivery_fee:
-  order.deliveryFee !== null && order.deliveryFee !== undefined
-    ? parseFloat(order.deliveryFee)
-    : null,
-  delivery_distance_km:
-  order.deliveryDistanceKm !== null && order.deliveryDistanceKm !== undefined
-    ? parseFloat(order.deliveryDistanceKm)
-    : null, 
+    discount: parseFloat(order.discount ?? "0"),
+    promo_code: order.promoCode ?? null,
+    delivery_fee:
+      order.deliveryFee !== null && order.deliveryFee !== undefined
+        ? parseFloat(order.deliveryFee)
+        : null,
+    delivery_distance_km:
+      order.deliveryDistanceKm !== null && order.deliveryDistanceKm !== undefined
+        ? parseFloat(order.deliveryDistanceKm)
+        : null,
     entry_date: order.entryDate,
     created_at: order.createdAt,
     sales_order_status: order.status,
@@ -231,6 +265,7 @@ delivery_fee:
     tracking_status: trackingStatus,
     tracking_steps: CUSTOMER_TRACKING_STEPS,
     items: items ?? [],
+    return_request: returnRequest ?? null, // 🔶 NEW
     delivery: delivery
       ? {
           id: Number(delivery.id),
@@ -269,19 +304,29 @@ router.get("/customers/me/orders", requireCustomerAuth, async (req, res): Promis
     : [];
   const driverById = new Map(drivers.map((d: any) => [Number(d.id), d]));
 
-  // 🔶 NEW — business names for all orders in one query
+  // business names for all orders in one query
   const businessIds = [...new Set(orders.map((o: any) => Number(o.businessId)))];
   const businesses = businessIds.length
     ? await db.select({ id: businessesTable.id, businessName: businessesTable.businessName }).from(businessesTable).where(inArray(businessesTable.id, businessIds))
     : [];
   const businessNameById = new Map(businesses.map((b: any) => [Number(b.id), b.businessName]));
 
+  // 🔶 NEW — return requests for all orders in one query
+  const returnByOrder = await getReturnsByOrder(orderIds);
+
   res.json({
     data: orders.map((o: any) => {
       const delivery = deliveryByOrder.get(Number(o.id)) ?? null;
       const driver = delivery?.driverId ? driverById.get(Number(delivery.driverId)) ?? null : null;
       const businessName = businessNameById.get(Number(o.businessId)) ?? null;
-      return formatCustomerOrder(o, delivery, driver, businessName);
+      return formatCustomerOrder(
+        o,
+        delivery,
+        driver,
+        businessName,
+        undefined,
+        returnByOrder.get(Number(o.id)) ?? null, // 🔶 NEW
+      );
     }),
   });
 });
@@ -318,13 +363,13 @@ router.get("/customers/me/orders/:id/tracking", requireCustomerAuth, async (req,
     [driver] = await db.select().from(driversTable).where(eq(driversTable.id, delivery.driverId));
   }
 
-  // 🔶 NEW — shop name
+  // shop name
   const [business] = await db
     .select({ businessName: businessesTable.businessName })
     .from(businessesTable)
     .where(eq(businessesTable.id, Number(order.businessId)));
 
-  // 🔶 NEW — order items (what was ordered)
+  // order items (what was ordered)
   const items = await db
     .select({
       id: salesOrderItemsTable.id,
@@ -345,16 +390,27 @@ router.get("/customers/me/orders/:id/tracking", requireCustomerAuth, async (req,
     unit_price: parseFloat(it.unitPrice),
   }));
 
-  res.json(formatCustomerOrder(order, delivery ?? null, driver, business?.businessName ?? null, formattedItems));
+  // 🔶 NEW
+  const returnByOrder = await getReturnsByOrder([orderId]);
+
+  res.json(
+    formatCustomerOrder(
+      order,
+      delivery ?? null,
+      driver,
+      business?.businessName ?? null,
+      formattedItems,
+      returnByOrder.get(orderId) ?? null,
+    ),
+  );
 });
-// PUT /customers/me/orders/:id/cancel — customer cancels their own order.
-// Only touches sales_orders.status -> "cancelled". Only allowed while
-// the order is still "pending" (not yet confirmed/invoiced).
+
 // PUT /customers/me/orders/:id/cancel — customer cancels their own order.
 // Touches sales_orders.status -> "cancelled", syncs the linked delivery's
 // status too (so the Deliveries screen reflects it), and notifies the
-// business admin. Only allowed while the order is still "pending" (not
-// yet confirmed/invoiced).
+// business admin.
+// Rules: only while the order is still "pending" (admin has not confirmed),
+// no driver activity yet, and within 1 day of placing the order.
 router.put("/customers/me/orders/:id/cancel", requireCustomerAuth, async (req, res): Promise<void> => {
   const { customerId } = (req as any).customer;
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
@@ -380,9 +436,31 @@ router.put("/customers/me/orders/:id/cancel", requireCustomerAuth, async (req, r
     return;
   }
 
+  // Rule 1: admin already confirmed (or order moved on) => cannot cancel
   if (order.status !== "pending") {
     res.status(409).json({
-      error: `Order can no longer be cancelled (current status: ${order.status})`,
+      error: "This order has been confirmed and can no longer be cancelled.",
+    });
+    return;
+  }
+
+  // 🔶 NEW — Rule 2: driver already assigned / moving => cannot cancel
+  const [existingDelivery] = await db
+    .select()
+    .from(deliveriesTable)
+    .where(eq(deliveriesTable.salesOrderId, orderId));
+  if (existingDelivery?.status && existingDelivery.status !== "pending") {
+    res.status(409).json({
+      error: "This order is already being processed and can no longer be cancelled.",
+    });
+    return;
+  }
+
+  // 🔶 NEW — Rule 3: only within 1 day of placing the order
+  const placedAt = new Date(order.createdAt as any).getTime();
+  if (!isNaN(placedAt) && Date.now() - placedAt > CANCEL_WINDOW_MS) {
+    res.status(409).json({
+      error: "Orders can only be cancelled within 1 day of placing them.",
     });
     return;
   }
@@ -393,7 +471,7 @@ router.put("/customers/me/orders/:id/cancel", requireCustomerAuth, async (req, r
     .where(eq(salesOrdersTable.id, orderId))
     .returning();
 
-  // 🔶 NEW — sync the linked delivery's status too, so the business
+  // sync the linked delivery's status too, so the business
   // Deliveries screen (badge + Assign Driver button) reflects the
   // cancellation instead of staying "pending" forever.
   await db
@@ -401,7 +479,7 @@ router.put("/customers/me/orders/:id/cancel", requireCustomerAuth, async (req, r
     .set({ status: "cancelled" as any, cancelledAt: new Date() })
     .where(eq(deliveriesTable.salesOrderId, orderId));
 
-  // 🔶 NEW — notify the business admin (bell icon).
+  // notify the business admin (bell icon).
   const [customer] = await db.select({ name: customersTable.name }).from(customersTable).where(eq(customersTable.id, customerId));
   await createOrderCancelledNotification({
     businessId: Number(order.businessId),
@@ -413,4 +491,148 @@ router.put("/customers/me/orders/:id/cancel", requireCustomerAuth, async (req, r
 
   res.json(formatCustomerOrder(updatedOrder, null, null));
 });
+
+// 🔶 NEW — POST /customers/me/orders/:id/return
+// Customer requests a return for a DELIVERED order within RETURN_WINDOW_MS.
+// body: { reason: EXPIRED_PRODUCT | WRONG_PRODUCT | DAMAGED | MISSING_ITEM | OTHER, description?: string }
+router.post("/customers/me/orders/:id/return", requireCustomerAuth, async (req, res): Promise<void> => {
+  const { customerId } = (req as any).customer;
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const orderId = parseInt(raw, 10);
+  const reason = req.body?.reason as string;
+  const description = (typeof req.body?.description === "string" ? req.body.description.trim() : "") || null;
+
+  if (isNaN(orderId)) {
+    res.status(400).json({ error: "Invalid order id" });
+    return;
+  }
+  if (!RETURN_REASONS.includes(reason)) {
+    res.status(400).json({ error: "Invalid return reason" });
+    return;
+  }
+  if (reason === "OTHER" && !description) {
+    res.status(400).json({ error: "Please describe the issue" });
+    return;
+  }
+
+  const [order] = await db
+    .select()
+    .from(salesOrdersTable)
+    .where(
+      and(
+        eq(salesOrdersTable.id, orderId),
+        eq(salesOrdersTable.customerId, customerId),
+        eq(salesOrdersTable.isDeleted, false),
+      ),
+    );
+  if (!order) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+
+  const [delivery] = await db.select().from(deliveriesTable).where(eq(deliveriesTable.salesOrderId, orderId));
+  const tracking = mapToCustomerStatus(order.status, delivery?.status ?? null, delivery?.outForDeliveryAt ?? null);
+  if (tracking !== "DELIVERED") {
+    res.status(409).json({ error: "Only delivered orders can be returned." });
+    return;
+  }
+
+  const deliveredAt = delivery?.deliveredAt ? new Date(delivery.deliveredAt as any).getTime() : NaN;
+  if (isNaN(deliveredAt) || Date.now() - deliveredAt > RETURN_WINDOW_MS) {
+    res.status(409).json({ error: "The return window has expired for this order." });
+    return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(orderReturnsTable)
+    .where(eq(orderReturnsTable.salesOrderId, orderId));
+  if (existing) {
+    res.status(409).json({ error: "A return has already been requested for this order." });
+    return;
+  }
+
+  const [created] = await db
+    .insert(orderReturnsTable)
+    .values({
+      salesOrderId: orderId,
+      businessId: Number(order.businessId),
+      customerId,
+      reason,
+      description,
+    })
+    .returning();
+
+  res.status(201).json({ id: Number(created.id), status: created.status, reason: created.reason });
+});
+
+// 🔶 NEW — GET /order-returns?business_id=1  (admin panel: list customer return requests)
+router.get("/order-returns", requireAuth, async (req, res): Promise<void> => {
+  const businessId = parseInt(req.query.business_id as string, 10);
+  if (isNaN(businessId)) {
+    res.status(400).json({ error: "business_id is required" });
+    return;
+  }
+
+  const rows = await db
+    .select({
+      id: orderReturnsTable.id,
+      salesOrderId: orderReturnsTable.salesOrderId,
+      reason: orderReturnsTable.reason,
+      description: orderReturnsTable.description,
+      status: orderReturnsTable.status,
+      adminNote: orderReturnsTable.adminNote,
+      createdAt: orderReturnsTable.createdAt,
+      customerName: customersTable.name,
+      customerPhone: customersTable.phone,
+    })
+    .from(orderReturnsTable)
+    .innerJoin(customersTable, eq(orderReturnsTable.customerId, customersTable.id))
+    .where(eq(orderReturnsTable.businessId, businessId))
+    .orderBy(desc(orderReturnsTable.id));
+
+  res.json({
+    data: rows.map((r: any) => ({
+      id: Number(r.id),
+      sales_order_id: Number(r.salesOrderId),
+      reason: r.reason,
+      description: r.description,
+      status: r.status,
+      admin_note: r.adminNote,
+      created_at: r.createdAt,
+      customer_name: r.customerName,
+      customer_phone: r.customerPhone,
+    })),
+  });
+});
+
+// 🔶 NEW — PUT /order-returns/:id/status  body: { status: "APPROVED" | "REJECTED", admin_note?: string }
+router.put("/order-returns/:id/status", requireAuth, async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+  const status = req.body?.status as string;
+
+  if (isNaN(id) || !["APPROVED", "REJECTED"].includes(status)) {
+    res.status(400).json({ error: "status must be APPROVED or REJECTED" });
+    return;
+  }
+
+  const [updated] = await db
+    .update(orderReturnsTable)
+    .set({
+      status,
+      adminNote: typeof req.body?.admin_note === "string" ? req.body.admin_note : null,
+      resolvedAt: new Date(),
+    })
+    .where(and(eq(orderReturnsTable.id, id), eq(orderReturnsTable.status, "REQUESTED")))
+    .returning();
+
+  if (!updated) {
+    res.status(404).json({ error: "Return request not found or already resolved" });
+    return;
+  }
+
+  res.json({ id: Number(updated.id), status: updated.status, reason: updated.reason });
+});
+
 export default router;

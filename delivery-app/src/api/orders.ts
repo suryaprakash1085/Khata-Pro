@@ -52,6 +52,9 @@ export interface CustomerOrder {
   delivery: CustomerOrderDelivery | null;
 store_name?: string;
 description?: string;
+
+return_request?: { id: number; status: 'REQUESTED' | 'APPROVED' | 'REJECTED'; reason: string } | null;
+
 }
 
 export interface CancelOrderResponse {
@@ -73,4 +76,11 @@ export const ordersApi = {
   /** Cancel a pending order — used by OrdersScreen's Cancel button */
   cancelOrder: (orderId: number): Promise<CancelOrderResponse> =>
     apiClient.put(`/customers/me/orders/${orderId}/cancel`) as unknown as Promise<CancelOrderResponse>,
+
+  requestReturn: (orderId: number, payload: { reason: ReturnReason; description?: string }): Promise<any> =>
+  apiClient.post(`/customers/me/orders/${orderId}/return`, payload) as unknown as Promise<any>,
 };
+
+export type ReturnReason = 'EXPIRED_PRODUCT' | 'WRONG_PRODUCT' | 'DAMAGED' | 'MISSING_ITEM' | 'OTHER';
+
+

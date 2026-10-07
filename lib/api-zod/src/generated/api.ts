@@ -4033,6 +4033,66 @@ export const BroadcastNotificationResponse = zod.object({
 
 
 /**
+ * @summary Customer requests a return for a delivered order (within the return window)
+ */
+export const RequestOrderReturnParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RequestOrderReturnBody = zod.object({
+  "reason": zod.enum(['EXPIRED_PRODUCT', 'WRONG_PRODUCT', 'DAMAGED', 'MISSING_ITEM', 'OTHER']),
+  "description": zod.string().optional()
+})
+
+export const RequestOrderReturnResponse = zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['REQUESTED', 'APPROVED', 'REJECTED']),
+  "reason": zod.string()
+})
+
+
+/**
+ * @summary List customer return requests for a business (admin view)
+ */
+export const ListOrderReturnsQueryParams = zod.object({
+  "business_id": zod.coerce.number()
+})
+
+export const ListOrderReturnsResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "sales_order_id": zod.number(),
+  "reason": zod.enum(['EXPIRED_PRODUCT', 'WRONG_PRODUCT', 'DAMAGED', 'MISSING_ITEM', 'OTHER']),
+  "description": zod.string().nullish(),
+  "status": zod.enum(['REQUESTED', 'APPROVED', 'REJECTED']),
+  "admin_note": zod.string().nullish(),
+  "customer_name": zod.string(),
+  "customer_phone": zod.string().nullish(),
+  "created_at": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Approve or reject a pending return request
+ */
+export const UpdateOrderReturnStatusParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateOrderReturnStatusBody = zod.object({
+  "status": zod.enum(['APPROVED', 'REJECTED']),
+  "admin_note": zod.string().optional()
+})
+
+export const UpdateOrderReturnStatusResponse = zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['REQUESTED', 'APPROVED', 'REJECTED']),
+  "reason": zod.string()
+})
+
+
+/**
  * @summary List notifications for the admin dashboard (business-scoped)
  */
 export const listAdminNotificationsQueryFilterDefault = `ALL`;

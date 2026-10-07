@@ -1740,6 +1740,89 @@ export interface DriverNotificationActionResponse {
   message: string;
 }
 
+export type OrderReturnInputReason = typeof OrderReturnInputReason[keyof typeof OrderReturnInputReason];
+
+
+export const OrderReturnInputReason = {
+  EXPIRED_PRODUCT: 'EXPIRED_PRODUCT',
+  WRONG_PRODUCT: 'WRONG_PRODUCT',
+  DAMAGED: 'DAMAGED',
+  MISSING_ITEM: 'MISSING_ITEM',
+  OTHER: 'OTHER',
+} as const;
+
+export interface OrderReturnInput {
+  reason: OrderReturnInputReason;
+  description?: string;
+}
+
+export type OrderReturnSummaryStatus = typeof OrderReturnSummaryStatus[keyof typeof OrderReturnSummaryStatus];
+
+
+export const OrderReturnSummaryStatus = {
+  REQUESTED: 'REQUESTED',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+} as const;
+
+export interface OrderReturnSummary {
+  id: number;
+  status: OrderReturnSummaryStatus;
+  reason: string;
+}
+
+export type OrderReturnReason = typeof OrderReturnReason[keyof typeof OrderReturnReason];
+
+
+export const OrderReturnReason = {
+  EXPIRED_PRODUCT: 'EXPIRED_PRODUCT',
+  WRONG_PRODUCT: 'WRONG_PRODUCT',
+  DAMAGED: 'DAMAGED',
+  MISSING_ITEM: 'MISSING_ITEM',
+  OTHER: 'OTHER',
+} as const;
+
+export type OrderReturnStatus = typeof OrderReturnStatus[keyof typeof OrderReturnStatus];
+
+
+export const OrderReturnStatus = {
+  REQUESTED: 'REQUESTED',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+} as const;
+
+export interface OrderReturn {
+  id: number;
+  sales_order_id: number;
+  reason: OrderReturnReason;
+  /** @nullable */
+  description?: string | null;
+  status: OrderReturnStatus;
+  /** @nullable */
+  admin_note?: string | null;
+  customer_name: string;
+  /** @nullable */
+  customer_phone?: string | null;
+  created_at: string;
+}
+
+export interface OrderReturnListResponse {
+  data: OrderReturn[];
+}
+
+export type OrderReturnStatusUpdateStatus = typeof OrderReturnStatusUpdateStatus[keyof typeof OrderReturnStatusUpdateStatus];
+
+
+export const OrderReturnStatusUpdateStatus = {
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+} as const;
+
+export interface OrderReturnStatusUpdate {
+  status: OrderReturnStatusUpdateStatus;
+  admin_note?: string;
+}
+
 export type AdminNotificationType = typeof AdminNotificationType[keyof typeof AdminNotificationType];
 
 
@@ -2554,6 +2637,10 @@ user_id?: number;
 action?: string;
 page?: number;
 limit?: number;
+};
+
+export type ListOrderReturnsParams = {
+business_id: number;
 };
 
 export type ListAdminNotificationsParams = {

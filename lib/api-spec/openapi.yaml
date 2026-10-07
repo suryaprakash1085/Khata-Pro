@@ -50,6 +50,8 @@ tags:
     description: Driver-facing notifications (paginated, filterable, read-tracking)
   - name: admin-notifications
     description: Admin dashboard notifications (new orders, low stock, vendor payments)
+  - name: order-returns
+    description: Customer return requests for delivered orders (expired / wrong product etc.) and admin review
 paths:
   /healthz:
     get:
@@ -2946,7 +2948,87 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
+  
+  # ─── ORDER RETURNS ──────────────────────────────────────────────────────────
 
+  /customers/me/orders/{id}/return:
+    post:
+      operationId: requestOrderReturn
+      tags: [order-returns]
+      summary: Customer requests a return for a delivered order (within the return window)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderReturnInput"
+      responses:
+        "201":
+          description: Return requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderReturnSummary"
+        "400":
+          description: Invalid reason, or description missing for OTHER
+        "404":
+          description: Order not found
+        "409":
+          description: Order not delivered, return window expired, or return already requested
+
+  /order-returns:
+    get:
+      operationId: listOrderReturns
+      tags: [order-returns]
+      summary: List customer return requests for a business (admin view)
+      parameters:
+        - name: business_id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Return requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderReturnListResponse"
+
+  /order-returns/{id}/status:
+    put:
+      operationId: updateOrderReturnStatus
+      tags: [order-returns]
+      summary: Approve or reject a pending return request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderReturnStatusUpdate"
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderReturnSummary"
+        "400":
+          description: status must be APPROVED or REJECTED
+        "404":
+          description: Return request not found or already resolved
   # ─── ADMIN NOTIFICATIONS ──────────────────────────────────────────────────
 
   /admin-notifications:
@@ -5275,7 +5357,75 @@ components:
           type: boolean
         message:
           type: string
+        
+    # ── Order Returns ─────────────────────────────────────────────────────────
 
+    OrderReturnInput:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          enum: [EXPIRED_PRODUCT, WRONG_PRODUCT, DAMAGED, MISSING_ITEM, OTHER]
+        description:
+          type: string
+
+    OrderReturnSummary:
+      type: object
+      required: [id, status, reason]
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+          enum: [REQUESTED, APPROVED, REJECTED]
+        reason:
+          type: string
+
+    OrderReturn:
+      type: object
+      required: [id, sales_order_id, reason, status, created_at, customer_name]
+      properties:
+        id:
+          type: integer
+        sales_order_id:
+          type: integer
+        reason:
+          type: string
+          enum: [EXPIRED_PRODUCT, WRONG_PRODUCT, DAMAGED, MISSING_ITEM, OTHER]
+        description:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [REQUESTED, APPROVED, REJECTED]
+        admin_note:
+          type: ["string", "null"]
+        customer_name:
+          type: string
+        customer_phone:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    OrderReturnListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderReturn"
+
+    OrderReturnStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [APPROVED, REJECTED]
+        admin_note:
+          type: string
     # ── Admin Notifications ───────────────────────────────────────────────────
 
     AdminNotification:

@@ -88,6 +88,7 @@ import type {
   ListDriversParams,
   ListMyDeliveriesParams,
   ListNotificationsParams,
+  ListOrderReturnsParams,
   ListProductsParams,
   ListPromotionsParams,
   ListPurchasesParams,
@@ -101,6 +102,10 @@ import type {
   MarkAllAdminNotificationsReadParams,
   MessageResponse,
   Notification,
+  OrderReturnInput,
+  OrderReturnListResponse,
+  OrderReturnStatusUpdate,
+  OrderReturnSummary,
   OtpInput,
   OtpVerifyInput,
   PaymentMethodsReport,
@@ -9294,6 +9299,234 @@ export const useBroadcastNotification = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getBroadcastNotificationMutationOptions(options));
+    }
+
+export const getRequestOrderReturnUrl = (id: number,) => {
+
+
+
+
+  return `/api/customers/me/orders/${id}/return`
+}
+
+/**
+ * @summary Customer requests a return for a delivered order (within the return window)
+ */
+export const requestOrderReturn = async (id: number,
+    orderReturnInput: OrderReturnInput, options?: RequestInit): Promise<OrderReturnSummary> => {
+
+  return customFetch<OrderReturnSummary>(getRequestOrderReturnUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(orderReturnInput)
+  }
+);}
+
+
+
+
+
+export const getRequestOrderReturnMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestOrderReturn>>, TError,{id: number;data: BodyType<OrderReturnInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestOrderReturn>>, TError,{id: number;data: BodyType<OrderReturnInput>}, TContext> => {
+
+const mutationKey = ['requestOrderReturn'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestOrderReturn>>, {id: number;data: BodyType<OrderReturnInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  requestOrderReturn(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestOrderReturnMutationResult = NonNullable<Awaited<ReturnType<typeof requestOrderReturn>>>
+    export type RequestOrderReturnMutationBody = BodyType<OrderReturnInput>
+    export type RequestOrderReturnMutationError = ErrorType<void>
+
+    /**
+ * @summary Customer requests a return for a delivered order (within the return window)
+ */
+export const useRequestOrderReturn = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestOrderReturn>>, TError,{id: number;data: BodyType<OrderReturnInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestOrderReturn>>,
+        TError,
+        {id: number;data: BodyType<OrderReturnInput>},
+        TContext
+      > => {
+      return useMutation(getRequestOrderReturnMutationOptions(options));
+    }
+
+export const getListOrderReturnsUrl = (params: ListOrderReturnsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/order-returns?${stringifiedParams}` : `/api/order-returns`
+}
+
+/**
+ * @summary List customer return requests for a business (admin view)
+ */
+export const listOrderReturns = async (params: ListOrderReturnsParams, options?: RequestInit): Promise<OrderReturnListResponse> => {
+
+  return customFetch<OrderReturnListResponse>(getListOrderReturnsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOrderReturnsQueryKey = (params?: ListOrderReturnsParams,) => {
+    return [
+    `/api/order-returns`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListOrderReturnsQueryOptions = <TData = Awaited<ReturnType<typeof listOrderReturns>>, TError = ErrorType<unknown>>(params: ListOrderReturnsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOrderReturns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOrderReturnsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOrderReturns>>> = ({ signal }) => listOrderReturns(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOrderReturns>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOrderReturnsQueryResult = NonNullable<Awaited<ReturnType<typeof listOrderReturns>>>
+export type ListOrderReturnsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List customer return requests for a business (admin view)
+ */
+
+export function useListOrderReturns<TData = Awaited<ReturnType<typeof listOrderReturns>>, TError = ErrorType<unknown>>(
+ params: ListOrderReturnsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOrderReturns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOrderReturnsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateOrderReturnStatusUrl = (id: number,) => {
+
+
+
+
+  return `/api/order-returns/${id}/status`
+}
+
+/**
+ * @summary Approve or reject a pending return request
+ */
+export const updateOrderReturnStatus = async (id: number,
+    orderReturnStatusUpdate: OrderReturnStatusUpdate, options?: RequestInit): Promise<OrderReturnSummary> => {
+
+  return customFetch<OrderReturnSummary>(getUpdateOrderReturnStatusUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(orderReturnStatusUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateOrderReturnStatusMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOrderReturnStatus>>, TError,{id: number;data: BodyType<OrderReturnStatusUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateOrderReturnStatus>>, TError,{id: number;data: BodyType<OrderReturnStatusUpdate>}, TContext> => {
+
+const mutationKey = ['updateOrderReturnStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateOrderReturnStatus>>, {id: number;data: BodyType<OrderReturnStatusUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateOrderReturnStatus(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateOrderReturnStatusMutationResult = NonNullable<Awaited<ReturnType<typeof updateOrderReturnStatus>>>
+    export type UpdateOrderReturnStatusMutationBody = BodyType<OrderReturnStatusUpdate>
+    export type UpdateOrderReturnStatusMutationError = ErrorType<void>
+
+    /**
+ * @summary Approve or reject a pending return request
+ */
+export const useUpdateOrderReturnStatus = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOrderReturnStatus>>, TError,{id: number;data: BodyType<OrderReturnStatusUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateOrderReturnStatus>>,
+        TError,
+        {id: number;data: BodyType<OrderReturnStatusUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateOrderReturnStatusMutationOptions(options));
     }
 
 export const getListAdminNotificationsUrl = (params: ListAdminNotificationsParams,) => {

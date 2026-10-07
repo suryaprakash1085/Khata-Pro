@@ -12,9 +12,11 @@ import {
   ActivityIndicator,
   Platform,
   useWindowDimensions,
+  Modal,
+  TextInput,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { ordersApi, CustomerOrder, CustomerTrackingStatus } from '../../api/orders';
+import { ordersApi, CustomerOrder, CustomerTrackingStatus, ReturnReason } from '../../api/orders';
 
 const CompatibleFlatList: any = FlatList;
 
@@ -46,6 +48,42 @@ const FONT_FAMILY = Platform.select({
 const DESKTOP_BREAKPOINT = 768;
 const DESKTOP_MAX_WIDTH = 1160;
 
+// ── Cancel / Return rules ────────────────────────────────────────
+const CANCEL_WINDOW_MS = 24 * 60 * 60 * 1000; // 1 day after placing
+const RETURN_WINDOW_MS = 2 * 24 * 60 * 60 * 1000; // 2 days after delivery (change if needed)
+
+const RETURN_REASONS: { key: ReturnReason; label: string; icon: string }[] = [
+  { key: 'EXPIRED_PRODUCT', label: 'Expired product', icon: 'calendar-outline' },
+  { key: 'WRONG_PRODUCT', label: 'Wrong product delivered', icon: 'swap-horizontal-outline' },
+  { key: 'DAMAGED', label: 'Damaged product', icon: 'warning-outline' },
+  { key: 'MISSING_ITEM', label: 'Item missing', icon: 'help-circle-outline' },
+  { key: 'OTHER', label: 'Other', icon: 'ellipsis-horizontal-circle-outline' },
+];
+
+const RETURN_STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
+  REQUESTED: { label: 'Return Requested', color: WARNING, bg: WARNING_BG },
+  APPROVED: { label: 'Return Approved', color: SUCCESS, bg: SUCCESS_BG },
+  REJECTED: { label: 'Return Rejected', color: DANGER, bg: DANGER_BG },
+};
+
+// Order is cancellable ONLY if: still ORDER_PLACED (admin has not confirmed) AND within 1 day
+const canCancelOrder = (o: CustomerOrder): boolean => {
+  if (o.tracking_status !== 'ORDER_PLACED') return false;
+  const placed = new Date((o as any).created_at || o.entry_date).getTime();
+  if (isNaN(placed)) return false;
+  return Date.now() - placed <= CANCEL_WINDOW_MS;
+};
+
+// Return allowed ONLY if: DELIVERED, within window, and no return already requested
+const canReturnOrder = (o: CustomerOrder): boolean => {
+  if (o.tracking_status !== 'DELIVERED' || o.return_request) return false;
+  const deliveredAt = o.delivery?.delivered_at;
+  if (!deliveredAt) return false;
+  const t = new Date(deliveredAt).getTime();
+  if (isNaN(t)) return false;
+  return Date.now() - t <= RETURN_WINDOW_MS;
+};
+
 const OrdersScreen: React.FC = ({ navigation }: any) => {
   const { width: windowWidth } = useWindowDimensions();
   const isDesktopWeb = Platform.OS === 'web' && windowWidth >= DESKTOP_BREAKPOINT;
@@ -55,6 +93,12 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
   const [ordersList, setOrdersList] = useState<CustomerOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState<string | null>(null);
+
+  // Return modal state
+  const [returnTarget, setReturnTarget] = useState<CustomerOrder | null>(null);
+  const [returnReason, setReturnReason] = useState<ReturnReason | null>(null);
+  const [returnDesc, setReturnDesc] = useState('');
+  const [returnSubmitting, setReturnSubmitting] = useState(false);
 
   // ── Orders: real backend fetch ──────────────────────────────
   const fetchOrders = useCallback(async (silent = false) => {
@@ -109,6 +153,11 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
     }
   };
 
+  const showMessage = (title: string, msg: string) => {
+    if (Platform.OS === 'web') window.alert(msg);
+    else Alert.alert(title, msg);
+  };
+
   // ── Cancel order ─────────────────────────────────────────────
   const doCancelOrder = async (item: CustomerOrder) => {
     try {
@@ -131,26 +180,29 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
         prev.map((o) => (o.id === item.id ? { ...o, tracking_status: updatedStatus } : o)),
       );
 
-      const successMsg = `Order #${item.id} has been cancelled.`;
-      if (Platform.OS === 'web') {
-        window.alert(successMsg);
-      } else {
-        Alert.alert('Order Cancelled', successMsg);
-      }
+      showMessage('Order Cancelled', `Order #${item.id} has been cancelled.`);
     } catch (err: any) {
       console.error('❌ Error cancelling order:', err);
       const errorMsg =
-        err?.response?.data?.error || 'This order could not be cancelled. Please try again.';
-      if (Platform.OS === 'web') {
-        window.alert(errorMsg);
-      } else {
-        Alert.alert('Unable to cancel', errorMsg);
-      }
+        err?.response?.data?.error || err?.error || 'This order could not be cancelled. Please try again.';
+      showMessage('Unable to cancel', errorMsg);
       fetchOrders(true);
     }
   };
 
   const handleCancelOrder = (item: CustomerOrder) => {
+    // Re-check rules right before cancelling (status may have changed since list loaded)
+    if (!canCancelOrder(item)) {
+      showMessage(
+        'Cannot cancel',
+        item.tracking_status !== 'ORDER_PLACED'
+          ? 'This order has been confirmed, so it can no longer be cancelled.'
+          : 'Orders can only be cancelled within 1 day of placing them.',
+      );
+      fetchOrders(true);
+      return;
+    }
+
     if (Platform.OS === 'web') {
       const confirmed = window.confirm(`Are you sure you want to cancel Order #${item.id}?`);
       if (confirmed) doCancelOrder(item);
@@ -165,6 +217,60 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
         { text: 'Yes, Cancel', style: 'destructive', onPress: () => doCancelOrder(item) },
       ],
     );
+  };
+
+  // ── Return order ─────────────────────────────────────────────
+  const openReturnModal = (item: CustomerOrder) => {
+    setReturnTarget(item);
+    setReturnReason(null);
+    setReturnDesc('');
+  };
+
+  const closeReturnModal = () => {
+    if (returnSubmitting) return;
+    setReturnTarget(null);
+    setReturnReason(null);
+    setReturnDesc('');
+  };
+
+  const submitReturn = async () => {
+    if (!returnTarget) return;
+    if (!returnReason) {
+      showMessage('Select a reason', 'Please select a reason for the return.');
+      return;
+    }
+    if (returnReason === 'OTHER' && !returnDesc.trim()) {
+      showMessage('Add details', 'Please describe the issue.');
+      return;
+    }
+    try {
+      setReturnSubmitting(true);
+      await ordersApi.requestReturn(returnTarget.id, {
+        reason: returnReason,
+        description: returnDesc.trim() || undefined,
+      });
+      const id = returnTarget.id;
+      setReturnSubmitting(false);
+      setReturnTarget(null);
+      setReturnReason(null);
+      setReturnDesc('');
+      // optimistic update so the Return button disappears immediately
+      setOrdersList((prev) =>
+        prev.map((o) =>
+          o.id === id
+            ? { ...o, return_request: { id: 0, status: 'REQUESTED', reason: returnReason as string } }
+            : o,
+        ),
+      );
+      showMessage('Return Requested', `Your return request for Order #${id} has been submitted.`);
+      fetchOrders(true);
+    } catch (err: any) {
+      setReturnSubmitting(false);
+      const msg =
+        err?.response?.data?.error || err?.error || err?.message || 'Could not submit return request. Please try again.';
+      showMessage('Unable to request return', msg);
+      fetchOrders(true);
+    }
   };
 
   const handleViewOrder = (item: CustomerOrder) => {
@@ -183,8 +289,16 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
     const isCancelled = activeTab === 'cancelled';
     const isPast = activeTab === 'past';
     const meta = STATUS_META[item.tracking_status] ?? STATUS_META.ORDER_PLACED;
-    const showCancelButton = isCurrent && item.tracking_status === 'ORDER_PLACED';
+    const showCancelButton = isCurrent && canCancelOrder(item);
+    const showCancelUnavailable = isCurrent && !canCancelOrder(item);
+    const showReturnButton = isPast && canReturnOrder(item);
+    const returnMeta = item.return_request ? RETURN_STATUS_META[item.return_request.status] : null;
     const showViewButton = !isPast;
+
+    const cancelUnavailableText =
+      item.tracking_status !== 'ORDER_PLACED'
+        ? 'Order confirmed • cannot be cancelled'
+        : 'Cancellation window (1 day) is over';
 
     return (
       <TouchableOpacity
@@ -229,6 +343,18 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
               <Text style={styles.driverChipText}>{item.delivery.driver_name}</Text>
             </View>
           )}
+          {showCancelUnavailable && (
+            <View style={styles.noteRow}>
+              <Icon name="information-circle-outline" size={12} color={TEXT_SECONDARY} />
+              <Text style={styles.noteText}>{cancelUnavailableText}</Text>
+            </View>
+          )}
+          {returnMeta && (
+            <View style={[styles.returnBadge, { backgroundColor: returnMeta.bg }]}>
+              <Icon name="return-down-back-outline" size={12} color={returnMeta.color} />
+              <Text style={[styles.returnBadgeText, { color: returnMeta.color }]}>{returnMeta.label}</Text>
+            </View>
+          )}
         </View>
 
         <View style={[styles.orderSide, isDesktopWeb && styles.orderSideDesktop]}>
@@ -251,6 +377,19 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
               >
                 <Icon name="close-outline" size={13} color={DANGER} />
                 <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            )}
+            {showReturnButton && (
+              <TouchableOpacity
+                style={styles.returnButton}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  openReturnModal(item);
+                }}
+                activeOpacity={0.8}
+              >
+                <Icon name="return-down-back-outline" size={13} color={PURPLE} />
+                <Text style={styles.returnButtonText}>Return</Text>
               </TouchableOpacity>
             )}
             {showViewButton && (
@@ -401,6 +540,71 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
           )}
         </View>
       </View>
+
+      {/* ── Return request modal ───────────────────────────────── */}
+      <Modal
+        visible={!!returnTarget}
+        transparent
+        animationType="slide"
+        onRequestClose={closeReturnModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, isDesktopWeb && styles.modalCardDesktop]}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Return Order #{returnTarget?.id}</Text>
+              <TouchableOpacity onPress={closeReturnModal} style={styles.modalCloseBtn}>
+                <Icon name="close" size={20} color={TEXT_MAIN} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalLabel}>Why are you returning this order?</Text>
+            {RETURN_REASONS.map((r) => {
+              const selected = returnReason === r.key;
+              return (
+                <TouchableOpacity
+                  key={r.key}
+                  style={[styles.reasonRow, selected && styles.reasonRowSelected]}
+                  onPress={() => setReturnReason(r.key)}
+                  activeOpacity={0.8}
+                >
+                  <Icon name={r.icon as any} size={18} color={selected ? PURPLE : TEXT_SECONDARY} />
+                  <Text style={[styles.reasonText, selected && styles.reasonTextSelected]}>{r.label}</Text>
+                  <Icon
+                    name={selected ? 'radio-button-on' : 'radio-button-off'}
+                    size={20}
+                    color={selected ? PURPLE : '#c9c6d8'}
+                  />
+                </TouchableOpacity>
+              );
+            })}
+
+            <TextInput
+              style={styles.reasonInput}
+              placeholder="Describe the issue (required for 'Other')"
+              placeholderTextColor={TEXT_SECONDARY}
+              value={returnDesc}
+              onChangeText={setReturnDesc}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+
+            <TouchableOpacity
+              style={[styles.submitReturnBtn, returnSubmitting && { opacity: 0.7 }]}
+              onPress={submitReturn}
+              disabled={returnSubmitting}
+              activeOpacity={0.85}
+            >
+              {returnSubmitting ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.submitReturnText}>Submit Return Request</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -509,6 +713,10 @@ const styles = StyleSheet.create({
   orderMetaDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#c9c6d8' },
   driverChip: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
   driverChipText: { fontFamily: FONT_FAMILY, fontSize: 11.5, color: TEXT_SECONDARY },
+  noteRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+  noteText: { fontFamily: FONT_FAMILY, fontSize: 11.5, color: TEXT_SECONDARY },
+  returnBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 14, marginTop: 8, gap: 4 },
+  returnBadgeText: { fontFamily: FONT_FAMILY, fontSize: 11.5, fontWeight: '700' },
 
   statusBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, marginLeft: 8, alignSelf: 'flex-start' },
   statusText: { fontFamily: FONT_FAMILY, fontSize: 11.5, fontWeight: '700', marginLeft: 4 },
@@ -520,8 +728,42 @@ const styles = StyleSheet.create({
   footerButtons: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
   cancelButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: DANGER_BG, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: '#fbd5d5' },
   cancelButtonText: { color: DANGER, fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '700', marginLeft: 3 },
+  returnButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: PURPLE_LIGHT, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: PURPLE_SOFT },
+  returnButtonText: { color: PURPLE, fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '700', marginLeft: 3 },
   viewButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2, paddingVertical: 4 },
   viewButtonText: { color: PURPLE, fontFamily: FONT_FAMILY, fontSize: 12.5, fontWeight: '700', marginRight: 2 },
+
+  // Return modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(30,27,46,0.5)', justifyContent: 'flex-end' },
+  modalCard: {
+    backgroundColor: BG,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 28,
+    maxHeight: '90%',
+  },
+  modalCardDesktop: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    borderRadius: 24,
+    marginBottom: 'auto' as any,
+    marginTop: 'auto' as any,
+  },
+  modalHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: BORDER, marginBottom: 12 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: BORDER },
+  modalTitle: { fontFamily: FONT_FAMILY, fontSize: 19, fontWeight: '800', color: TEXT_MAIN },
+  modalCloseBtn: { padding: 4, backgroundColor: BG_SOFT, borderRadius: 20 },
+  modalLabel: { fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '700', color: TEXT_MAIN, marginBottom: 10 },
+  reasonRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: BORDER, marginBottom: 8, backgroundColor: BG },
+  reasonRowSelected: { borderColor: PURPLE, backgroundColor: PURPLE_LIGHT },
+  reasonText: { flex: 1, marginLeft: 10, fontFamily: FONT_FAMILY, fontSize: 14, color: TEXT_MAIN },
+  reasonTextSelected: { fontWeight: '700', color: PURPLE_DARK },
+  reasonInput: { marginTop: 6, borderWidth: 1, borderColor: BORDER, borderRadius: 12, padding: 12, minHeight: 78, fontFamily: FONT_FAMILY, fontSize: 14, color: TEXT_MAIN, backgroundColor: BG_SOFT },
+  submitReturnBtn: { marginTop: 16, backgroundColor: PURPLE, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
+  submitReturnText: { color: '#ffffff', fontFamily: FONT_FAMILY, fontSize: 15.5, fontWeight: '700' },
 
   // Empty / loading / error
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 90, paddingHorizontal: 30 },
