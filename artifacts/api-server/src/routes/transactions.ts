@@ -1,277 +1,4 @@
-  // import { Router, type IRouter } from "express";
-  // import { db, transactionsTable, customersTable, productsTable, transactionItemsTable } from "@workspace/db";
-  // import { requireAuth, AuthPayload } from "../middlewares/auth";
-  // import {
-  //   CreateTransactionBody,
-  //   UpdateTransactionBody,
-  // } from "@workspace/api-zod";
-  // import { eq, and, gte, count, desc, inArray, sql } from "drizzle-orm";
 
-  // const router: IRouter = Router();
-
-  // function formatTransaction(t: any, customerName?: string) {
-  //   return {
-  //     id: Number(t.id),
-  //     business_id: Number(t.businessId),
-  //     customer_id: Number(t.customerId),
-  //     customer_name: customerName ?? "",
-  //     type: t.type,
-  //     amount: parseFloat(t.amount ?? "0"),
-  //     balance_after: parseFloat(t.balanceAfter ?? "0"),
-  //     description: t.description,
-  //     bill_image_url: t.billImageUrl,
-  //     payment_mode: t.paymentMode,
-  //     tax: parseFloat(t.tax ?? "0"),
-  //     gst_rate: parseFloat(t.gstRate ?? "0"),
-  //     invoice_no: t.invoiceNo,
-  //     entry_date: t.entryDate,
-  //     due_date: t.dueDate,
-  //     created_by: Number(t.createdBy),
-  //     created_at: t.createdAt,
-  //   };
-  // }
-
-  // // ============================================================
-  // // Atomically reserves the next invoice number for a business.
-  // // Uses an UPSERT with ON CONFLICT DO UPDATE so two concurrent
-  // // checkouts (even across different logged-in shops/devices) can
-  // // never receive the same number for the same business, and numbers
-  // // are never shared ACROSS businesses since the counter row is keyed
-  // // by business_id.
-  // // ============================================================
-  // async function getNextInvoiceNumber(businessId: number): Promise<string> {
-  //   const result: any = await db.execute(sql`
-  //     INSERT INTO business_invoice_counters (business_id, last_number)
-  //     VALUES (${businessId}, 1)
-  //     ON CONFLICT (business_id)
-  //     DO UPDATE SET last_number = business_invoice_counters.last_number + 1
-  //     RETURNING last_number;
-  //   `);
-  //   const row = result?.rows?.[0] ?? result?.[0];
-  //   const num = Number(row?.last_number ?? 1);
-  //   return `INV-${String(num).padStart(4, "0")}`;
-  // }
-
-  // // GET /transactions/next-invoice-number — cosmetic PREVIEW only. Does NOT
-  // // reserve or increment anything; just reads the counter's current value + 1.
-  // // The real number is only assigned atomically inside POST /transactions at
-  // // checkout time, so if two bills race, this preview can be off by one for
-  // // a moment — that's fine, it's just what the cashier sees before paying.
-  // router.get("/transactions/next-invoice-number", requireAuth, async (req, res): Promise<void> => {
-  //   const businessId = parseInt(req.query.business_id as string, 10);
-  //   if (isNaN(businessId)) {
-  //     res.status(400).json({ error: "business_id is required" });
-  //     return;
-  //   }
-  //   const result: any = await db.execute(sql`
-  //     SELECT last_number FROM business_invoice_counters WHERE business_id = ${businessId};
-  //   `);
-  //   const row = result?.rows?.[0] ?? result?.[0];
-  //   const next = Number(row?.last_number ?? 0) + 1;
-  //   res.json({ next_invoice_no: `INV-${String(next).padStart(4, "0")}` });
-  // });
-
-  // // GET /transactions
-  // router.get("/transactions", requireAuth, async (req, res): Promise<void> => {
-  //   const businessId = parseInt(req.query.business_id as string, 10);
-  //   if (isNaN(businessId)) {
-  //     res.status(400).json({ error: "business_id is required" });
-  //     return;
-  //   }
-  //   const customerId = req.query.customer_id ? parseInt(req.query.customer_id as string, 10) : undefined;
-  //   const type = req.query.type as string | undefined;
-  //   const filter = (req.query.filter as string) ?? "all";
-  //   const page = parseInt(req.query.page as string) || 1;
-  //   const limit = parseInt(req.query.limit as string) || 50;
-  //   const offset = (page - 1) * limit;
-
-  //   const conditions: any[] = [eq(transactionsTable.businessId, businessId), eq(transactionsTable.isDeleted, false)];
-  //   if (customerId) conditions.push(eq(transactionsTable.customerId, customerId));
-  //   if (type === "you_got" || type === "you_gave") conditions.push(eq(transactionsTable.type, type));
-
-  //   const now = new Date();
-  //   if (filter === "today") {
-  //     const today = now.toISOString().split("T")[0];
-  //     conditions.push(eq(transactionsTable.entryDate, today));
-  //   } else if (filter === "week") {
-  //     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  //     conditions.push(gte(transactionsTable.entryDate, weekAgo));
-  //   } else if (filter === "month") {
-  //     const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  //     conditions.push(gte(transactionsTable.entryDate, monthAgo));
-  //   }
-
-  //   const [transactions, totalResult] = await Promise.all([
-  //     db.select().from(transactionsTable).where(and(...conditions)).limit(limit).offset(offset).orderBy(desc(transactionsTable.entryDate)),
-  //     db.select({ count: count() }).from(transactionsTable).where(and(...conditions)),
-  //   ]);
-
-  //   const customerIds = [...new Set(transactions.map((t: any) => Number(t.customerId)))];
-  //   const customers = customerIds.length > 0
-  //     ? await db.select({ id: customersTable.id, name: customersTable.name }).from(customersTable).where(inArray(customersTable.id, customerIds))
-  //     : [];
-  //   const customerMap = new Map(customers.map((c) => [Number(c.id), c.name]));
-
-  //   res.json({
-  //     data: transactions.map((t: any) => formatTransaction(t, customerMap.get(Number(t.customerId)))),
-  //     total: Number(totalResult[0].count),
-  //     page,
-  //     limit,
-  //   });
-  // });
-
-  // // POST /transactions
-  // router.post("/transactions", requireAuth, async (req, res): Promise<void> => {
-  //   const parsed = CreateTransactionBody.safeParse(req.body);
-  //   if (!parsed.success) {
-  //     res.status(400).json({ error: parsed.error.message });
-  //     return;
-  //   }
-  //   const d = parsed.data;
-  //   const { userId } = (req as any).user as AuthPayload;
-
-  //   const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, d.customer_id));
-  //   if (!customer) {
-  //     res.status(404).json({ error: "Customer not found" });
-  //     return;
-  //   }
-  //   const currentBalance = parseFloat(customer.currentBalance ?? "0");
-  //   const amount = parseFloat(d.amount?.toString() ?? "0");
-  //   const newBalance = d.type === "you_gave" ? currentBalance + amount : currentBalance - amount;
-
-  //   const toDateStr = (v: string | Date | null | undefined): string | null | undefined =>
-  //     v instanceof Date ? v.toISOString().split("T")[0] : v as string | null | undefined;
-
-  //   // 🔒 Server-generated, business-scoped invoice number — the client's
-  //   // invoice_no (if any) is IGNORED. Only sale transactions carrying line
-  //   // items get a number; plain payment/receipt entries don't need one.
-  //   const items = (d as any).items as { product_id: number; qty: number; unit_price: number }[] | undefined;
-  //   const invoiceNo = items && items.length > 0 ? await getNextInvoiceNumber(d.business_id) : null;
-
-  //   const [tx] = await db.insert(transactionsTable).values({
-  //     businessId: d.business_id,
-  //     customerId: d.customer_id,
-  //     type: d.type as any,
-  //     amount: d.amount.toString(),
-  //     balanceAfter: newBalance.toString(),
-  //     description: d.description,
-  //     billImageUrl: d.bill_image_url,
-  //     paymentMode: (d.payment_mode ?? "cash") as any,
-  //     tax: (d.tax ?? 0).toString(),
-  //     gstRate: (d.gst_rate ?? 0).toString(),
-  //     invoiceNo,
-  //     entryDate: toDateStr(d.entry_date) ?? new Date().toISOString().split("T")[0],
-  //     dueDate: toDateStr(d.due_date),
-  //     createdBy: userId,
-  //   }).returning();
-
-  //   await db.update(customersTable).set({ currentBalance: newBalance.toString() }).where(eq(customersTable.id, d.customer_id));
-
-  //   if (items && items.length > 0) {
-  //     const productIds = [...new Set(items.map((it) => it.product_id))];
-  //     const productRows = await db
-  //       .select({ id: productsTable.id, costPrice: productsTable.costPrice })
-  //       .from(productsTable)
-  //       .where(inArray(productsTable.id, productIds));
-  //     const costMap = new Map(productRows.map((p) => [Number(p.id), p.costPrice ?? "0"]));
-
-  //     await db.insert(transactionItemsTable).values(
-  //       items.map((it) => ({
-  //         transactionId: tx.id,
-  //         productId: it.product_id,
-  //         qty: it.qty.toString(),
-  //         unitPrice: it.unit_price.toString(),
-  //         unitCost: costMap.get(it.product_id) ?? "0",
-  //       })),
-  //     );
-  //   }
-
-  //   res.status(201).json(formatTransaction(tx, customer.name));
-  // });
-
-  // // GET /transactions/:id
-  // router.get("/transactions/:id", requireAuth, async (req, res): Promise<void> => {
-  //   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  //   const id = parseInt(raw, 10);
-  //   const [tx] = await db.select().from(transactionsTable)
-  //     .where(and(eq(transactionsTable.id, id), eq(transactionsTable.isDeleted, false)));
-  //   if (!tx) {
-  //     res.status(404).json({ error: "Transaction not found" });
-  //     return;
-  //   }
-  //   const [customer] = await db.select({ name: customersTable.name }).from(customersTable).where(eq(customersTable.id, Number(tx.customerId)));
-  //   res.json(formatTransaction(tx, customer?.name));
-  // });
-
-  // // PUT /transactions/:id
-  // router.put("/transactions/:id", requireAuth, async (req, res): Promise<void> => {
-  //   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  //   const id = parseInt(raw, 10);
-  //   const parsed = UpdateTransactionBody.safeParse(req.body);
-  //   if (!parsed.success) {
-  //     res.status(400).json({ error: parsed.error.message });
-  //     return;
-  //   }
-  //   const updates: any = {};
-  //   if (parsed.data.amount !== undefined) updates.amount = parsed.data.amount.toString();
-  //   if (parsed.data.description !== undefined) updates.description = parsed.data.description;
-  //   if (parsed.data.payment_mode) updates.paymentMode = parsed.data.payment_mode;
-  //   const toStr = (v: string | Date | null | undefined) => v instanceof Date ? v.toISOString().split("T")[0] : v;
-  //   if (parsed.data.entry_date) updates.entryDate = toStr(parsed.data.entry_date);
-  //   if (parsed.data.due_date !== undefined) updates.dueDate = toStr(parsed.data.due_date);
-
-  //   const [tx] = await db.update(transactionsTable).set(updates)
-  //     .where(and(eq(transactionsTable.id, id), eq(transactionsTable.isDeleted, false))).returning();
-  //   if (!tx) {
-  //     res.status(404).json({ error: "Transaction not found" });
-  //     return;
-  //   }
-  //   const [customer] = await db.select({ name: customersTable.name }).from(customersTable).where(eq(customersTable.id, Number(tx.customerId)));
-  //   res.json(formatTransaction(tx, customer?.name));
-  // });
-
-  // // DELETE /transactions/:id
-  // router.delete("/transactions/:id", requireAuth, async (req, res): Promise<void> => {
-  //   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  //   const id = parseInt(raw, 10);
-  //   const [tx] = await db.update(transactionsTable).set({ isDeleted: true }).where(eq(transactionsTable.id, id)).returning();
-  //   if (!tx) {
-  //     res.status(404).json({ error: "Transaction not found" });
-  //     return;
-  //   }
-  //   res.json({ message: "Transaction deleted" });
-  // });
-
-  // router.get('/transactions/:id/items', requireAuth, async (req, res): Promise<void> => {
-  //   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  //   const id = parseInt(raw, 10);
-  //   if (isNaN(id)) {
-  //     res.status(400).json({ error: "Invalid transaction id" });
-  //     return;
-  //   }
-
-  //   const items = await db
-  //     .select({
-  //       product_id: transactionItemsTable.productId,
-  //       product_name: productsTable.name,
-  //       unit: productsTable.unit,
-  //       qty: transactionItemsTable.qty,
-  //       unit_price: transactionItemsTable.unitPrice,
-  //     })
-  //     .from(transactionItemsTable)
-  //     .innerJoin(productsTable, eq(transactionItemsTable.productId, productsTable.id))
-  //     .where(eq(transactionItemsTable.transactionId, id));
-
-  //   res.json(
-  //     items.map((i) => ({
-  //       ...i,
-  //       qty: parseFloat(i.qty as any),
-  //       unit_price: parseFloat(i.unit_price as any),
-  //     })),
-  //   );
-  // });
-
-  // export default router;
   import { Router, type IRouter } from "express";
   import { db, transactionsTable, customersTable, productsTable, transactionItemsTable } from "@workspace/db";
   import { requireAuth, AuthPayload } from "../middlewares/auth";
@@ -490,101 +217,160 @@ router.get("/transactions", requireAuth, async (req, res): Promise<void> => {
   // transaction row, line items replaced instead of a new bill being
   // created. This is what the Billing screen's "Edit" flow calls when
   // saving changes to an existing invoice.
-  router.put("/transactions/:id", requireAuth, async (req, res): Promise<void> => {
-    const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const id = parseInt(raw, 10);
-    const parsed = UpdateTransactionBody.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.message });
+ router.put("/transactions/:id", requireAuth, async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+  const parsed = UpdateTransactionBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [existingTx] = await db.select().from(transactionsTable)
+    .where(and(eq(transactionsTable.id, id), eq(transactionsTable.isDeleted, false)));
+  if (!existingTx) {
+    res.status(404).json({ error: "Transaction not found" });
+    return;
+  }
+
+  const rawBody = req.body as any;
+  const oldCustomerId = Number(existingTx.customerId);
+  const newCustomerId = rawBody.customer_id ? Number(rawBody.customer_id) : oldCustomerId;
+  const customerChanged = newCustomerId !== oldCustomerId;
+
+  // Validate new customer exists + belongs to same business
+  if (customerChanged) {
+    const [newCust] = await db.select().from(customersTable)
+      .where(and(
+        eq(customersTable.id, newCustomerId),
+        eq(customersTable.businessId, Number(existingTx.businessId)),
+        eq(customersTable.isDeleted, false),
+      ));
+    if (!newCust) {
+      res.status(404).json({ error: "New customer not found" });
       return;
     }
+  }
 
-    const [existingTx] = await db.select().from(transactionsTable)
-      .where(and(eq(transactionsTable.id, id), eq(transactionsTable.isDeleted, false)));
-    if (!existingTx) {
-      res.status(404).json({ error: "Transaction not found" });
-      return;
+  const updates: any = {};
+  if (parsed.data.amount !== undefined) updates.amount = parsed.data.amount.toString();
+  if (parsed.data.description !== undefined) updates.description = parsed.data.description;
+  if (parsed.data.payment_mode) updates.paymentMode = parsed.data.payment_mode;
+  const toStr = (v: string | Date | null | undefined) => v instanceof Date ? v.toISOString().split("T")[0] : v;
+  if (parsed.data.entry_date) updates.entryDate = toStr(parsed.data.entry_date);
+  if (parsed.data.due_date !== undefined) updates.dueDate = toStr(parsed.data.due_date);
+  if (rawBody.tax !== undefined) updates.tax = String(rawBody.tax);
+  if (rawBody.gst_rate !== undefined) updates.gstRate = String(rawBody.gst_rate);
+  if (customerChanged) updates.customerId = newCustomerId;
+
+  const oldAmount = parseFloat(existingTx.amount ?? "0");
+  const newAmount = parsed.data.amount !== undefined ? Number(parsed.data.amount) : oldAmount;
+  const isBill = existingTx.type === "you_gave";
+
+  // ---- Balance adjustments ----
+  if (customerChanged) {
+    // 1) Old customer: undo this bill's full effect (old amount)
+    const [oldCust] = await db.select().from(customersTable).where(eq(customersTable.id, oldCustomerId));
+    if (oldCust) {
+      const bal = parseFloat(oldCust.currentBalance ?? "0");
+      const undo = isBill ? -oldAmount : oldAmount;
+      await db.update(customersTable)
+        .set({ currentBalance: (bal + undo).toString() })
+        .where(eq(customersTable.id, oldCustomerId));
     }
 
-    const updates: any = {};
-    if (parsed.data.amount !== undefined) updates.amount = parsed.data.amount.toString();
-    if (parsed.data.description !== undefined) updates.description = parsed.data.description;
-    if (parsed.data.payment_mode) updates.paymentMode = parsed.data.payment_mode;
-    const toStr = (v: string | Date | null | undefined) => v instanceof Date ? v.toISOString().split("T")[0] : v;
-    if (parsed.data.entry_date) updates.entryDate = toStr(parsed.data.entry_date);
-    if (parsed.data.due_date !== undefined) updates.dueDate = toStr(parsed.data.due_date);
+    // 2) New customer: apply this bill's NEW amount
+    const [newCust] = await db.select().from(customersTable).where(eq(customersTable.id, newCustomerId));
+    if (newCust) {
+      const bal = parseFloat(newCust.currentBalance ?? "0");
+      const apply = isBill ? newAmount : -newAmount;
+      const nb = bal + apply;
+      await db.update(customersTable)
+        .set({ currentBalance: nb.toString() })
+        .where(eq(customersTable.id, newCustomerId));
+      updates.balanceAfter = nb.toString();
+    }
 
-    // tax / gst_rate / items aren't part of UpdateTransactionBody yet, so
-    // they're read straight off the raw body rather than parsed.data. If you
-    // want strict validation on these too, add them to UpdateTransactionBody
-    // in @workspace/api-zod — this route doesn't require that to work, but
-    // it also isn't validating their shape beyond the checks below.
-    const rawBody = req.body as any;
-    if (rawBody.tax !== undefined) updates.tax = String(rawBody.tax);
-    if (rawBody.gst_rate !== undefined) updates.gstRate = String(rawBody.gst_rate);
+    // 3) Move linked payments (you_got "... for invoice INV-xxxx") old -> new customer
+    if (isBill && existingTx.invoiceNo) {
+      const linkedPayments = await db.select().from(transactionsTable).where(and(
+        eq(transactionsTable.businessId, Number(existingTx.businessId)),
+        eq(transactionsTable.customerId, oldCustomerId),
+        eq(transactionsTable.type, "you_got"),
+        eq(transactionsTable.isDeleted, false),
+        sql`${transactionsTable.description} ILIKE ${"%invoice " + existingTx.invoiceNo + "%"}`,
+      ));
 
-    // Amount changed → adjust the customer's running balance by the delta,
-    // and update this transaction's own balanceAfter snapshot.
-    //
-    // NOTE: this corrects the customer's CURRENT balance and only THIS
-    // transaction's balanceAfter. It does not walk forward and recompute
-    // balanceAfter on every transaction recorded after this one — editing a
-    // bill that isn't the customer's most recent transaction will leave
-    // later balanceAfter snapshots stale. Fine for the common case (editing
-    // a bill right after creating it); flagging it here since it's the kind
-    // of thing that's easy to assume is handled.
-    if (parsed.data.amount !== undefined) {
-      const oldAmount = parseFloat(existingTx.amount ?? "0");
-      const newAmount = parsed.data.amount;
-      if (Math.abs(newAmount - oldAmount) > 0.001) {
-        const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, Number(existingTx.customerId)));
-        if (customer) {
-          const currentBalance = parseFloat(customer.currentBalance ?? "0");
-          const delta = newAmount - oldAmount;
-          const balanceDelta = existingTx.type === "you_gave" ? delta : -delta;
-          const newCustomerBalance = currentBalance + balanceDelta;
-          await db.update(customersTable).set({ currentBalance: newCustomerBalance.toString() }).where(eq(customersTable.id, Number(existingTx.customerId)));
-          updates.balanceAfter = newCustomerBalance.toString();
+      const movedTotal = linkedPayments.reduce((s: number, p: any) => s + parseFloat(p.amount ?? "0"), 0);
+
+      if (linkedPayments.length > 0) {
+        await db.update(transactionsTable)
+          .set({ customerId: newCustomerId })
+          .where(inArray(transactionsTable.id, linkedPayments.map((p: any) => Number(p.id))));
+
+        // payments reduce balance: old customer balance goes UP, new goes DOWN
+        const [oc] = await db.select().from(customersTable).where(eq(customersTable.id, oldCustomerId));
+        const [nc] = await db.select().from(customersTable).where(eq(customersTable.id, newCustomerId));
+        if (oc) {
+          await db.update(customersTable)
+            .set({ currentBalance: (parseFloat(oc.currentBalance ?? "0") + movedTotal).toString() })
+            .where(eq(customersTable.id, oldCustomerId));
+        }
+        if (nc) {
+          const nb2 = parseFloat(nc.currentBalance ?? "0") - movedTotal;
+          await db.update(customersTable)
+            .set({ currentBalance: nb2.toString() })
+            .where(eq(customersTable.id, newCustomerId));
+          updates.balanceAfter = nb2.toString();
         }
       }
     }
-
-    const [tx] = await db.update(transactionsTable).set(updates)
-      .where(and(eq(transactionsTable.id, id), eq(transactionsTable.isDeleted, false))).returning();
-    if (!tx) {
-      res.status(404).json({ error: "Transaction not found" });
-      return;
+  } else if (parsed.data.amount !== undefined && Math.abs(newAmount - oldAmount) > 0.001) {
+    // Same customer, amount changed -> existing delta logic
+    const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, oldCustomerId));
+    if (customer) {
+      const currentBalance = parseFloat(customer.currentBalance ?? "0");
+      const delta = newAmount - oldAmount;
+      const balanceDelta = isBill ? delta : -delta;
+      const nb = currentBalance + balanceDelta;
+      await db.update(customersTable).set({ currentBalance: nb.toString() }).where(eq(customersTable.id, oldCustomerId));
+      updates.balanceAfter = nb.toString();
     }
+  }
 
-    // Replace line items wholesale — delete what was there and re-insert
-    // what the cashier has now. Simpler and less error-prone than diffing
-    // individual rows, and this endpoint is only called with a full items
-    // array (the whole current cart), never a partial patch.
-    if (Array.isArray(rawBody.items)) {
-      const items = rawBody.items as { product_id: number; qty: number; unit_price: number }[];
-      await db.delete(transactionItemsTable).where(eq(transactionItemsTable.transactionId, id));
-      if (items.length > 0) {
-        const productIds = [...new Set(items.map((it) => it.product_id))];
-        const productRows = await db
-          .select({ id: productsTable.id, costPrice: productsTable.costPrice })
-          .from(productsTable)
-          .where(inArray(productsTable.id, productIds));
-        const costMap = new Map(productRows.map((p) => [Number(p.id), p.costPrice ?? "0"]));
-        await db.insert(transactionItemsTable).values(
-          items.map((it) => ({
-            transactionId: id,
-            productId: it.product_id,
-            qty: it.qty.toString(),
-            unitPrice: it.unit_price.toString(),
-            unitCost: costMap.get(it.product_id) ?? "0",
-          })),
-        );
-      }
+  const [tx] = await db.update(transactionsTable).set(updates)
+    .where(and(eq(transactionsTable.id, id), eq(transactionsTable.isDeleted, false))).returning();
+  if (!tx) {
+    res.status(404).json({ error: "Transaction not found" });
+    return;
+  }
+
+  // ---- Replace line items (unchanged) ----
+  if (Array.isArray(rawBody.items)) {
+    const items = rawBody.items as { product_id: number; qty: number; unit_price: number }[];
+    await db.delete(transactionItemsTable).where(eq(transactionItemsTable.transactionId, id));
+    if (items.length > 0) {
+      const productIds = [...new Set(items.map((it) => it.product_id))];
+      const productRows = await db
+        .select({ id: productsTable.id, costPrice: productsTable.costPrice })
+        .from(productsTable)
+        .where(inArray(productsTable.id, productIds));
+      const costMap = new Map(productRows.map((p) => [Number(p.id), p.costPrice ?? "0"]));
+      await db.insert(transactionItemsTable).values(
+        items.map((it) => ({
+          transactionId: id,
+          productId: it.product_id,
+          qty: it.qty.toString(),
+          unitPrice: it.unit_price.toString(),
+          unitCost: costMap.get(it.product_id) ?? "0",
+        })),
+      );
     }
+  }
 
-    const [customer] = await db.select({ name: customersTable.name }).from(customersTable).where(eq(customersTable.id, Number(tx.customerId)));
-    res.json(formatTransaction(tx, customer?.name));
-  });
+  const [customer] = await db.select({ name: customersTable.name }).from(customersTable).where(eq(customersTable.id, Number(tx.customerId)));
+  res.json(formatTransaction(tx, customer?.name));
+});
 
   // DELETE /transactions/:id
   router.delete("/transactions/:id", requireAuth, async (req, res): Promise<void> => {

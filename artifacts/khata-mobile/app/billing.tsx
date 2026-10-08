@@ -216,6 +216,7 @@ export default function BillingScreen() {
   const [editNotice, setEditNotice] = useState<{ invoiceNo: string } | null>(null);
   const [editingBillId, setEditingBillId] = useState<number | null>(null);
   const originalEditCartRef = useRef<CartItemWithDiscount[]>([]);
+  const originalCustomerIdRef = useRef<number | null>(null);
   // How much the customer already paid toward THIS invoice before this edit
   // started — summed from matching "you_got" payment transactions, the same
   // way billing-list.tsx computes a bill's paid status. Lets "Update bill"
@@ -433,6 +434,7 @@ useEffect(() => {
         }
         setCart(newCart);
         originalEditCartRef.current = newCart;
+        originalCustomerIdRef.current = tx.customer_id ?? null;
 
         // How much has already been paid toward this invoice, so editing in
         // a new product only asks for the difference, not the full new
@@ -686,6 +688,7 @@ useEffect(() => {
     setEditNotice(null);
     setEditingBillId(null);
     originalEditCartRef.current = [];
+    originalCustomerIdRef.current = null;
     setPreviouslyPaidAmount(0);
     AsyncStorage.removeItem(STORAGE_KEYS.AUTOSAVE_BILL).catch(() => {});
   };
@@ -946,6 +949,10 @@ useEffect(() => {
       return;
     }
 
+    const customerChanged =
+    originalCustomerIdRef.current !== null &&
+    originalCustomerIdRef.current !== (selectedCustomer as Customer).id;
+
     // Only block on amount-received when there's actually still something
     // owed — if the edit didn't increase the total (or previous payments
     // already cover it), there's nothing new to collect.
@@ -970,6 +977,7 @@ useEffect(() => {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          customer_id: (selectedCustomer as Customer).id,
           amount: totals.grandTotal,
           tax: totals.gst,
           gst_rate: effectiveGstRate,
