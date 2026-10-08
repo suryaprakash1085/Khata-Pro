@@ -24,6 +24,7 @@ import {
   CustomerTrackingStatus,
   ReturnReason,
 } from '../../api/orders';
+import ReturnRequestModal from './ReturnRequestModal';
 
 const CompatibleFlatList: any = FlatList;
 

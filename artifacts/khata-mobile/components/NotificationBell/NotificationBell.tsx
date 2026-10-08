@@ -40,6 +40,8 @@ const ICONS: Record<string, { icon: keyof typeof Feather.glyphMap; color: string
   subscription_renewal: { icon: 'credit-card', color: '#2563EB' },
   subscription_renewal_success: { icon: 'check-circle', color: '#16A34A' },
   subscription_trial_expiring: { icon: 'clock', color: '#F59E0B' },
+  order_return: { icon: 'corner-up-left', color: '#EA580C' },
+  return_requested: { icon: 'corner-up-left', color: '#EA580C' },
 };
 
 function timeAgo(dateStr: string): string {
@@ -234,12 +236,15 @@ export function NotificationBell() {
     router.push({ pathname: '/restock', params: { id: String(n.product_id) } } as any);
   } else if (n.type === 'new_order') {
     router.push('/delivery-list' as any);
+    } else if (n.type === 'order_return' || n.type === 'return_requested') {
+    router.push('/order-returns' as any);
 } else if (n.type.startsWith('vendor_payment')) {
    router.push('/reports' as any);
   }else if (n.type.startsWith('subscription_')) {
     // NEW — covers subscription_renewal, subscription_renewal_success, subscription_trial_expiring
     router.push('/subscription-status' as any);
   }
+  
 
   if (!n.is_read) {
     try {

@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import apiClient from './client';
 
 export const CUSTOMER_TRACKING_STEPS = [
@@ -18,9 +19,25 @@ export type ReturnReason =
   | 'MISSING_ITEM'
   | 'OTHER';
 
+export type ReturnStatus = 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'REPLACEMENT_SENT';
+
 export interface ReturnItemInput {
   product_id: number;
   qty: number;
+}
+
+export interface ReturnMediaInput {
+  type: 'photo' | 'video';
+  url: string;
+}
+
+/** What the picker gives us (see screens/main/pickMedia.ts) */
+export interface UploadableMedia {
+  kind: 'photo' | 'video';
+  uri: string;
+  name: string;
+  mimeType: string;
+  file?: any; // web: File object
 }
 
 export interface CustomerOrderDelivery {
@@ -45,9 +62,26 @@ export interface CustomerOrderItem {
 
 export interface CustomerOrderReturnRequest {
   id: number;
-  status: 'REQUESTED' | 'APPROVED' | 'REJECTED';
+  status: ReturnStatus;
   reason: string;
   items?: { product_id: number; product_name: string; qty: number }[];
+}
+
+/** One return row, as returned by GET /customers/me/order-returns */
+export interface CustomerReturn {
+  id: number;
+  sales_order_id: number;
+  product_id: number;
+  product_name: string;
+  qty: number;
+  reason: ReturnReason;
+  description: string | null;
+  status: ReturnStatus;
+  admin_note: string | null;
+  replacement_delivery_id: number | null;
+  replacement_sent_at: string | null;
+  media: { id: number; type: 'photo' | 'video'; url: string }[];
+  created_at: string;
 }
 
 export interface CustomerOrder {
@@ -94,10 +128,51 @@ export const ordersApi = {
   cancelOrder: (orderId: number): Promise<CancelOrderResponse> =>
     apiClient.put(`/customers/me/orders/${orderId}/cancel`) as unknown as Promise<CancelOrderResponse>,
 
-  /** Request a return for a delivered order — used by OrdersScreen's Return button */
+  /**
+   * Upload one photo/video (multipart) -> returns its public URL.
+   * Used by the Return modal; the returned url goes into requestReturn({ media }).
+   */
+  uploadReturnMedia: async (
+    media: UploadableMedia,
+  ): Promise<{ type: 'photo' | 'video'; url: string }> => {
+    const form = new FormData();
+    if (Platform.OS === 'web' && media.file) {
+      form.append('file', media.file, media.name);
+    } else {
+      form.append('file', { uri: media.uri, name: media.name, type: media.mimeType } as any);
+    }
+
+    const body: any = await apiClient.post('/customers/me/uploads', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000, // videos can be big on slow networks
+      transformRequest: (data: any) => data, // never let axios turn FormData into JSON
+    });
+
+    // Works whether the client unwraps response.data or not
+    const url = body?.url ?? body?.data?.url;
+    const type = body?.type ?? body?.data?.type ?? media.kind;
+    if (!url) throw new Error('Upload failed. Please try again.');
+    return { type, url };
+  },
+
+  /**
+   * Request a return for a delivered order (within 24h of delivery).
+   * Photo + video are mandatory (upload them first with uploadReturnMedia).
+   */
   requestReturn: (
     orderId: number,
-    payload: { reason: ReturnReason; description?: string; items?: ReturnItemInput[] },
-  ): Promise<any> =>
-    apiClient.post(`/customers/me/orders/${orderId}/return`, payload) as unknown as Promise<any>,
+    payload: {
+      product_ids: number[];
+      reason: ReturnReason;
+      description?: string;
+      media: ReturnMediaInput[];
+    },
+  ): Promise<{ data: { id: number; status: ReturnStatus; reason: string }[] }> =>
+    apiClient.post(`/customers/me/orders/${orderId}/return`, payload) as unknown as Promise<{
+      data: { id: number; status: ReturnStatus; reason: string }[];
+    }>,
+
+  /** Customer's own return requests with status / admin note / replacement info */
+  getMyReturns: (): Promise<{ data: CustomerReturn[] }> =>
+    apiClient.get('/customers/me/order-returns') as unknown as Promise<{ data: CustomerReturn[] }>,
 };

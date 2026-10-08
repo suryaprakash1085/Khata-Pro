@@ -102,6 +102,8 @@ import type {
   MarkAllAdminNotificationsReadParams,
   MessageResponse,
   Notification,
+  OrderReturn,
+  OrderReturnCreateResponse,
   OrderReturnInput,
   OrderReturnListResponse,
   OrderReturnStatusUpdate,
@@ -9310,12 +9312,12 @@ export const getRequestOrderReturnUrl = (id: number,) => {
 }
 
 /**
- * @summary Customer requests a return for a delivered order (within the return window)
+ * @summary Customer requests a return for one or more products of a delivered order (within 24h of delivery; at least 1 photo and 1 video required)
  */
 export const requestOrderReturn = async (id: number,
-    orderReturnInput: OrderReturnInput, options?: RequestInit): Promise<OrderReturnSummary> => {
+    orderReturnInput: OrderReturnInput, options?: RequestInit): Promise<OrderReturnCreateResponse> => {
 
-  return customFetch<OrderReturnSummary>(getRequestOrderReturnUrl(id),
+  return customFetch<OrderReturnCreateResponse>(getRequestOrderReturnUrl(id),
   {
     ...options,
     method: 'POST',
@@ -9360,7 +9362,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type RequestOrderReturnMutationError = ErrorType<void>
 
     /**
- * @summary Customer requests a return for a delivered order (within the return window)
+ * @summary Customer requests a return for one or more products of a delivered order (within 24h of delivery; at least 1 photo and 1 video required)
  */
 export const useRequestOrderReturn = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestOrderReturn>>, TError,{id: number;data: BodyType<OrderReturnInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -9527,6 +9529,231 @@ export const useUpdateOrderReturnStatus = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getUpdateOrderReturnStatusMutationOptions(options));
+    }
+
+export const getListMyOrderReturnsUrl = () => {
+
+
+
+
+  return `/api/customers/me/order-returns`
+}
+
+/**
+ * @summary Customer tracks their own return requests (status, admin note, replacement)
+ */
+export const listMyOrderReturns = async ( options?: RequestInit): Promise<OrderReturnListResponse> => {
+
+  return customFetch<OrderReturnListResponse>(getListMyOrderReturnsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListMyOrderReturnsQueryKey = () => {
+    return [
+    `/api/customers/me/order-returns`
+    ] as const;
+    }
+
+
+export const getListMyOrderReturnsQueryOptions = <TData = Awaited<ReturnType<typeof listMyOrderReturns>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMyOrderReturns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListMyOrderReturnsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listMyOrderReturns>>> = ({ signal }) => listMyOrderReturns({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listMyOrderReturns>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListMyOrderReturnsQueryResult = NonNullable<Awaited<ReturnType<typeof listMyOrderReturns>>>
+export type ListMyOrderReturnsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Customer tracks their own return requests (status, admin note, replacement)
+ */
+
+export function useListMyOrderReturns<TData = Awaited<ReturnType<typeof listMyOrderReturns>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listMyOrderReturns>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListMyOrderReturnsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetOrderReturnUrl = (id: number,) => {
+
+
+
+
+  return `/api/order-returns/${id}`
+}
+
+/**
+ * @summary Return request detail including photo/video evidence (admin view)
+ */
+export const getOrderReturn = async (id: number, options?: RequestInit): Promise<OrderReturn> => {
+
+  return customFetch<OrderReturn>(getGetOrderReturnUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOrderReturnQueryKey = (id: number,) => {
+    return [
+    `/api/order-returns/${id}`
+    ] as const;
+    }
+
+
+export const getGetOrderReturnQueryOptions = <TData = Awaited<ReturnType<typeof getOrderReturn>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOrderReturn>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOrderReturnQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOrderReturn>>> = ({ signal }) => getOrderReturn(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOrderReturn>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOrderReturnQueryResult = NonNullable<Awaited<ReturnType<typeof getOrderReturn>>>
+export type GetOrderReturnQueryError = ErrorType<void>
+
+
+/**
+ * @summary Return request detail including photo/video evidence (admin view)
+ */
+
+export function useGetOrderReturn<TData = Awaited<ReturnType<typeof getOrderReturn>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOrderReturn>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOrderReturnQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSendOrderReturnReplacementUrl = (id: number,) => {
+
+
+
+
+  return `/api/order-returns/${id}/replacement`
+}
+
+/**
+ * @summary Dispatch a replacement product for an APPROVED return (creates a new delivery and notifies the customer)
+ */
+export const sendOrderReturnReplacement = async (id: number, options?: RequestInit): Promise<OrderReturn> => {
+
+  return customFetch<OrderReturn>(getSendOrderReturnReplacementUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getSendOrderReturnReplacementMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendOrderReturnReplacement>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendOrderReturnReplacement>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['sendOrderReturnReplacement'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendOrderReturnReplacement>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  sendOrderReturnReplacement(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendOrderReturnReplacementMutationResult = NonNullable<Awaited<ReturnType<typeof sendOrderReturnReplacement>>>
+
+    export type SendOrderReturnReplacementMutationError = ErrorType<void>
+
+    /**
+ * @summary Dispatch a replacement product for an APPROVED return (creates a new delivery and notifies the customer)
+ */
+export const useSendOrderReturnReplacement = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendOrderReturnReplacement>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendOrderReturnReplacement>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getSendOrderReturnReplacementMutationOptions(options));
     }
 
 export const getListAdminNotificationsUrl = (params: ListAdminNotificationsParams,) => {

@@ -4033,21 +4033,33 @@ export const BroadcastNotificationResponse = zod.object({
 
 
 /**
- * @summary Customer requests a return for a delivered order (within the return window)
+ * @summary Customer requests a return for one or more products of a delivered order (within 24h of delivery; at least 1 photo and 1 video required)
  */
 export const RequestOrderReturnParams = zod.object({
   "id": zod.coerce.number()
 })
 
+
+export const requestOrderReturnBodyMediaMin = 2;
+
+
+
 export const RequestOrderReturnBody = zod.object({
+  "product_ids": zod.array(zod.number()).min(1),
   "reason": zod.enum(['EXPIRED_PRODUCT', 'WRONG_PRODUCT', 'DAMAGED', 'MISSING_ITEM', 'OTHER']),
-  "description": zod.string().optional()
+  "description": zod.string().optional(),
+  "media": zod.array(zod.object({
+  "type": zod.enum(['photo', 'video']),
+  "url": zod.string()
+})).min(requestOrderReturnBodyMediaMin).describe('Must contain at least one photo and one video')
 })
 
 export const RequestOrderReturnResponse = zod.object({
+  "data": zod.array(zod.object({
   "id": zod.number(),
-  "status": zod.enum(['REQUESTED', 'APPROVED', 'REJECTED']),
+  "status": zod.enum(['REQUESTED', 'APPROVED', 'REJECTED', 'REPLACEMENT_SENT']),
   "reason": zod.string()
+}))
 })
 
 
@@ -4055,19 +4067,31 @@ export const RequestOrderReturnResponse = zod.object({
  * @summary List customer return requests for a business (admin view)
  */
 export const ListOrderReturnsQueryParams = zod.object({
-  "business_id": zod.coerce.number()
+  "business_id": zod.coerce.number(),
+  "status": zod.enum(['REQUESTED', 'APPROVED', 'REJECTED', 'REPLACEMENT_SENT']).optional()
 })
 
 export const ListOrderReturnsResponse = zod.object({
   "data": zod.array(zod.object({
   "id": zod.number(),
   "sales_order_id": zod.number(),
+  "product_id": zod.number(),
+  "product_name": zod.string(),
+  "qty": zod.number(),
   "reason": zod.enum(['EXPIRED_PRODUCT', 'WRONG_PRODUCT', 'DAMAGED', 'MISSING_ITEM', 'OTHER']),
   "description": zod.string().nullish(),
-  "status": zod.enum(['REQUESTED', 'APPROVED', 'REJECTED']),
+  "status": zod.enum(['REQUESTED', 'APPROVED', 'REJECTED', 'REPLACEMENT_SENT']),
   "admin_note": zod.string().nullish(),
   "customer_name": zod.string(),
   "customer_phone": zod.string().nullish(),
+  "delivered_at": zod.coerce.date().nullish(),
+  "replacement_delivery_id": zod.number().nullish(),
+  "replacement_sent_at": zod.coerce.date().nullish(),
+  "media": zod.array(zod.object({
+  "id": zod.number(),
+  "type": zod.enum(['photo', 'video']),
+  "url": zod.string()
+})),
   "created_at": zod.coerce.date()
 }))
 })
@@ -4087,8 +4111,99 @@ export const UpdateOrderReturnStatusBody = zod.object({
 
 export const UpdateOrderReturnStatusResponse = zod.object({
   "id": zod.number(),
-  "status": zod.enum(['REQUESTED', 'APPROVED', 'REJECTED']),
+  "status": zod.enum(['REQUESTED', 'APPROVED', 'REJECTED', 'REPLACEMENT_SENT']),
   "reason": zod.string()
+})
+
+
+/**
+ * @summary Customer tracks their own return requests (status, admin note, replacement)
+ */
+export const ListMyOrderReturnsResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "sales_order_id": zod.number(),
+  "product_id": zod.number(),
+  "product_name": zod.string(),
+  "qty": zod.number(),
+  "reason": zod.enum(['EXPIRED_PRODUCT', 'WRONG_PRODUCT', 'DAMAGED', 'MISSING_ITEM', 'OTHER']),
+  "description": zod.string().nullish(),
+  "status": zod.enum(['REQUESTED', 'APPROVED', 'REJECTED', 'REPLACEMENT_SENT']),
+  "admin_note": zod.string().nullish(),
+  "customer_name": zod.string(),
+  "customer_phone": zod.string().nullish(),
+  "delivered_at": zod.coerce.date().nullish(),
+  "replacement_delivery_id": zod.number().nullish(),
+  "replacement_sent_at": zod.coerce.date().nullish(),
+  "media": zod.array(zod.object({
+  "id": zod.number(),
+  "type": zod.enum(['photo', 'video']),
+  "url": zod.string()
+})),
+  "created_at": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Return request detail including photo/video evidence (admin view)
+ */
+export const GetOrderReturnParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetOrderReturnResponse = zod.object({
+  "id": zod.number(),
+  "sales_order_id": zod.number(),
+  "product_id": zod.number(),
+  "product_name": zod.string(),
+  "qty": zod.number(),
+  "reason": zod.enum(['EXPIRED_PRODUCT', 'WRONG_PRODUCT', 'DAMAGED', 'MISSING_ITEM', 'OTHER']),
+  "description": zod.string().nullish(),
+  "status": zod.enum(['REQUESTED', 'APPROVED', 'REJECTED', 'REPLACEMENT_SENT']),
+  "admin_note": zod.string().nullish(),
+  "customer_name": zod.string(),
+  "customer_phone": zod.string().nullish(),
+  "delivered_at": zod.coerce.date().nullish(),
+  "replacement_delivery_id": zod.number().nullish(),
+  "replacement_sent_at": zod.coerce.date().nullish(),
+  "media": zod.array(zod.object({
+  "id": zod.number(),
+  "type": zod.enum(['photo', 'video']),
+  "url": zod.string()
+})),
+  "created_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Dispatch a replacement product for an APPROVED return (creates a new delivery and notifies the customer)
+ */
+export const SendOrderReturnReplacementParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SendOrderReturnReplacementResponse = zod.object({
+  "id": zod.number(),
+  "sales_order_id": zod.number(),
+  "product_id": zod.number(),
+  "product_name": zod.string(),
+  "qty": zod.number(),
+  "reason": zod.enum(['EXPIRED_PRODUCT', 'WRONG_PRODUCT', 'DAMAGED', 'MISSING_ITEM', 'OTHER']),
+  "description": zod.string().nullish(),
+  "status": zod.enum(['REQUESTED', 'APPROVED', 'REJECTED', 'REPLACEMENT_SENT']),
+  "admin_note": zod.string().nullish(),
+  "customer_name": zod.string(),
+  "customer_phone": zod.string().nullish(),
+  "delivered_at": zod.coerce.date().nullish(),
+  "replacement_delivery_id": zod.number().nullish(),
+  "replacement_sent_at": zod.coerce.date().nullish(),
+  "media": zod.array(zod.object({
+  "id": zod.number(),
+  "type": zod.enum(['photo', 'video']),
+  "url": zod.string()
+})),
+  "created_at": zod.coerce.date()
 })
 
 
@@ -4101,7 +4216,7 @@ export const listAdminNotificationsQueryLimitDefault = 20;
 
 export const ListAdminNotificationsQueryParams = zod.object({
   "business_id": zod.coerce.number(),
-  "filter": zod.enum(['ALL', 'NEW_ORDERS', 'LOW_STOCK', 'VENDOR_PAYMENTS', 'SUBSCRIPTION', 'UNREAD']).default(listAdminNotificationsQueryFilterDefault),
+  "filter": zod.enum(['ALL', 'NEW_ORDERS', 'LOW_STOCK', 'VENDOR_PAYMENTS', 'SUBSCRIPTION', 'RETURNS', 'UNREAD']).default(listAdminNotificationsQueryFilterDefault),
   "page": zod.coerce.number().default(listAdminNotificationsQueryPageDefault),
   "limit": zod.coerce.number().default(listAdminNotificationsQueryLimitDefault)
 })
@@ -4109,13 +4224,14 @@ export const ListAdminNotificationsQueryParams = zod.object({
 export const ListAdminNotificationsResponse = zod.object({
   "data": zod.array(zod.object({
   "id": zod.number(),
-  "type": zod.enum(['new_order', 'low_stock', 'vendor_payment_pending', 'vendor_payment_overdue', 'subscription_renewal', 'subscription_renewal_success', 'subscription_trial_expiring']),
+  "type": zod.enum(['new_order', 'low_stock', 'vendor_payment_pending', 'vendor_payment_overdue', 'subscription_renewal', 'subscription_renewal_success', 'subscription_trial_expiring', 'order_return']),
   "title": zod.string().nullish(),
   "message": zod.string(),
   "order_id": zod.number().nullish(),
   "product_id": zod.number().nullish(),
   "vendor_id": zod.number().nullish(),
   "purchase_id": zod.number().nullish(),
+  "return_id": zod.number().nullish(),
   "is_read": zod.boolean(),
   "created_at": zod.coerce.date(),
   "read_at": zod.coerce.date().nullish()

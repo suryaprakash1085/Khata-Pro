@@ -29,6 +29,8 @@ import { requireDriverAuth } from "../middlewares/driverAuth";
 import assistantRoutes from './assistant';
 import addressesRouter from "./addresses";
 import subscriptions from "./subscriptions";
+import orderReturnsRouter from "./order-returns";
+import customerUploadsRouter from "./customer-uploads";
 
 const router: IRouter = Router();
 
@@ -60,4 +62,7 @@ router.use(purchaseOrderRouter);
 router.use('/api/assistant', assistantRoutes);
 router.use(addressesRouter);
 router.use(subscriptions);
+router.use(orderReturnsRouter);
+router.use(customerUploadsRouter);
+
 export default router;

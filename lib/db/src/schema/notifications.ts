@@ -35,6 +35,7 @@ export const notificationsTable = pgTable("notifications", {
       "fee_earned",
       "system",
       "admin_message",
+
       // NEW — admin notification system
       "new_order",
       "low_stock",
@@ -45,6 +46,11 @@ export const notificationsTable = pgTable("notifications", {
       "subscription_renewal",
       "subscription_renewal_success",
       "subscription_trial_expiring",
+
+      "order_return",
+      "return_approved",
+      "return_rejected",
+      "replacement_sent",
     ],
   }).notNull(),
 

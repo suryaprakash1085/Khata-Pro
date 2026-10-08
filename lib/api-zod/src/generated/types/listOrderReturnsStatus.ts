@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type OrderReturnStatus = typeof OrderReturnStatus[keyof typeof OrderReturnStatus];
+export type ListOrderReturnsStatus = typeof ListOrderReturnsStatus[keyof typeof ListOrderReturnsStatus];
 
 
-export const OrderReturnStatus = {
+export const ListOrderReturnsStatus = {
   REQUESTED: 'REQUESTED',
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED',

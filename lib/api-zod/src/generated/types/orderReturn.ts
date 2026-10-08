@@ -5,12 +5,16 @@
  * KhataPro CRM API — digital ledger platform for small businesses
  * OpenAPI spec version: 0.1.0
  */
+import type { OrderReturnMedia } from './orderReturnMedia';
 import type { OrderReturnReason } from './orderReturnReason';
 import type { OrderReturnStatus } from './orderReturnStatus';
 
 export interface OrderReturn {
   id: number;
   sales_order_id: number;
+  product_id: number;
+  product_name: string;
+  qty: number;
   reason: OrderReturnReason;
   /** @nullable */
   description?: string | null;
@@ -20,5 +24,12 @@ export interface OrderReturn {
   customer_name: string;
   /** @nullable */
   customer_phone?: string | null;
+  /** @nullable */
+  delivered_at?: Date | null;
+  /** @nullable */
+  replacement_delivery_id?: number | null;
+  /** @nullable */
+  replacement_sent_at?: Date | null;
+  media: OrderReturnMedia[];
   created_at: Date;
 }

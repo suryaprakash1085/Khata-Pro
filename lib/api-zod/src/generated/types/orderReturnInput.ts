@@ -6,8 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { OrderReturnInputReason } from './orderReturnInputReason';
+import type { OrderReturnMediaInput } from './orderReturnMediaInput';
 
 export interface OrderReturnInput {
+  /** @minItems 1 */
+  product_ids: number[];
   reason: OrderReturnInputReason;
   description?: string;
+  /**
+     * Must contain at least one photo and one video
+     * @minItems 2
+     */
+  media: OrderReturnMediaInput[];
 }

@@ -21,6 +21,8 @@ export interface AdminNotification {
   vendor_id?: number | null;
   /** @nullable */
   purchase_id?: number | null;
+  /** @nullable */
+  return_id?: number | null;
   is_read: boolean;
   created_at: Date;
   /** @nullable */

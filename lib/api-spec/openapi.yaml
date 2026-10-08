@@ -2955,7 +2955,7 @@ paths:
     post:
       operationId: requestOrderReturn
       tags: [order-returns]
-      summary: Customer requests a return for a delivered order (within the return window)
+      summary: Customer requests a return for one or more products of a delivered order (within 24h of delivery; at least 1 photo and 1 video required)
       parameters:
         - name: id
           in: path
@@ -2970,17 +2970,19 @@ paths:
               $ref: "#/components/schemas/OrderReturnInput"
       responses:
         "201":
-          description: Return requested
+          description: Return requested (one entry per returned product)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/OrderReturnSummary"
+                $ref: "#/components/schemas/OrderReturnCreateResponse"
         "400":
-          description: Invalid reason, or description missing for OTHER
+          description: Invalid reason, description missing for OTHER, or product not part of this order
         "404":
           description: Order not found
         "409":
-          description: Order not delivered, return window expired, or return already requested
+          description: Order not delivered, 24h return window expired, or return already requested for a product
+        "422":
+          description: At least one photo and one video are required
 
   /order-returns:
     get:
@@ -2993,6 +2995,11 @@ paths:
           required: true
           schema:
             type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [REQUESTED, APPROVED, REJECTED, REPLACEMENT_SENT]
       responses:
         "200":
           description: Return requests
@@ -3029,6 +3036,64 @@ paths:
           description: status must be APPROVED or REJECTED
         "404":
           description: Return request not found or already resolved
+  /customers/me/order-returns:
+    get:
+      operationId: listMyOrderReturns
+      tags: [order-returns]
+      summary: Customer tracks their own return requests (status, admin note, replacement)
+      responses:
+        "200":
+          description: My return requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderReturnListResponse"
+
+  /order-returns/{id}:
+    get:
+      operationId: getOrderReturn
+      tags: [order-returns]
+      summary: Return request detail including photo/video evidence (admin view)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Return detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderReturn"
+        "404":
+          description: Not found
+
+  /order-returns/{id}/replacement:
+    post:
+      operationId: sendOrderReturnReplacement
+      tags: [order-returns]
+      summary: Dispatch a replacement product for an APPROVED return (creates a new delivery and notifies the customer)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Replacement dispatched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderReturn"
+        "404":
+          description: Not found
+        "409":
+          description: Return is not APPROVED, or replacement already sent
+        "422":
+          description: Not enough stock for the replacement product
   # ─── ADMIN NOTIFICATIONS ──────────────────────────────────────────────────
 
   /admin-notifications:
@@ -3046,7 +3111,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [ALL, NEW_ORDERS, LOW_STOCK, VENDOR_PAYMENTS, SUBSCRIPTION,UNREAD]
+            enum: [ALL, NEW_ORDERS, LOW_STOCK, VENDOR_PAYMENTS, SUBSCRIPTION, RETURNS, UNREAD]
             default: ALL
         - name: page
           in: query
@@ -5360,15 +5425,48 @@ components:
         
     # ── Order Returns ─────────────────────────────────────────────────────────
 
+    OrderReturnMediaInput:
+      type: object
+      required: [type, url]
+      properties:
+        type:
+          type: string
+          enum: [photo, video]
+        url:
+          type: string
+
+    OrderReturnMedia:
+      type: object
+      required: [id, type, url]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [photo, video]
+        url:
+          type: string
+
     OrderReturnInput:
       type: object
-      required: [reason]
+      required: [product_ids, reason, media]
       properties:
+        product_ids:
+          type: array
+          minItems: 1
+          items:
+            type: integer
         reason:
           type: string
           enum: [EXPIRED_PRODUCT, WRONG_PRODUCT, DAMAGED, MISSING_ITEM, OTHER]
         description:
           type: string
+        media:
+          type: array
+          minItems: 2
+          description: Must contain at least one photo and one video
+          items:
+            $ref: "#/components/schemas/OrderReturnMediaInput"
 
     OrderReturnSummary:
       type: object
@@ -5378,18 +5476,33 @@ components:
           type: integer
         status:
           type: string
-          enum: [REQUESTED, APPROVED, REJECTED]
+          enum: [REQUESTED, APPROVED, REJECTED, REPLACEMENT_SENT]
         reason:
           type: string
 
+    OrderReturnCreateResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderReturnSummary"
+
     OrderReturn:
       type: object
-      required: [id, sales_order_id, reason, status, created_at, customer_name]
+      required: [id, sales_order_id, product_id, product_name, qty, reason, status, created_at, customer_name, media]
       properties:
         id:
           type: integer
         sales_order_id:
           type: integer
+        product_id:
+          type: integer
+        product_name:
+          type: string
+        qty:
+          type: number
         reason:
           type: string
           enum: [EXPIRED_PRODUCT, WRONG_PRODUCT, DAMAGED, MISSING_ITEM, OTHER]
@@ -5397,13 +5510,25 @@ components:
           type: ["string", "null"]
         status:
           type: string
-          enum: [REQUESTED, APPROVED, REJECTED]
+          enum: [REQUESTED, APPROVED, REJECTED, REPLACEMENT_SENT]
         admin_note:
           type: ["string", "null"]
         customer_name:
           type: string
         customer_phone:
           type: ["string", "null"]
+        delivered_at:
+          type: ["string", "null"]
+          format: date-time
+        replacement_delivery_id:
+          type: ["integer", "null"]
+        replacement_sent_at:
+          type: ["string", "null"]
+          format: date-time
+        media:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderReturnMedia"
         created_at:
           type: string
           format: date-time
@@ -5436,7 +5561,7 @@ components:
           type: integer
         type:
           type: string
-          enum: [new_order, low_stock, vendor_payment_pending, vendor_payment_overdue,subscription_renewal,subscription_renewal_success,subscription_trial_expiring]
+          enum: [new_order, low_stock, vendor_payment_pending, vendor_payment_overdue, subscription_renewal, subscription_renewal_success, subscription_trial_expiring, order_return]
         title:
           type: ["string", "null"]
         message:
@@ -5448,6 +5573,8 @@ components:
         vendor_id:
           type: ["integer", "null"]
         purchase_id:
+          type: ["integer", "null"]
+        return_id:
           type: ["integer", "null"]
         is_read:
           type: boolean

@@ -13,4 +13,5 @@ export const OrderReturnSummaryStatus = {
   REQUESTED: 'REQUESTED',
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED',
+  REPLACEMENT_SENT: 'REPLACEMENT_SENT',
 } as const;

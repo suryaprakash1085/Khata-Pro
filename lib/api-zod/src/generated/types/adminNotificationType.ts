@@ -17,4 +17,5 @@ export const AdminNotificationType = {
   subscription_renewal: 'subscription_renewal',
   subscription_renewal_success: 'subscription_renewal_success',
   subscription_trial_expiring: 'subscription_trial_expiring',
+  order_return: 'order_return',
 } as const;

@@ -15,5 +15,6 @@ export const ListAdminNotificationsFilter = {
   LOW_STOCK: 'LOW_STOCK',
   VENDOR_PAYMENTS: 'VENDOR_PAYMENTS',
   SUBSCRIPTION: 'SUBSCRIPTION',
+  RETURNS: 'RETURNS',
   UNREAD: 'UNREAD',
 } as const;

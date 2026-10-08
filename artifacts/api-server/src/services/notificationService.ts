@@ -88,13 +88,15 @@ export const notifyDeliveryFeeEarned = (driverId: number, salesOrderId: number, 
 // ------------------------------------------------------------
 type CustomerNotificationType =
   | "order_confirmed" | "assigned" | "picked_up"
-  | "out_for_delivery" | "completed" | "cancelled";
+  | "out_for_delivery" | "completed"
+  | "cancelled"| "return_approved" | "return_rejected" | "replacement_sent";
+  
 
 interface NotifyCustomerInput {
   businessId: number;
   customerId: number;
   type: CustomerNotificationType;
-  title: string;
+  title: string;  
   message: string;
   deliveryId?: number | null;
   salesOrderId?: number | null;

@@ -5,9 +5,9 @@
  * KhataPro CRM API — digital ledger platform for small businesses
  * OpenAPI spec version: 0.1.0
  */
-import type { ListOrderReturnsStatus } from './listOrderReturnsStatus';
+import type { OrderReturnMediaInputType } from './orderReturnMediaInputType';
 
-export type ListOrderReturnsParams = {
-business_id: number;
-status?: ListOrderReturnsStatus;
-};
+export interface OrderReturnMediaInput {
+  type: OrderReturnMediaInputType;
+  url: string;
+}

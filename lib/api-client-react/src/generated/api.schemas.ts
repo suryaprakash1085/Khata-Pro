@@ -1740,6 +1740,33 @@ export interface DriverNotificationActionResponse {
   message: string;
 }
 
+export type OrderReturnMediaInputType = typeof OrderReturnMediaInputType[keyof typeof OrderReturnMediaInputType];
+
+
+export const OrderReturnMediaInputType = {
+  photo: 'photo',
+  video: 'video',
+} as const;
+
+export interface OrderReturnMediaInput {
+  type: OrderReturnMediaInputType;
+  url: string;
+}
+
+export type OrderReturnMediaType = typeof OrderReturnMediaType[keyof typeof OrderReturnMediaType];
+
+
+export const OrderReturnMediaType = {
+  photo: 'photo',
+  video: 'video',
+} as const;
+
+export interface OrderReturnMedia {
+  id: number;
+  type: OrderReturnMediaType;
+  url: string;
+}
+
 export type OrderReturnInputReason = typeof OrderReturnInputReason[keyof typeof OrderReturnInputReason];
 
 
@@ -1752,8 +1779,15 @@ export const OrderReturnInputReason = {
 } as const;
 
 export interface OrderReturnInput {
+  /** @minItems 1 */
+  product_ids: number[];
   reason: OrderReturnInputReason;
   description?: string;
+  /**
+     * Must contain at least one photo and one video
+     * @minItems 2
+     */
+  media: OrderReturnMediaInput[];
 }
 
 export type OrderReturnSummaryStatus = typeof OrderReturnSummaryStatus[keyof typeof OrderReturnSummaryStatus];
@@ -1763,12 +1797,17 @@ export const OrderReturnSummaryStatus = {
   REQUESTED: 'REQUESTED',
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED',
+  REPLACEMENT_SENT: 'REPLACEMENT_SENT',
 } as const;
 
 export interface OrderReturnSummary {
   id: number;
   status: OrderReturnSummaryStatus;
   reason: string;
+}
+
+export interface OrderReturnCreateResponse {
+  data: OrderReturnSummary[];
 }
 
 export type OrderReturnReason = typeof OrderReturnReason[keyof typeof OrderReturnReason];
@@ -1789,11 +1828,15 @@ export const OrderReturnStatus = {
   REQUESTED: 'REQUESTED',
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED',
+  REPLACEMENT_SENT: 'REPLACEMENT_SENT',
 } as const;
 
 export interface OrderReturn {
   id: number;
   sales_order_id: number;
+  product_id: number;
+  product_name: string;
+  qty: number;
   reason: OrderReturnReason;
   /** @nullable */
   description?: string | null;
@@ -1803,6 +1846,13 @@ export interface OrderReturn {
   customer_name: string;
   /** @nullable */
   customer_phone?: string | null;
+  /** @nullable */
+  delivered_at?: string | null;
+  /** @nullable */
+  replacement_delivery_id?: number | null;
+  /** @nullable */
+  replacement_sent_at?: string | null;
+  media: OrderReturnMedia[];
   created_at: string;
 }
 
@@ -1834,6 +1884,7 @@ export const AdminNotificationType = {
   subscription_renewal: 'subscription_renewal',
   subscription_renewal_success: 'subscription_renewal_success',
   subscription_trial_expiring: 'subscription_trial_expiring',
+  order_return: 'order_return',
 } as const;
 
 export interface AdminNotification {
@@ -1850,6 +1901,8 @@ export interface AdminNotification {
   vendor_id?: number | null;
   /** @nullable */
   purchase_id?: number | null;
+  /** @nullable */
+  return_id?: number | null;
   is_read: boolean;
   created_at: string;
   /** @nullable */
@@ -2641,7 +2694,18 @@ limit?: number;
 
 export type ListOrderReturnsParams = {
 business_id: number;
+status?: ListOrderReturnsStatus;
 };
+
+export type ListOrderReturnsStatus = typeof ListOrderReturnsStatus[keyof typeof ListOrderReturnsStatus];
+
+
+export const ListOrderReturnsStatus = {
+  REQUESTED: 'REQUESTED',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+  REPLACEMENT_SENT: 'REPLACEMENT_SENT',
+} as const;
 
 export type ListAdminNotificationsParams = {
 business_id: number;
@@ -2659,6 +2723,7 @@ export const ListAdminNotificationsFilter = {
   LOW_STOCK: 'LOW_STOCK',
   VENDOR_PAYMENTS: 'VENDOR_PAYMENTS',
   SUBSCRIPTION: 'SUBSCRIPTION',
+  RETURNS: 'RETURNS',
   UNREAD: 'UNREAD',
 } as const;
 
