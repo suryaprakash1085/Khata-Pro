@@ -19,7 +19,6 @@ import {
   useListVendors,
   getListVendorsQueryKey,
   useCreateVendor,
-  useCreatePurchase,
   getListPurchasesQueryKey,
 } from '@workspace/api-client-react';
 import { FormField } from '@/components/FormField';
@@ -307,8 +306,7 @@ export default function AddProductScreen() {
 
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
-  const createPurchase = useCreatePurchase();
-  const isSaving = createProduct.isPending || updateProduct.isPending || createPurchase.isPending;
+  const isSaving = createProduct.isPending || updateProduct.isPending;
 
   const { data: productsData } = useListProducts(
     { business_id: business?.id as number, limit: 100 },
@@ -497,12 +495,25 @@ export default function AddProductScreen() {
       }
     };
 
+    // Purchases created by the backend (restock on edit / opening stock on
+    // create) should show up in the Purchase Report right away.
+    const invalidatePurchaseQueries = () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/purchases'], exact: false });
+      if (business?.id) {
+        queryClient.invalidateQueries({
+          queryKey: getListPurchasesQueryKey({ business_id: business.id }),
+          exact: false,
+        });
+      }
+    };
+
     if (isEditMode && productId) {
       updateProduct.mutate(
         { id: productId, data: payload },
         {
           onSuccess: () => {
             invalidateProductQueries();
+            invalidatePurchaseQueries();
             goToStock();
           },
           onError: () => setError('Could not update product. Please try again.'),
@@ -511,52 +522,16 @@ export default function AddProductScreen() {
       return;
     }
 
+    // Create: the backend (POST /products) records the opening-stock purchase
+    // and the vendor payment notification itself, so no separate purchase
+    // call here — that would add the stock twice.
     createProduct.mutate(
       { data: payload },
       {
-        onSuccess: (createdProduct: any) => {
+        onSuccess: () => {
           invalidateProductQueries();
-
-          const finishCreate = () => {
-            setPostSaveModal({ barcode: barcode.trim(), productName: finalName });
-          };
-
-          if (!matchedVendor) {
-            finishCreate();
-            return;
-          }
-
-          createPurchase.mutate(
-            {
-              data: {
-                business_id: business.id,
-                vendor_id: matchedVendor.id,
-                amount_paid: 0,
-                entry_date: new Date().toISOString().split('T')[0],
-                description: `Purchase: ${name.trim()}`,
-                items: [
-                  {
-                    product_id: createdProduct.id,
-                    qty: parsedQty,
-                    unit_cost: parsedCost,
-                  },
-                ],
-              },
-            },
-            {
-              onSuccess: () => {
-                queryClient.invalidateQueries({
-                  queryKey: getListPurchasesQueryKey({ business_id: business.id }),
-                  exact: false,
-                });
-                finishCreate();
-              },
-              onError: () => {
-                setError('Product saved, but recording the purchase failed. Please add it from Purchases.');
-                finishCreate();
-              },
-            }
-          );
+          invalidatePurchaseQueries();
+          setPostSaveModal({ barcode: barcode.trim(), productName: finalName });
         },
         onError: () => setError('Could not save product. Please try again.'),
       }

@@ -33,7 +33,8 @@ export async function syncLowStockNotification(productId: number) {
   const [product] = await db.select().from(productsTable).where(eq(productsTable.id, productId));
   if (!product || product.isDeleted) return;
 
-  const isLow = product.stockQty <= LOW_STOCK_THRESHOLD;
+  const threshold = product.lowStockAlert ?? LOW_STOCK_THRESHOLD;
+  const isLow = product.stockQty <= threshold;
 
   if (isLow && !product.lowStockNotifiedAt) {
     await db.transaction(async (tx) => {
@@ -42,13 +43,18 @@ export async function syncLowStockNotification(productId: number) {
         productId: product.id,
         type: "low_stock",
         title: "Low Stock Alert",
-        message: `${product.name} • Current Stock: ${product.stockQty} • Threshold: ${LOW_STOCK_THRESHOLD}`,
+        message: `${product.name} • Current Stock: ${product.stockQty} • Threshold: ${threshold}`,
       });
       await tx.update(productsTable).set({ lowStockNotifiedAt: new Date() }).where(eq(productsTable.id, product.id));
     });
-  } else if (!isLow && product.lowStockNotifiedAt) {
-    // Stock recovered — clear the flag so a future dip re-alerts.
-    await db.update(productsTable).set({ lowStockNotifiedAt: null }).where(eq(productsTable.id, product.id));
+  } else if (!isLow) {
+    // Stock recovered: clear flag + remove the now-stale alerts
+    if (product.lowStockNotifiedAt) {
+      await db.update(productsTable).set({ lowStockNotifiedAt: null }).where(eq(productsTable.id, product.id));
+    }
+    await db.delete(notificationsTable).where(
+      and(eq(notificationsTable.productId, product.id), eq(notificationsTable.type, "low_stock")),
+    );
   }
 }
 

@@ -11,7 +11,8 @@ import {
   inArray, 
   notInArray
 } from "drizzle-orm";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, AuthPayload } from "../middlewares/auth";
+import { recordRestockPurchase } from "../services/restockPurchase.service";
 import {
   CreateProductBody,
   UpdateProductBody,
@@ -196,15 +197,17 @@ router.post("/products", requireAuth, async (req, res): Promise<void> => {
     await syncLowStockNotification(product.id);
 
     if (d.vendor_id && (d.cost_price ?? 0) > 0 && (d.stock_qty ?? 0) > 0) {
-      await notifyVendorPaymentOnProductCreate({
-        businessId: d.business_id,
-        vendorId: d.vendor_id,
-        productId: product.id,
-        productName: product.name,
-        costPrice: d.cost_price ?? 0,
-        stockQty: d.stock_qty ?? 0,
-      }).catch((err) => console.error("[products] vendor payment notification failed:", err));
-    }
+  const { userId } = (req as any).user as AuthPayload;
+  await recordRestockPurchase({
+    businessId: d.business_id,
+    vendorId: d.vendor_id,
+    productId: Number(product.id),
+    productName: product.name,
+    qty: d.stock_qty ?? 0,
+    unitCost: d.cost_price ?? 0,
+    userId,
+  }).catch((err) => console.error("[products] opening purchase failed:", err));
+}
     res.status(201).json(formatProduct(product));
     
   } catch (err: any) {
@@ -299,6 +302,13 @@ router.put("/products/:id", requireAuth, async (req, res): Promise<void> => {
   if (d.vendor_id !== undefined) updates.vendorId = d.vendor_id;
 
   try {
+     const [before] = await db.select().from(productsTable)
+      .where(and(eq(productsTable.id, id), eq(productsTable.isDeleted, false)));
+    if (!before) {
+      res.status(404).json({ error: "Product not found" });
+      return;
+    }
+
     const [product] = await db.update(productsTable).set(updates)
       .where(and(eq(productsTable.id, id), eq(productsTable.isDeleted, false))).returning();
     if (!product) {
@@ -306,8 +316,25 @@ router.put("/products/:id", requireAuth, async (req, res): Promise<void> => {
       return;
     }
     if (updates.stockQty !== undefined) {
-      await syncLowStockNotification(product.id);
-    }
+  await syncLowStockNotification(product.id);
+
+  const added = Number(product.stockQty) - Number(before.stockQty);
+  const vendorId = product.vendorId != null ? Number(product.vendorId) : null;
+  const unitCost = parseFloat(product.costPrice ?? "0");
+
+  if (added > 0 && vendorId && unitCost > 0) {
+    const { userId } = (req as any).user as AuthPayload;
+    await recordRestockPurchase({
+      businessId: Number(product.businessId),
+      vendorId,
+      productId: Number(product.id),
+      productName: product.name,
+      qty: added,
+      unitCost,
+      userId,
+    }).catch((err) => console.error("[products] restock purchase failed:", err));
+  }
+}
     res.json(formatProduct(product));
   } catch (err: any) {
     if (err?.code === "23505") {

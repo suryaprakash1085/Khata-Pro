@@ -3,7 +3,7 @@ import { requireAuth, AuthPayload } from "../middlewares/auth";
 import { db, purchasesTable, purchaseItemsTable, vendorsTable, productsTable } from "@workspace/db";
 import { CreatePurchaseBody, UpdatePurchaseBody } from "@workspace/api-zod";
 import { eq, and, gte, sql, desc, count, inArray } from "drizzle-orm";
-
+import { syncLowStockNotification, createVendorPaymentNotification } from "../services/adminNotifications.service";
 const router: IRouter = Router();
 
 function computeStatus(amount: number, amountPaid: number): "paid" | "pending" | "partial" {
@@ -182,9 +182,18 @@ router.post("/purchases", requireAuth, async (req, res): Promise<void> => {
       await db.update(productsTable)
         .set({ stockQty: sql`${productsTable.stockQty} + ${Math.round(it.qty)}` })
         .where(eq(productsTable.id, it.product_id));
+        await syncLowStockNotification(it.product_id);
     }
   }
-
+ 
+  await createVendorPaymentNotification({
+  businessId: d.business_id,
+  vendorId: d.vendor_id,
+  vendorName: vendor.name,
+  purchaseId: purchase.id,
+  amount: amount - amountPaid,
+  invoiceNo: d.invoice_no,
+}).catch((err) => console.error("[purchases] notification failed:", err));
   res.status(201).json(formatPurchase(purchase, vendor.name, d.items.length));
 });
 
