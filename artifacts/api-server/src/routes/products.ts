@@ -301,14 +301,7 @@ router.put("/products/:id", requireAuth, async (req, res): Promise<void> => {
   if (d.image !== undefined) updates.image = d.image;
   if (d.vendor_id !== undefined) updates.vendorId = d.vendor_id;
 
-  try {
-     const [before] = await db.select().from(productsTable)
-      .where(and(eq(productsTable.id, id), eq(productsTable.isDeleted, false)));
-    if (!before) {
-      res.status(404).json({ error: "Product not found" });
-      return;
-    }
-
+    try {
     const [product] = await db.update(productsTable).set(updates)
       .where(and(eq(productsTable.id, id), eq(productsTable.isDeleted, false))).returning();
     if (!product) {
@@ -316,25 +309,8 @@ router.put("/products/:id", requireAuth, async (req, res): Promise<void> => {
       return;
     }
     if (updates.stockQty !== undefined) {
-  await syncLowStockNotification(product.id);
-
-  const added = Number(product.stockQty) - Number(before.stockQty);
-  const vendorId = product.vendorId != null ? Number(product.vendorId) : null;
-  const unitCost = parseFloat(product.costPrice ?? "0");
-
-  if (added > 0 && vendorId && unitCost > 0) {
-    const { userId } = (req as any).user as AuthPayload;
-    await recordRestockPurchase({
-      businessId: Number(product.businessId),
-      vendorId,
-      productId: Number(product.id),
-      productName: product.name,
-      qty: added,
-      unitCost,
-      userId,
-    }).catch((err) => console.error("[products] restock purchase failed:", err));
-  }
-}
+      await syncLowStockNotification(product.id);
+    }
     res.json(formatProduct(product));
   } catch (err: any) {
     if (err?.code === "23505") {

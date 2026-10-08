@@ -231,7 +231,7 @@ export function NotificationBell() {
 
   // Navigate first — this must not be blocked by mark-read failing.
   if (n.type === 'low_stock' && n.product_id) {
-    router.push({ pathname: '/add-product', params: { id: String(n.product_id) } });
+    router.push({ pathname: '/restock', params: { id: String(n.product_id) } } as any);
   } else if (n.type === 'new_order') {
     router.push('/delivery-list' as any);
 } else if (n.type.startsWith('vendor_payment')) {
