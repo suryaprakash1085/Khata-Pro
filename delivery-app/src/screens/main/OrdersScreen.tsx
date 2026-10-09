@@ -24,7 +24,6 @@ import {
   CustomerTrackingStatus,
   ReturnReason,
 } from '../../api/orders';
-import ReturnRequestModal from './ReturnRequestModal';
 
 const CompatibleFlatList: any = FlatList;
 
@@ -58,7 +57,7 @@ const DESKTOP_MAX_WIDTH = 1160;
 
 // ── Cancel / Return rules ────────────────────────────────────────
 const CANCEL_WINDOW_MS = 24 * 60 * 60 * 1000; // 1 day after placing
-const RETURN_WINDOW_MS = 2 * 24 * 60 * 60 * 1000; // 2 days after delivery (change if needed)
+const RETURN_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours after delivery (must match server RETURN_WINDOW_HOURS)
 
 const RETURN_REASONS: { key: ReturnReason; label: string; icon: string }[] = [
   { key: 'EXPIRED_PRODUCT', label: 'Expired product', icon: 'calendar-outline' },
@@ -72,6 +71,7 @@ const RETURN_STATUS_META: Record<string, { label: string; color: string; bg: str
   REQUESTED: { label: 'Return Requested', color: WARNING, bg: WARNING_BG },
   APPROVED: { label: 'Return Approved', color: SUCCESS, bg: SUCCESS_BG },
   REJECTED: { label: 'Return Rejected', color: DANGER, bg: DANGER_BG },
+  REPLACEMENT_SENT: { label: 'Replacement Sent', color: INFO, bg: INFO_BG },
 };
 
 // Order is cancellable ONLY if: still ORDER_PLACED (admin has not confirmed) AND within 1 day
@@ -620,102 +620,102 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <Text style={styles.modalLabel}>Which product are you returning?</Text>
-            {returnItemsLoading ? (
-              <ActivityIndicator size="small" color={PURPLE} style={{ marginVertical: 14 }} />
-            ) : (
-              returnItems.map((it) => {
-                const qty = selectedReturnQty[it.product_id];
-                const selected = !!qty;
+              <Text style={styles.modalLabel}>Which product are you returning?</Text>
+              {returnItemsLoading ? (
+                <ActivityIndicator size="small" color={PURPLE} style={{ marginVertical: 14 }} />
+              ) : (
+                returnItems.map((it) => {
+                  const qty = selectedReturnQty[it.product_id];
+                  const selected = !!qty;
+                  return (
+                    <TouchableOpacity
+                      key={it.id}
+                      style={[styles.reasonRow, selected && styles.reasonRowSelected]}
+                      onPress={() => toggleReturnItem(it)}
+                      activeOpacity={0.8}
+                    >
+                      <Icon
+                        name={selected ? 'checkbox' : 'square-outline'}
+                        size={20}
+                        color={selected ? PURPLE : '#c9c6d8'}
+                      />
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <Text
+                          style={[styles.itemNameText, selected && styles.reasonTextSelected]}
+                          numberOfLines={1}
+                        >
+                          {it.product_name}
+                        </Text>
+                        <Text style={styles.itemSubText}>
+                          Ordered: {it.qty} × ₹{it.unit_price}
+                        </Text>
+                      </View>
+                      {selected && it.qty > 1 && (
+                        <View style={styles.qtyStepper}>
+                          <TouchableOpacity
+                            onPress={() => changeReturnQty(it, -1)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Icon name="remove" size={16} color={PURPLE} />
+                          </TouchableOpacity>
+                          <Text style={styles.qtyStepperText}>{qty}</Text>
+                          <TouchableOpacity
+                            onPress={() => changeReturnQty(it, 1)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Icon name="add" size={16} color={PURPLE} />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+
+              <Text style={[styles.modalLabel, { marginTop: 8 }]}>Why are you returning it?</Text>
+              {RETURN_REASONS.map((r) => {
+                const selected = returnReason === r.key;
                 return (
                   <TouchableOpacity
-                    key={it.id}
+                    key={r.key}
                     style={[styles.reasonRow, selected && styles.reasonRowSelected]}
-                    onPress={() => toggleReturnItem(it)}
+                    onPress={() => setReturnReason(r.key)}
                     activeOpacity={0.8}
                   >
+                    <Icon name={r.icon as any} size={18} color={selected ? PURPLE : TEXT_SECONDARY} />
+                    <Text style={[styles.reasonText, selected && styles.reasonTextSelected]}>{r.label}</Text>
                     <Icon
-                      name={selected ? 'checkbox' : 'square-outline'}
+                      name={selected ? 'radio-button-on' : 'radio-button-off'}
                       size={20}
                       color={selected ? PURPLE : '#c9c6d8'}
                     />
-                    <View style={{ flex: 1, marginLeft: 10 }}>
-                      <Text
-                        style={[styles.itemNameText, selected && styles.reasonTextSelected]}
-                        numberOfLines={1}
-                      >
-                        {it.product_name}
-                      </Text>
-                      <Text style={styles.itemSubText}>
-                        Ordered: {it.qty} × ₹{it.unit_price}
-                      </Text>
-                    </View>
-                    {selected && it.qty > 1 && (
-                      <View style={styles.qtyStepper}>
-                        <TouchableOpacity
-                          onPress={() => changeReturnQty(it, -1)}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                          <Icon name="remove" size={16} color={PURPLE} />
-                        </TouchableOpacity>
-                        <Text style={styles.qtyStepperText}>{qty}</Text>
-                        <TouchableOpacity
-                          onPress={() => changeReturnQty(it, 1)}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                          <Icon name="add" size={16} color={PURPLE} />
-                        </TouchableOpacity>
-                      </View>
-                    )}
                   </TouchableOpacity>
                 );
-              })
-            )}
+              })}
 
-            <Text style={[styles.modalLabel, { marginTop: 8 }]}>Why are you returning it?</Text>
-            {RETURN_REASONS.map((r) => {
-              const selected = returnReason === r.key;
-              return (
-                <TouchableOpacity
-                  key={r.key}
-                  style={[styles.reasonRow, selected && styles.reasonRowSelected]}
-                  onPress={() => setReturnReason(r.key)}
-                  activeOpacity={0.8}
-                >
-                  <Icon name={r.icon as any} size={18} color={selected ? PURPLE : TEXT_SECONDARY} />
-                  <Text style={[styles.reasonText, selected && styles.reasonTextSelected]}>{r.label}</Text>
-                  <Icon
-                    name={selected ? 'radio-button-on' : 'radio-button-off'}
-                    size={20}
-                    color={selected ? PURPLE : '#c9c6d8'}
-                  />
-                </TouchableOpacity>
-              );
-            })}
+              <TextInput
+                style={styles.reasonInput}
+                placeholder="Describe the issue (required for 'Other')"
+                placeholderTextColor={TEXT_SECONDARY}
+                value={returnDesc}
+                onChangeText={setReturnDesc}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
 
-            <TextInput
-              style={styles.reasonInput}
-              placeholder="Describe the issue (required for 'Other')"
-              placeholderTextColor={TEXT_SECONDARY}
-              value={returnDesc}
-              onChangeText={setReturnDesc}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-
-            <TouchableOpacity
-              style={[styles.submitReturnBtn, returnSubmitting && { opacity: 0.7 }]}
-              onPress={submitReturn}
-              disabled={returnSubmitting}
-              activeOpacity={0.85}
-            >
-              {returnSubmitting ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Text style={styles.submitReturnText}>Submit Return Request</Text>
-              )}
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.submitReturnBtn, returnSubmitting && { opacity: 0.7 }]}
+                onPress={submitReturn}
+                disabled={returnSubmitting}
+                activeOpacity={0.85}
+              >
+                {returnSubmitting ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.submitReturnText}>Submit Return Request</Text>
+                )}
+              </TouchableOpacity>
             </ScrollView>
           </View>
         </View>

@@ -123,16 +123,25 @@ async function notifyAdminOfReturnRequest(params: {
 
 // ─── 1. Customer: request a return ──────────────────────────────────────────
 
+// Photo + video are mandatory in the final flow. The OrdersScreen modal does not
+// collect media yet, so keep this false until the upload step is added there.
+const REQUIRE_MEDIA = false;
+
 const MediaItem = z.object({
   type: z.enum(["photo", "video"]),
   url: z.string().min(1),
 });
 
+const ReturnItem = z.object({
+  product_id: z.number().int().positive(),
+  qty: z.number().positive(),
+});
+
 const ReturnBody = z.object({
-  product_ids: z.array(z.number().int().positive()).min(1),
+  items: z.array(ReturnItem).min(1),
   reason: z.enum(REASONS),
   description: z.string().max(1000).optional(),
-  media: z.array(MediaItem).max(10),
+  media: z.array(MediaItem).max(10).default([]),
 });
 
 router.post("/customers/me/orders/:id/return", requireCustomerAuth, async (req, res): Promise<void> => {
@@ -148,15 +157,25 @@ router.post("/customers/me/orders/:id/return", requireCustomerAuth, async (req, 
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { reason, description, media } = parsed.data;
-  const productIds = [...new Set(parsed.data.product_ids)];
+  const { reason, description, media, items } = parsed.data;
+
+  // One entry per product
+  const requested = new Map<number, number>();
+  for (const it of items) {
+    if (requested.has(it.product_id)) {
+      res.status(400).json({ error: "Duplicate product in return request." });
+      return;
+    }
+    requested.set(it.product_id, it.qty);
+  }
+  const productIds = [...requested.keys()];
 
   if (reason === "OTHER" && !description?.trim()) {
     res.status(400).json({ error: "Please describe the problem when the reason is Other." });
     return;
   }
 
-  if (!media.some((m) => m.type === "photo") || !media.some((m) => m.type === "video")) {
+  if (REQUIRE_MEDIA && (!media.some((m) => m.type === "photo") || !media.some((m) => m.type === "video"))) {
     res.status(422).json({ error: "At least one photo and one video are required." });
     return;
   }
@@ -216,6 +235,15 @@ router.post("/customers/me/orders/:id/return", requireCustomerAuth, async (req, 
     return;
   }
 
+  // Return qty can never exceed what was ordered
+  for (const pid of productIds) {
+    const line = lines.get(pid)!;
+    if (requested.get(pid)! > line.qty) {
+      res.status(400).json({ error: `You can return at most ${line.qty} of ${line.name}.` });
+      return;
+    }
+  }
+
   const already = await db
     .select({ id: orderReturnsTable.id })
     .from(orderReturnsTable)
@@ -228,7 +256,6 @@ router.post("/customers/me/orders/:id/return", requireCustomerAuth, async (req, 
   const created = await db.transaction(async (tx) => {
     const out = [];
     for (const pid of productIds) {
-      const line = lines.get(pid)!;
       const [row] = await tx
         .insert(orderReturnsTable)
         .values({
@@ -236,16 +263,18 @@ router.post("/customers/me/orders/:id/return", requireCustomerAuth, async (req, 
           customerId,
           salesOrderId: orderId,
           productId: pid,
-          qty: String(line.qty),
+          qty: String(requested.get(pid)!),
           reason,
           description: description?.trim() || null,
           deliveredAt: new Date(delivery.deliveredAt!),
         })
         .returning();
 
-      await tx
-        .insert(orderReturnMediaTable)
-        .values(media.map((m) => ({ returnId: row.id, type: m.type, url: m.url })));
+      if (media.length > 0) {
+        await tx
+          .insert(orderReturnMediaTable)
+          .values(media.map((m) => ({ returnId: row.id, type: m.type, url: m.url })));
+      }
 
       out.push(row);
     }

@@ -102,6 +102,11 @@ export interface CancelOrderResponse {
   };
 }
 
+export interface ReturnItemPayload {
+  product_id: number;
+  qty: number;
+}
+
 export interface RequestReturnResponse {
   data: { id: number; status: string; reason: string }[];
 }
