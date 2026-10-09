@@ -12,18 +12,14 @@ import {
   ActivityIndicator,
   Platform,
   useWindowDimensions,
-  Modal,
-  TextInput,
-  ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {
   ordersApi,
   CustomerOrder,
-  CustomerOrderItem,
   CustomerTrackingStatus,
-  ReturnReason,
 } from '../../api/orders';
+import ReturnRequestModal from './ReturnRequestModal';
 
 const CompatibleFlatList: any = FlatList;
 
@@ -58,14 +54,6 @@ const DESKTOP_MAX_WIDTH = 1160;
 // ── Cancel / Return rules ────────────────────────────────────────
 const CANCEL_WINDOW_MS = 24 * 60 * 60 * 1000; // 1 day after placing
 const RETURN_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours after delivery (must match server RETURN_WINDOW_HOURS)
-
-const RETURN_REASONS: { key: ReturnReason; label: string; icon: string }[] = [
-  { key: 'EXPIRED_PRODUCT', label: 'Expired product', icon: 'calendar-outline' },
-  { key: 'WRONG_PRODUCT', label: 'Wrong product delivered', icon: 'swap-horizontal-outline' },
-  { key: 'DAMAGED', label: 'Damaged product', icon: 'warning-outline' },
-  { key: 'MISSING_ITEM', label: 'Item missing', icon: 'help-circle-outline' },
-  { key: 'OTHER', label: 'Other', icon: 'ellipsis-horizontal-circle-outline' },
-];
 
 const RETURN_STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   REQUESTED: { label: 'Return Requested', color: WARNING, bg: WARNING_BG },
@@ -102,15 +90,8 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState<string | null>(null);
 
-  // Return modal state
+  // Order currently being returned (the modal manages its own form state)
   const [returnTarget, setReturnTarget] = useState<CustomerOrder | null>(null);
-  const [returnReason, setReturnReason] = useState<ReturnReason | null>(null);
-  const [returnDesc, setReturnDesc] = useState('');
-  const [returnSubmitting, setReturnSubmitting] = useState(false);
-  // Which product(s) of the order are being returned (product_id -> qty)
-  const [returnItems, setReturnItems] = useState<CustomerOrderItem[]>([]);
-  const [returnItemsLoading, setReturnItemsLoading] = useState(false);
-  const [selectedReturnQty, setSelectedReturnQty] = useState<Record<number, number>>({});
 
   // ── Orders: real backend fetch ──────────────────────────────
   const fetchOrders = useCallback(async (silent = false) => {
@@ -231,107 +212,20 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
     );
   };
 
-  // ── Return order ─────────────────────────────────────────────
-  const resetReturnForm = () => {
+  // ── Return order (form lives in ReturnRequestModal) ──────────
+  const openReturnModal = (item: CustomerOrder) => setReturnTarget(item);
+  const closeReturnModal = () => setReturnTarget(null);
+
+  const handleReturnSubmitted = (id: number) => {
     setReturnTarget(null);
-    setReturnReason(null);
-    setReturnDesc('');
-    setReturnItems([]);
-    setSelectedReturnQty({});
-  };
-
-  const openReturnModal = async (item: CustomerOrder) => {
-    setReturnTarget(item);
-    setReturnReason(null);
-    setReturnDesc('');
-    setSelectedReturnQty({});
-    setReturnItems([]);
-    setReturnItemsLoading(true);
-    try {
-      // List response has no items, so load them from the tracking endpoint
-      const detail = await ordersApi.getOrderTracking(item.id);
-      const items = detail?.items ?? [];
-      setReturnItems(items);
-      // Single-product order: auto-select it so the customer only picks a reason
-      if (items.length === 1) {
-        setSelectedReturnQty({ [items[0].product_id]: items[0].qty });
-      }
-    } catch (e) {
-      showMessage('Error', 'Could not load order items. Please try again.');
-      resetReturnForm();
-    } finally {
-      setReturnItemsLoading(false);
-    }
-  };
-
-  const closeReturnModal = () => {
-    if (returnSubmitting) return;
-    resetReturnForm();
-  };
-
-  const toggleReturnItem = (it: CustomerOrderItem) => {
-    setSelectedReturnQty((prev) => {
-      const next = { ...prev };
-      if (next[it.product_id]) delete next[it.product_id];
-      else next[it.product_id] = it.qty;
-      return next;
-    });
-  };
-
-  const changeReturnQty = (it: CustomerOrderItem, delta: number) => {
-    setSelectedReturnQty((prev) => {
-      const cur = prev[it.product_id];
-      if (!cur) return prev;
-      return { ...prev, [it.product_id]: Math.min(it.qty, Math.max(1, cur + delta)) };
-    });
-  };
-
-  const submitReturn = async () => {
-    if (!returnTarget) return;
-
-    const items = returnItems
-      .filter((it) => selectedReturnQty[it.product_id])
-      .map((it) => ({ product_id: it.product_id, qty: selectedReturnQty[it.product_id] }));
-
-    if (items.length === 0) {
-      showMessage('Select product', 'Please select the product(s) you want to return.');
-      return;
-    }
-    if (!returnReason) {
-      showMessage('Select a reason', 'Please select a reason for the return.');
-      return;
-    }
-    if (returnReason === 'OTHER' && !returnDesc.trim()) {
-      showMessage('Add details', 'Please describe the issue.');
-      return;
-    }
-    try {
-      setReturnSubmitting(true);
-      await ordersApi.requestReturn(returnTarget.id, {
-        reason: returnReason,
-        description: returnDesc.trim() || undefined,
-        items,
-      });
-      const id = returnTarget.id;
-      setReturnSubmitting(false);
-      resetReturnForm();
-      // optimistic update so the Return button disappears immediately
-      setOrdersList((prev) =>
-        prev.map((o) =>
-          o.id === id
-            ? { ...o, return_request: { id: 0, status: 'REQUESTED', reason: returnReason as string } }
-            : o,
-        ),
-      );
-      showMessage('Return Requested', `Your return request for Order #${id} has been submitted.`);
-      fetchOrders(true);
-    } catch (err: any) {
-      setReturnSubmitting(false);
-      const msg =
-        err?.response?.data?.error || err?.error || err?.message || 'Could not submit return request. Please try again.';
-      showMessage('Unable to request return', msg);
-      fetchOrders(true);
-    }
+    // optimistic update so the Return button disappears immediately
+    setOrdersList((prev) =>
+      prev.map((o) =>
+        o.id === id ? { ...o, return_request: { id: 0, status: 'REQUESTED', reason: '' } } : o,
+      ),
+    );
+    showMessage('Return Requested', `Your return request for Order #${id} has been submitted.`);
+    fetchOrders(true);
   };
 
   const handleViewOrder = (item: CustomerOrder) => {
@@ -602,124 +496,13 @@ const OrdersScreen: React.FC = ({ navigation }: any) => {
         </View>
       </View>
 
-      {/* ── Return request modal ───────────────────────────────── */}
-      <Modal
-        visible={!!returnTarget}
-        transparent
-        animationType="slide"
-        onRequestClose={closeReturnModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, isDesktopWeb && styles.modalCardDesktop]}>
-            <View style={styles.modalHandle} />
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Return Order #{returnTarget?.id}</Text>
-              <TouchableOpacity onPress={closeReturnModal} style={styles.modalCloseBtn}>
-                <Icon name="close" size={20} color={TEXT_MAIN} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              <Text style={styles.modalLabel}>Which product are you returning?</Text>
-              {returnItemsLoading ? (
-                <ActivityIndicator size="small" color={PURPLE} style={{ marginVertical: 14 }} />
-              ) : (
-                returnItems.map((it) => {
-                  const qty = selectedReturnQty[it.product_id];
-                  const selected = !!qty;
-                  return (
-                    <TouchableOpacity
-                      key={it.id}
-                      style={[styles.reasonRow, selected && styles.reasonRowSelected]}
-                      onPress={() => toggleReturnItem(it)}
-                      activeOpacity={0.8}
-                    >
-                      <Icon
-                        name={selected ? 'checkbox' : 'square-outline'}
-                        size={20}
-                        color={selected ? PURPLE : '#c9c6d8'}
-                      />
-                      <View style={{ flex: 1, marginLeft: 10 }}>
-                        <Text
-                          style={[styles.itemNameText, selected && styles.reasonTextSelected]}
-                          numberOfLines={1}
-                        >
-                          {it.product_name}
-                        </Text>
-                        <Text style={styles.itemSubText}>
-                          Ordered: {it.qty} × ₹{it.unit_price}
-                        </Text>
-                      </View>
-                      {selected && it.qty > 1 && (
-                        <View style={styles.qtyStepper}>
-                          <TouchableOpacity
-                            onPress={() => changeReturnQty(it, -1)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          >
-                            <Icon name="remove" size={16} color={PURPLE} />
-                          </TouchableOpacity>
-                          <Text style={styles.qtyStepperText}>{qty}</Text>
-                          <TouchableOpacity
-                            onPress={() => changeReturnQty(it, 1)}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          >
-                            <Icon name="add" size={16} color={PURPLE} />
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-
-              <Text style={[styles.modalLabel, { marginTop: 8 }]}>Why are you returning it?</Text>
-              {RETURN_REASONS.map((r) => {
-                const selected = returnReason === r.key;
-                return (
-                  <TouchableOpacity
-                    key={r.key}
-                    style={[styles.reasonRow, selected && styles.reasonRowSelected]}
-                    onPress={() => setReturnReason(r.key)}
-                    activeOpacity={0.8}
-                  >
-                    <Icon name={r.icon as any} size={18} color={selected ? PURPLE : TEXT_SECONDARY} />
-                    <Text style={[styles.reasonText, selected && styles.reasonTextSelected]}>{r.label}</Text>
-                    <Icon
-                      name={selected ? 'radio-button-on' : 'radio-button-off'}
-                      size={20}
-                      color={selected ? PURPLE : '#c9c6d8'}
-                    />
-                  </TouchableOpacity>
-                );
-              })}
-
-              <TextInput
-                style={styles.reasonInput}
-                placeholder="Describe the issue (required for 'Other')"
-                placeholderTextColor={TEXT_SECONDARY}
-                value={returnDesc}
-                onChangeText={setReturnDesc}
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
-
-              <TouchableOpacity
-                style={[styles.submitReturnBtn, returnSubmitting && { opacity: 0.7 }]}
-                onPress={submitReturn}
-                disabled={returnSubmitting}
-                activeOpacity={0.85}
-              >
-                {returnSubmitting ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Text style={styles.submitReturnText}>Submit Return Request</Text>
-                )}
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      {/* ── Return request modal (photo + video proof) ─────────── */}
+      <ReturnRequestModal
+        order={returnTarget}
+        isDesktopWeb={isDesktopWeb}
+        onClose={closeReturnModal}
+        onSubmitted={handleReturnSubmitted}
+      />
     </SafeAreaView>
   );
 };
@@ -847,42 +630,6 @@ const styles = StyleSheet.create({
   returnButtonText: { color: PURPLE, fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '700', marginLeft: 3 },
   viewButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2, paddingVertical: 4 },
   viewButtonText: { color: PURPLE, fontFamily: FONT_FAMILY, fontSize: 12.5, fontWeight: '700', marginRight: 2 },
-
-  // Return modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(30,27,46,0.5)', justifyContent: 'flex-end' },
-  modalCard: {
-    backgroundColor: BG,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 28,
-    maxHeight: '90%',
-  },
-  modalCardDesktop: {
-    width: '100%',
-    maxWidth: 480,
-    alignSelf: 'center',
-    borderRadius: 24,
-    marginBottom: 'auto' as any,
-    marginTop: 'auto' as any,
-  },
-  modalHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: BORDER, marginBottom: 12 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: BORDER },
-  modalTitle: { fontFamily: FONT_FAMILY, fontSize: 19, fontWeight: '800', color: TEXT_MAIN },
-  modalCloseBtn: { padding: 4, backgroundColor: BG_SOFT, borderRadius: 20 },
-  modalLabel: { fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '700', color: TEXT_MAIN, marginBottom: 10 },
-  reasonRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: BORDER, marginBottom: 8, backgroundColor: BG },
-  reasonRowSelected: { borderColor: PURPLE, backgroundColor: PURPLE_LIGHT },
-  itemNameText: { fontFamily: FONT_FAMILY, fontSize: 14, color: TEXT_MAIN },
-  itemSubText: { fontFamily: FONT_FAMILY, fontSize: 11.5, color: TEXT_SECONDARY, marginTop: 2 },
-  qtyStepper: { flexDirection: 'row', alignItems: 'center', backgroundColor: BG, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, gap: 10, borderWidth: 1, borderColor: PURPLE_SOFT },
-  qtyStepperText: { fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '700', color: TEXT_MAIN, minWidth: 14, textAlign: 'center' },
-  reasonText: { flex: 1, marginLeft: 10, fontFamily: FONT_FAMILY, fontSize: 14, color: TEXT_MAIN },
-  reasonTextSelected: { fontWeight: '700', color: PURPLE_DARK },
-  reasonInput: { marginTop: 6, borderWidth: 1, borderColor: BORDER, borderRadius: 12, padding: 12, minHeight: 78, fontFamily: FONT_FAMILY, fontSize: 14, color: TEXT_MAIN, backgroundColor: BG_SOFT },
-  submitReturnBtn: { marginTop: 16, backgroundColor: PURPLE, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
-  submitReturnText: { color: '#ffffff', fontFamily: FONT_FAMILY, fontSize: 15.5, fontWeight: '700' },
 
   // Empty / loading / error
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 90, paddingHorizontal: 30 },

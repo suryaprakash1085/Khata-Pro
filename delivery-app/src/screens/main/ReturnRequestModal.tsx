@@ -172,9 +172,13 @@ const ReturnRequestModal: React.FC<Props> = ({ order, isDesktopWeb, onClose, onS
         media.push({ type: all[i].kind, url });
       }
 
-      setProgress('Submitting request...');
+            setProgress('Submitting request...');
+      const returnItems = items
+        .filter((it) => selected[it.product_id])
+        .map((it) => ({ product_id: it.product_id, qty: it.qty }));
+
       await ordersApi.requestReturn(order.id, {
-        product_ids: productIds,
+        items: returnItems,
         reason,
         description: desc.trim() || undefined,
         media,

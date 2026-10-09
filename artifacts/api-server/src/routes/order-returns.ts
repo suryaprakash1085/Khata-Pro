@@ -115,7 +115,7 @@ async function notifyAdminOfReturnRequest(params: {
   await db.insert(notificationsTable).values({
     businessId,
     salesOrderId,
-    type: "order_return",
+    type: "return_requested",
     title: "Return Request",
     message: `Order #ORD-${salesOrderId} • ${customerName} • ${productNames.join(", ")} • ${REASON_LABEL[reason] ?? reason}`,
   });
@@ -125,7 +125,7 @@ async function notifyAdminOfReturnRequest(params: {
 
 // Photo + video are mandatory in the final flow. The OrdersScreen modal does not
 // collect media yet, so keep this false until the upload step is added there.
-const REQUIRE_MEDIA = false;
+const REQUIRE_MEDIA = true;
 
 const MediaItem = z.object({
   type: z.enum(["photo", "video"]),

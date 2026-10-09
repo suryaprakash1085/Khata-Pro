@@ -37,7 +37,7 @@ export interface ReturnMediaFile {
 }
 
 export interface RequestReturnPayload {
-  product_ids: number[];
+  items: ReturnItemPayload[];   // was: product_ids: number[]
   reason: ReturnReason;
   description?: string;
   media: ReturnMediaInput[];
