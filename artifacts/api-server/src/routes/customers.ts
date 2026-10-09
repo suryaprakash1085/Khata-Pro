@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, customersTable, salesOrdersTable, deliveriesTable, driversTable, businessesTable, salesOrderItemsTable, productsTable, orderReturnsTable, notificationsTable } from "@workspace/db";
+import { db, customersTable, salesOrdersTable, deliveriesTable, driversTable, businessesTable, salesOrderItemsTable, productsTable, notificationsTable } from "@workspace/db";
 import { eq, and, or, ilike, count, desc, inArray } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import {
@@ -11,20 +11,13 @@ import {
 } from "@workspace/api-zod";
 import { requireCustomerAuth } from "../middlewares/customerAuth";
 import { createOrderCancelledNotification } from "../services/adminNotifications.service";
+import { getReturnRequestsByOrder } from "../services/orderReturnSummary";
 
 const router: IRouter = Router();
 
-// ── Cancel / Return rules ────────────────────────────────────────────────
+// ── Cancel rules ─────────────────────────────────────────────────────────
+// (Return rules + routes now live in routes/order-returns.ts)
 const CANCEL_WINDOW_MS = 24 * 60 * 60 * 1000; // customer can cancel only within 1 day of placing
-const RETURN_WINDOW_MS = 2 * 24 * 60 * 60 * 1000; // keep same as RETURN_WINDOW_MS in OrdersScreen.tsx
-const RETURN_REASONS = ["EXPIRED_PRODUCT", "WRONG_PRODUCT", "DAMAGED", "MISSING_ITEM", "OTHER"];
-const RETURN_REASON_LABEL: Record<string, string> = {
-  EXPIRED_PRODUCT: "Expired product",
-  WRONG_PRODUCT: "Wrong product delivered",
-  DAMAGED: "Damaged product",
-  MISSING_ITEM: "Item missing",
-  OTHER: "Other",
-};
 
 function formatCustomer(c: any) {
   return {
@@ -221,28 +214,13 @@ function mapToCustomerStatus(
   return "ORDER_PLACED";
 }
 
-// 🔶 NEW — fetch return requests for a set of orders in one query
-async function getReturnsByOrder(orderIds: number[]): Promise<Map<number, any>> {
-  if (!orderIds.length) return new Map();
-  const rows = await db
-    .select()
-    .from(orderReturnsTable)
-    .where(inArray(orderReturnsTable.salesOrderId, orderIds));
-  return new Map(
-    rows.map((r: any) => [
-      Number(r.salesOrderId),
-      { id: Number(r.id), status: r.status, reason: r.reason },
-    ]),
-  );
-}
-
 function formatCustomerOrder(
   order: any,
   delivery: any | null,
   driver: any | null,
   businessName?: string | null,
   items?: any[],
-  returnRequest?: any | null, // 🔶 NEW
+  returnRequest?: any | null,
 ) {
   const trackingStatus = mapToCustomerStatus(
     order.status, delivery?.status ?? null,
@@ -272,7 +250,7 @@ function formatCustomerOrder(
     tracking_status: trackingStatus,
     tracking_steps: CUSTOMER_TRACKING_STEPS,
     items: items ?? [],
-    return_request: returnRequest ?? null, // 🔶 NEW
+    return_request: returnRequest ?? null,
     delivery: delivery
       ? {
           id: Number(delivery.id),
@@ -318,8 +296,8 @@ router.get("/customers/me/orders", requireCustomerAuth, async (req, res): Promis
     : [];
   const businessNameById = new Map(businesses.map((b: any) => [Number(b.id), b.businessName]));
 
-  // 🔶 NEW — return requests for all orders in one query
-  const returnByOrder = await getReturnsByOrder(orderIds);
+  // return requests (from order_returns) for all orders in one query
+  const returnByOrder = await getReturnRequestsByOrder(orderIds);
 
   res.json({
     data: orders.map((o: any) => {
@@ -332,7 +310,7 @@ router.get("/customers/me/orders", requireCustomerAuth, async (req, res): Promis
         driver,
         businessName,
         undefined,
-        returnByOrder.get(Number(o.id)) ?? null, // 🔶 NEW
+        returnByOrder.get(Number(o.id)) ?? null,
       );
     }),
   });
@@ -397,8 +375,7 @@ router.get("/customers/me/orders/:id/tracking", requireCustomerAuth, async (req,
     unit_price: parseFloat(it.unitPrice),
   }));
 
-  // 🔶 NEW
-  const returnByOrder = await getReturnsByOrder([orderId]);
+  const returnByOrder = await getReturnRequestsByOrder([orderId]);
 
   res.json(
     formatCustomerOrder(
@@ -497,149 +474,6 @@ router.put("/customers/me/orders/:id/cancel", requireCustomerAuth, async (req, r
   );
 
   res.json(formatCustomerOrder(updatedOrder, null, null));
-});
-
-// 🔶 NEW — POST /customers/me/orders/:id/return
-// Customer requests a return for a DELIVERED order within RETURN_WINDOW_MS.
-// body: { reason: EXPIRED_PRODUCT | WRONG_PRODUCT | DAMAGED | MISSING_ITEM | OTHER, description?: string }
-router.post("/customers/me/orders/:id/return", requireCustomerAuth, async (req, res): Promise<void> => {
-  const { customerId } = (req as any).customer;
-  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const orderId = parseInt(raw, 10);
-  const reason = req.body?.reason as string;
-  const description = (typeof req.body?.description === "string" ? req.body.description.trim() : "") || null;
-
-  if (isNaN(orderId)) {
-    res.status(400).json({ error: "Invalid order id" });
-    return;
-  }
-  if (!RETURN_REASONS.includes(reason)) {
-    res.status(400).json({ error: "Invalid return reason" });
-    return;
-  }
-  if (reason === "OTHER" && !description) {
-    res.status(400).json({ error: "Please describe the issue" });
-    return;
-  }
-
-  const [order] = await db
-    .select()
-    .from(salesOrdersTable)
-    .where(
-      and(
-        eq(salesOrdersTable.id, orderId),
-        eq(salesOrdersTable.customerId, customerId),
-        eq(salesOrdersTable.isDeleted, false),
-      ),
-    );
-  if (!order) {
-    res.status(404).json({ error: "Order not found" });
-    return;
-  }
-
-  const [delivery] = await db.select().from(deliveriesTable).where(eq(deliveriesTable.salesOrderId, orderId));
-  const tracking = mapToCustomerStatus(order.status, delivery?.status ?? null, delivery?.outForDeliveryAt ?? null);
-  if (tracking !== "DELIVERED") {
-    res.status(409).json({ error: "Only delivered orders can be returned." });
-    return;
-  }
-
-  const deliveredAt = delivery?.deliveredAt ? new Date(delivery.deliveredAt as any).getTime() : NaN;
-  if (isNaN(deliveredAt) || Date.now() - deliveredAt > RETURN_WINDOW_MS) {
-    res.status(409).json({ error: "The return window has expired for this order." });
-    return;
-  }
-
-  const [existing] = await db
-    .select()
-    .from(orderReturnsTable)
-    .where(eq(orderReturnsTable.salesOrderId, orderId));
-  if (existing) {
-    res.status(409).json({ error: "A return has already been requested for this order." });
-    return;
-  }
-
-  const [created] = await db
-    .insert(orderReturnsTable)
-    .values({
-      salesOrderId: orderId,
-      businessId: Number(order.businessId),
-      customerId,
-      reason,
-      description,
-    })
-    .returning();
-
-  res.status(201).json({ id: Number(created.id), status: created.status, reason: created.reason });
-});
-
-// 🔶 NEW — GET /order-returns?business_id=1  (admin panel: list customer return requests)
-router.get("/order-returns", requireAuth, async (req, res): Promise<void> => {
-  const businessId = parseInt(req.query.business_id as string, 10);
-  if (isNaN(businessId)) {
-    res.status(400).json({ error: "business_id is required" });
-    return;
-  }
-
-  const rows = await db
-    .select({
-      id: orderReturnsTable.id,
-      salesOrderId: orderReturnsTable.salesOrderId,
-      reason: orderReturnsTable.reason,
-      description: orderReturnsTable.description,
-      status: orderReturnsTable.status,
-      adminNote: orderReturnsTable.adminNote,
-      createdAt: orderReturnsTable.createdAt,
-      customerName: customersTable.name,
-      customerPhone: customersTable.phone,
-    })
-    .from(orderReturnsTable)
-    .innerJoin(customersTable, eq(orderReturnsTable.customerId, customersTable.id))
-    .where(eq(orderReturnsTable.businessId, businessId))
-    .orderBy(desc(orderReturnsTable.id));
-
-  res.json({
-    data: rows.map((r: any) => ({
-      id: Number(r.id),
-      sales_order_id: Number(r.salesOrderId),
-      reason: r.reason,
-      description: r.description,
-      status: r.status,
-      admin_note: r.adminNote,
-      created_at: r.createdAt,
-      customer_name: r.customerName,
-      customer_phone: r.customerPhone,
-    })),
-  });
-});
-
-// 🔶 NEW — PUT /order-returns/:id/status  body: { status: "APPROVED" | "REJECTED", admin_note?: string }
-router.put("/order-returns/:id/status", requireAuth, async (req, res): Promise<void> => {
-  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const id = parseInt(raw, 10);
-  const status = req.body?.status as string;
-
-  if (isNaN(id) || !["APPROVED", "REJECTED"].includes(status)) {
-    res.status(400).json({ error: "status must be APPROVED or REJECTED" });
-    return;
-  }
-
-  const [updated] = await db
-    .update(orderReturnsTable)
-    .set({
-      status,
-      adminNote: typeof req.body?.admin_note === "string" ? req.body.admin_note : null,
-      resolvedAt: new Date(),
-    })
-    .where(and(eq(orderReturnsTable.id, id), eq(orderReturnsTable.status, "REQUESTED")))
-    .returning();
-
-  if (!updated) {
-    res.status(404).json({ error: "Return request not found or already resolved" });
-    return;
-  }
-
-  res.json({ id: Number(updated.id), status: updated.status, reason: updated.reason });
 });
 
 export default router;
