@@ -20,18 +20,6 @@ import { COLORS, NotificationRow } from '../../components/driver/DriverHomeCompo
 import { DriverWebShell, DriverShellTab } from '../../components/driver/DriverWebShell';
 import { NotificationEntry, NotificationType } from '../../types/driverHome.types';
 
-// ── Orval-generated hooks (run codegen after updating openapi.yaml) ────────
-// import {
-//   useGetDriver,
-//   useGetDriverStats,
-//   useGetDriverEarnings,
-//   useListDeliveries,
-//   useListNotifications,
-//   useUpdateDriver,
-//   useUpdateDeliveryStatus,
-//   useGetDriverUnreadNotificationCount,
-  
-// } from '@workspace/api-client-react';
 import {
   useGetDriver,
   useGetDriverStats,
@@ -103,6 +91,15 @@ function timeAgo(iso?: string | null) {
   const hrs = Math.round(mins / 60);
   return `${hrs} hr${hrs > 1 ? 's' : ''} ago`;
 }
+
+// ── Replacement deliveries ──────────────────────────────────────────────────
+// The server creates replacement deliveries with notes like
+//   "Replacement for Order #422: Kids Shoes x 1"
+// (see routes/order-returns.ts). Keep this prefix in sync with that file.
+const REPLACEMENT_PREFIX = 'Replacement for Order';
+const isReplacement = (d?: ApiDelivery) => !!d?.notes?.startsWith(REPLACEMENT_PREFIX);
+// -> "#422: Kids Shoes x 1"
+const replacementDetail = (d?: ApiDelivery) => d?.notes?.replace(REPLACEMENT_PREFIX, '').trim() ?? '';
 
 const bottomTabs: DriverShellTab[] = [
   { key: 'home', label: 'Home', icon: 'home', screen: 'DriverHome' },
@@ -468,7 +465,9 @@ const DriverHomeScreen: React.FC = () => {
                         <Text style={styles.customerAvatarText}>{initials(activeDelivery.customer_name)}</Text>
                       </View>
                       <View>
-                        <Text style={styles.orderIdText}>Order #{activeDelivery.id}</Text>
+                        <Text style={styles.orderIdText}>
+                          {isReplacement(activeDelivery) ? 'Replacement' : 'Order'} #{activeDelivery.id}
+                        </Text>
                         <Text style={styles.customerNameText}>{activeDelivery.customer_name ?? 'Customer'}</Text>
                       </View>
                     </View>
@@ -480,6 +479,14 @@ const DriverHomeScreen: React.FC = () => {
                       <Ionicons name="location-outline" size={13} color={COLORS.slate} />
                       <Text style={styles.addressText}>{activeDelivery.drop_address}</Text>
                     </View>
+                    {isReplacement(activeDelivery) && (
+                      <View style={styles.replacementChip}>
+                        <Ionicons name="swap-horizontal-outline" size={13} color="#7C3AED" />
+                        <Text style={styles.replacementChipText} numberOfLines={2}>
+                          {replacementDetail(activeDelivery)}
+                        </Text>
+                      </View>
+                    )}
                   </View>
 
                   {isWideWeb && (
@@ -495,8 +502,12 @@ const DriverHomeScreen: React.FC = () => {
 
                 <View style={styles.activeFooterRow}>
                   <View>
-                    <Text style={styles.footerAmount}>₹{Number(activeDelivery.amount ?? 0).toFixed(2)}</Text>
-                    <Text style={styles.footerAmountLabel}>Order Amount</Text>
+                    <Text style={styles.footerAmount}>
+                      {isReplacement(activeDelivery) ? 'No payment' : `₹${Number(activeDelivery.amount ?? 0).toFixed(2)}`}
+                    </Text>
+                    <Text style={styles.footerAmountLabel}>
+                      {isReplacement(activeDelivery) ? 'Free replacement' : 'Order Amount'}
+                    </Text>
                   </View>
                   <View>
                     <Text style={styles.footerTime}>
@@ -532,7 +543,9 @@ const DriverHomeScreen: React.FC = () => {
                   <Text style={styles.assignTimeAgo}>{timeAgo(newAssignment.assigned_at ?? newAssignment.created_at)}</Text>
                 </View>
 
-                <Text style={styles.orderIdText}>Order #{newAssignment.id}</Text>
+                <Text style={styles.orderIdText}>
+                  {isReplacement(newAssignment) ? 'Replacement' : 'Order'} #{newAssignment.id}
+                </Text>
                 <Text style={styles.customerNameText}>{newAssignment.customer_name ?? 'Customer'}</Text>
                 <View style={styles.addressRow}>
                   <Ionicons name="call-outline" size={13} color={COLORS.slate} />
@@ -542,6 +555,14 @@ const DriverHomeScreen: React.FC = () => {
                   <Ionicons name="location-outline" size={13} color={COLORS.slate} />
                   <Text style={styles.addressText}>{newAssignment.drop_address}</Text>
                 </View>
+                {isReplacement(newAssignment) && (
+                  <View style={styles.replacementChip}>
+                    <Ionicons name="swap-horizontal-outline" size={13} color="#7C3AED" />
+                    <Text style={styles.replacementChipText} numberOfLines={2}>
+                      {replacementDetail(newAssignment)}
+                    </Text>
+                  </View>
+                )}
 
                 <View style={styles.assignStatsRow}>
                   <View>
@@ -549,8 +570,12 @@ const DriverHomeScreen: React.FC = () => {
                     <Text style={styles.footerAmountLabel}>Distance</Text>
                   </View>
                   <View>
-                    <Text style={styles.footerAmount}>₹{Number(newAssignment.amount ?? 0).toFixed(2)}</Text>
-                    <Text style={styles.footerAmountLabel}>Order Amount</Text>
+                    <Text style={styles.footerAmount}>
+                      {isReplacement(newAssignment) ? 'No payment' : `₹${Number(newAssignment.amount ?? 0).toFixed(2)}`}
+                    </Text>
+                    <Text style={styles.footerAmountLabel}>
+                      {isReplacement(newAssignment) ? 'Free replacement' : 'Order Amount'}
+                    </Text>
                   </View>
                 </View>
 
@@ -578,47 +603,47 @@ const DriverHomeScreen: React.FC = () => {
           <View style={isWideWeb ? { flex: 1 } : undefined}>
             <SectionTitleRow title="Today's Summary" />
             <View style={styles.summaryBoxCard}>
-            <View style={[styles.summaryStrip, !isWideWeb && { flexWrap: 'wrap' }]}>
-              <View style={styles.summaryGridItem}>
-                <SummaryStatCard
-                  label="Completed Deliveries"
-                  sublabel={(stats?.completed_deliveries ?? 0) > 0 ? 'Good job' : undefined}
-                  value={`${stats?.completed_deliveries ?? 0}`}
-                  icon="checkmark-done-outline"
-                  iconColor={COLORS.secondary}
-                  iconBg={COLORS.secondaryLight}
-                />
+              <View style={[styles.summaryStrip, !isWideWeb && { flexWrap: 'wrap' }]}>
+                <View style={styles.summaryGridItem}>
+                  <SummaryStatCard
+                    label="Completed Deliveries"
+                    sublabel={(stats?.completed_deliveries ?? 0) > 0 ? 'Good job' : undefined}
+                    value={`${stats?.completed_deliveries ?? 0}`}
+                    icon="checkmark-done-outline"
+                    iconColor={COLORS.secondary}
+                    iconBg={COLORS.secondaryLight}
+                  />
                 </View>
-              </View>
-              <View style={styles.summaryGridItem}>
-                <SummaryStatCard
-                  label="COD Collected"
-                  sublabel="Today"
-                  value={`₹${earnings?.cod_collected ?? 0}`}
-                  icon="cash-outline"
-                  iconColor={COLORS.amber}
-                  iconBg={COLORS.amberLight}
-                />
-              </View>
-              <View style={styles.summaryGridItem}>
-                <SummaryStatCard
-                  label="Online Payments"
-                  sublabel="Today"
-                  value={`₹${onlinePaymentsToday}`}
-                  icon="card-outline"
-                  iconColor={COLORS.primary}
-                  iconBg={COLORS.primaryLight}
-                />
-              </View>
-              <View style={styles.summaryGridItem}>
-                <SummaryStatCard
-                  label="Online Duration"
-                  sublabel="Today"
-                  value={`${workingHours} hrs`}
-                  icon="time-outline"
-                  iconColor="#7C3AED"
-                  iconBg="#EDE9FE"
-                />
+                <View style={styles.summaryGridItem}>
+                  <SummaryStatCard
+                    label="COD Collected"
+                    sublabel="Today"
+                    value={`₹${earnings?.cod_collected ?? 0}`}
+                    icon="cash-outline"
+                    iconColor={COLORS.amber}
+                    iconBg={COLORS.amberLight}
+                  />
+                </View>
+                <View style={styles.summaryGridItem}>
+                  <SummaryStatCard
+                    label="Online Payments"
+                    sublabel="Today"
+                    value={`₹${onlinePaymentsToday}`}
+                    icon="card-outline"
+                    iconColor={COLORS.primary}
+                    iconBg={COLORS.primaryLight}
+                  />
+                </View>
+                <View style={styles.summaryGridItem}>
+                  <SummaryStatCard
+                    label="Online Duration"
+                    sublabel="Today"
+                    value={`${workingHours} hrs`}
+                    icon="time-outline"
+                    iconColor="#7C3AED"
+                    iconBg="#EDE9FE"
+                  />
+                </View>
               </View>
             </View>
           </View>
@@ -750,6 +775,8 @@ const styles = StyleSheet.create({
   customerNameText: { fontFamily: FONT_FAMILY, fontSize: 13, color: COLORS.slate, marginTop: 1 },
   addressRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
   addressText: { fontFamily: FONT_FAMILY, fontSize: 12.5, color: COLORS.slate, flexShrink: 1 },
+  replacementChip: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: '#EDE9FE', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5, marginTop: 8 },
+  replacementChipText: { fontFamily: FONT_FAMILY, fontSize: 11.5, fontWeight: '700', color: '#7C3AED', flexShrink: 1 },
   mapWrap: { width: 160, gap: 6 },
   routePreview: { height: 90, borderRadius: 12, backgroundColor: '#FFFFFF', justifyContent: 'center', paddingHorizontal: 12, overflow: 'hidden' },
   routeDotStart: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.secondary },

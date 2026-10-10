@@ -5,7 +5,7 @@
 //
 // Rules:
 //  - Customer can request a return only after the order is DELIVERED,
-//    and only within 24 hours of deliveries.delivered_at.
+//    and only within 7 days of deliveries.delivered_at.
 //  - At least 1 photo AND 1 video are mandatory.
 //  - Admin approves / rejects after looking at the evidence.
 //  - On approval, admin sends a replacement (creates a new pending delivery,
@@ -34,7 +34,9 @@ import { getNextDeliveryNumber } from "../services/deliveryCounter";
 
 const router: IRouter = Router();
 
-const RETURN_WINDOW_HOURS = 24;
+// Must match RETURN_WINDOW_MS in the customer app's OrdersScreen.tsx
+const RETURN_WINDOW_DAYS = 7;
+const RETURN_WINDOW_HOURS = RETURN_WINDOW_DAYS * 24;
 
 const REASONS = ["EXPIRED_PRODUCT", "WRONG_PRODUCT", "DAMAGED", "MISSING_ITEM", "OTHER"] as const;
 const STATUSES = ["REQUESTED", "APPROVED", "REJECTED", "REPLACEMENT_SENT"] as const;
@@ -123,8 +125,7 @@ async function notifyAdminOfReturnRequest(params: {
 
 // ─── 1. Customer: request a return ──────────────────────────────────────────
 
-// Photo + video are mandatory in the final flow. The OrdersScreen modal does not
-// collect media yet, so keep this false until the upload step is added there.
+// Photo + video are mandatory (ReturnRequestModal uploads them before submitting).
 const REQUIRE_MEDIA = true;
 
 const MediaItem = z.object({
@@ -195,7 +196,7 @@ router.post("/customers/me/orders/:id/return", requireCustomerAuth, async (req, 
     return;
   }
 
-  // 24h window — measured from the delivery's delivered_at, checked server-side.
+  // 7-day window — measured from the delivery's delivered_at, checked server-side.
   const [delivery] = await db
     .select()
     .from(deliveriesTable)
@@ -209,7 +210,7 @@ router.post("/customers/me/orders/:id/return", requireCustomerAuth, async (req, 
   }
   const elapsedMs = Date.now() - new Date(delivery.deliveredAt).getTime();
   if (elapsedMs > RETURN_WINDOW_HOURS * 60 * 60 * 1000) {
-    res.status(409).json({ error: `The ${RETURN_WINDOW_HOURS}-hour return window for this order has expired.` });
+    res.status(409).json({ error: `The ${RETURN_WINDOW_DAYS}-day return window for this order has expired.` });
     return;
   }
 
@@ -480,7 +481,7 @@ router.post("/order-returns/:id/replacement", requireAuth, async (req, res): Pro
           businessId: Number(ret.businessId),
           businessDeliveryNo: nextNo,
           customerId: Number(ret.customerId),
-          salesOrderId: null, // keeps the original order's 24h window + driver item list untouched
+          salesOrderId: null, // keeps the original order's 7-day window + driver item list untouched
           pickupAddress: original.pickupAddress,
           dropAddress: original.dropAddress,
           deliveryLandmark: original.deliveryLandmark,

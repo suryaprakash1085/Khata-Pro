@@ -10,6 +10,7 @@ import {
   productsTable,
   transactionsTable,
   salesOrdersTable,
+  orderReturnsTable,
 } from "@workspace/db";
 import { eq, and, count, desc } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
@@ -109,6 +110,39 @@ function parseId(raw: unknown): number | null {
   const value = Array.isArray(raw) ? raw[0] : raw;
   const id = parseInt(value as string, 10);
   return Number.isInteger(id) ? id : null;
+}
+
+// ------------------------------------------------------------
+// Replacement deliveries (created by routes/order-returns.ts)
+// They have salesOrderId = null; the link back to the original order
+// lives in order_returns.replacement_delivery_id.
+// ------------------------------------------------------------
+async function getReplacementInfo(deliveryId: number) {
+  const [row] = await db
+    .select({
+      returnId: orderReturnsTable.id,
+      originalOrderId: orderReturnsTable.salesOrderId,
+      qty: orderReturnsTable.qty,
+      productName: productsTable.name,
+    })
+    .from(orderReturnsTable)
+    .innerJoin(productsTable, eq(orderReturnsTable.productId, productsTable.id))
+    .where(eq(orderReturnsTable.replacementDeliveryId, deliveryId));
+  if (!row) return null;
+  return {
+    return_id: Number(row.returnId),
+    original_order_id: Number(row.originalOrderId),
+    qty: parseFloat(row.qty as any),
+    product_name: row.productName,
+  };
+}
+
+// orderRef = the order number customers/drivers should see in messages.
+// For a replacement it's the ORIGINAL order, not the delivery id.
+async function getDeliveryContext(delivery: any) {
+  const replacement = delivery.salesOrderId ? null : await getReplacementInfo(Number(delivery.id));
+  const orderRef = replacement?.original_order_id ?? Number(delivery.salesOrderId ?? delivery.id);
+  return { replacement, orderRef };
 }
 
 async function loadOwnedDelivery(id: number, driverId: number, businessId: number) {
@@ -300,7 +334,7 @@ router.post("/deliveries/:id/assign", requireAuth, async (req, res): Promise<voi
     );
   }
 
-  const orderRef = delivery.salesOrderId ?? delivery.id;
+  const { replacement, orderRef } = await getDeliveryContext(delivery);
 
   // Driver-ku (in-app notification row)
   await db.insert(notificationsTable).values({
@@ -310,7 +344,9 @@ router.post("/deliveries/:id/assign", requireAuth, async (req, res): Promise<voi
     salesOrderId: delivery.salesOrderId ? Number(delivery.salesOrderId) : null,
     type: "assigned",
     title: "New Delivery Assigned",
-    message: `Order #${orderRef} - deliver to ${delivery.dropAddress}`,
+    message: replacement
+      ? `Replacement for Order #${orderRef} (${replacement.product_name} x ${replacement.qty}) - deliver to ${delivery.dropAddress}`
+      : `Order #${orderRef} - deliver to ${delivery.dropAddress}`,
   });
 
   // Customer-ku (DB row + push, rendum notifyCustomer-laye)
@@ -318,10 +354,12 @@ router.post("/deliveries/:id/assign", requireAuth, async (req, res): Promise<voi
     businessId: Number(delivery.businessId),
     customerId: Number(delivery.customerId),
     deliveryId: Number(delivery.id),
-    salesOrderId: delivery.salesOrderId ? Number(delivery.salesOrderId) : null,
+    salesOrderId: replacement ? orderRef : (delivery.salesOrderId ? Number(delivery.salesOrderId) : null),
     type: "assigned",
     title: "Driver Assigned",
-    message: `${driver?.name ?? "A driver"} has been assigned to your order #${orderRef}.`,
+    message: replacement
+      ? `${driver?.name ?? "A driver"} has been assigned to deliver your replacement for order #${orderRef}.`
+      : `${driver?.name ?? "A driver"} has been assigned to your order #${orderRef}.`,
   }).catch(err => console.error("[deliveries] notifyCustomer (assigned) failed:", err));
 
   res.json(formatDelivery(delivery));
@@ -396,6 +434,18 @@ router.get("/deliveries/:id/my-details", requireDriverAuth, async (req, res): Pr
   let items: any[] = [];
   let orderTotals = { subtotal: null as number | null, tax: null as number | null, delivery_fee: null as number | null };
 
+  // Replacement deliveries have no sales order — show the single returned product instead.
+  const replacement = delivery.salesOrderId ? null : await getReplacementInfo(id);
+  if (replacement) {
+    items = [{
+      id: replacement.return_id,
+      product_name: replacement.product_name,
+      qty: replacement.qty,
+      unit_price: 0,
+      total_price: 0,
+    }];
+  }
+
   if (delivery.salesOrderId) {
     const [salesOrder] = await db
       .select({
@@ -437,7 +487,8 @@ router.get("/deliveries/:id/my-details", requireDriverAuth, async (req, res): Pr
   }
 
   res.json({
-    delivery: { ...formatDelivery(delivery), ...orderTotals },
+    delivery: { ...formatDelivery(delivery), ...orderTotals, is_replacement: !!replacement },
+    replacement,
     customer: customer ? {
       id: Number(customer.id),
       name: customer.name,
@@ -669,6 +720,8 @@ router.post("/deliveries/:id/start-delivery", requireDriverAuth, async (req, res
     statusHistoryPayload(id, delivery.status, "in_transit", driverId, "driver")
   );
 
+  const { replacement, orderRef } = await getDeliveryContext(delivery);
+
   // Driver-ku
   await db.insert(notificationsTable).values({
     businessId,
@@ -685,10 +738,12 @@ router.post("/deliveries/:id/start-delivery", requireDriverAuth, async (req, res
     businessId: Number(businessId),
     customerId: Number(delivery.customerId),
     deliveryId: id,
-    salesOrderId: delivery.salesOrderId ? Number(delivery.salesOrderId) : null,
+    salesOrderId: replacement ? orderRef : (delivery.salesOrderId ? Number(delivery.salesOrderId) : null),
     type: "out_for_delivery",
     title: "Your order is on the way",
-    message: `Your driver is on the way with order #${delivery.salesOrderId ?? id}.`,
+    message: replacement
+      ? `Your replacement for order #${orderRef} is on the way.`
+      : `Your driver is on the way with order #${orderRef}.`,
   }).catch(err => console.error("[deliveries] notifyCustomer (out_for_delivery) failed:", err));
 
   res.json(formatDelivery(updated));
@@ -992,6 +1047,8 @@ router.post("/deliveries/:id/complete", requireDriverAuth, async (req, res): Pro
     statusHistoryPayload(id, delivery.status, "delivered", driverId, "driver")
   );
 
+  const { replacement, orderRef } = await getDeliveryContext(delivery);
+
   // Driver-ku — completion notification
   await db.insert(notificationsTable).values({
     businessId,
@@ -1008,13 +1065,16 @@ router.post("/deliveries/:id/complete", requireDriverAuth, async (req, res): Pro
     businessId: Number(businessId),
     customerId: Number(delivery.customerId),
     deliveryId: id,
-    salesOrderId: delivery.salesOrderId ? Number(delivery.salesOrderId) : null,
+    salesOrderId: replacement ? orderRef : (delivery.salesOrderId ? Number(delivery.salesOrderId) : null),
     type: "completed",
     title: "Delivery Completed",
-    message: `Your order #${delivery.salesOrderId ?? id} has been delivered. Thank you!`,
+    message: replacement
+      ? `Your replacement for order #${orderRef} has been delivered. Thank you!`
+      : `Your order #${orderRef} has been delivered. Thank you!`,
   }).catch(err => console.error("[deliveries] notifyCustomer (completed) failed:", err));
 
   // Driver-ku — fee-earned notification, using the ACTUAL stored delivery fee.
+  // NOTE: replacement deliveries have no salesOrderId, so no fee is credited for them.
   if (delivery.salesOrderId) {
     const [salesOrder] = await db
       .select({ deliveryFee: salesOrdersTable.deliveryFee })

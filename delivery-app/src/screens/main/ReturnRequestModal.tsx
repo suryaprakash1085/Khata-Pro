@@ -232,7 +232,7 @@ const ReturnRequestModal: React.FC<Props> = ({ order, isDesktopWeb, onClose, onS
             <View style={styles.hintBox}>
               <Icon name="information-circle-outline" size={15} color={PURPLE_DARK} />
               <Text style={styles.hintText}>
-                Returns must be requested within 24 hours of delivery. A photo and a short video of the product are required.
+                Returns must be requested within 7 days of delivery. A photo and a short video of the product are required.
               </Text>
             </View>
 

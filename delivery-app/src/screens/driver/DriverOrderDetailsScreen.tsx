@@ -137,7 +137,7 @@ const DriverOrderDetailsScreen: React.FC = () => {
   const { data: unreadCountResponse } = useGetDriverUnreadNotificationCount();
   const notificationsCount = unreadCountResponse?.count ?? 0;
 
-    const acceptDelivery = useAcceptDelivery();
+  const acceptDelivery = useAcceptDelivery();
   const rejectDelivery = useRejectDelivery();
   const pickupDelivery = usePickupDelivery();
   const startDeliveryTrip = useStartDeliveryTrip();
@@ -149,7 +149,7 @@ const DriverOrderDetailsScreen: React.FC = () => {
   const updateDriver = useUpdateDriver();
   const callCustomer = useCallDeliveryCustomer();
 
-    const anyMutating =
+  const anyMutating =
     acceptDelivery.isPending ||
     rejectDelivery.isPending ||
     pickupDelivery.isPending ||
@@ -181,7 +181,10 @@ const DriverOrderDetailsScreen: React.FC = () => {
     );
   }
 
-  const { delivery, customer, items } = data as any;
+  const { delivery, customer, items, replacement } = data as any;
+
+  // Replacement deliveries (from an approved return) have no sales order and no payment.
+  const isReplacement = !!delivery.is_replacement;
 
   const onError = (fallbackMessage: string) => (err: any) => {
     const msg = err?.response?.data?.error ?? fallbackMessage;
@@ -268,7 +271,10 @@ const DriverOrderDetailsScreen: React.FC = () => {
         { id: deliveryId },
         {
           onSuccess: () => {
-            showAlert('Delivery Completed 🎉', `Order #${delivery.id} delivered successfully.`);
+            showAlert(
+              'Delivery Completed 🎉',
+              `${isReplacement ? 'Replacement' : 'Order'} #${delivery.id} delivered successfully.`,
+            );
             navigation.navigate('DriverOrders');
           },
           onError: onError('Could not complete delivery.'),
@@ -277,7 +283,7 @@ const DriverOrderDetailsScreen: React.FC = () => {
     });
   };
 
-   const handleCall = () => {
+  const handleCall = () => {
     if (!customer) {
       showAlert('No phone number', 'This customer has no phone number on file.');
       return;
@@ -324,7 +330,7 @@ const DriverOrderDetailsScreen: React.FC = () => {
   const orderHeaderCard = (
     <View style={styles.card}>
       <View style={styles.orderHeaderTopRow}>
-        <Text style={styles.orderHeaderTitle}>Order #{delivery.id}</Text>
+        <Text style={styles.orderHeaderTitle}>{isReplacement ? 'Replacement' : 'Order'} #{delivery.id}</Text>
         <View style={[styles.statusPill, isDelivered && styles.statusPillSuccess, isCancelled && styles.statusPillDanger]}>
           <Text style={[styles.statusPillText, isDelivered && { color: COLORS.secondary }, isCancelled && { color: COLORS.danger }]}>
             {(STATUS_LABELS[delivery.status] ?? delivery.status).toUpperCase()}
@@ -338,6 +344,12 @@ const DriverOrderDetailsScreen: React.FC = () => {
           <>
             <Text style={styles.orderHeaderMetaDivider}>|</Text>
             <Text style={styles.orderHeaderMetaText}>Order ID: {delivery.order_number ?? `SO-${delivery.sales_order_id}`}</Text>
+          </>
+        )}
+        {isReplacement && (
+          <>
+            <Text style={styles.orderHeaderMetaDivider}>|</Text>
+            <Text style={styles.orderHeaderMetaText}>For Order #{replacement?.original_order_id}</Text>
           </>
         )}
       </View>
@@ -369,7 +381,7 @@ const DriverOrderDetailsScreen: React.FC = () => {
         </View>
         <View style={[styles.infoGridItem, { flexBasis: '100%' }]}>
           <Text style={styles.infoLabel}>Delivery Type</Text>
-          <Text style={styles.infoValue}>{delivery.delivery_type ?? 'Standard'}</Text>
+          <Text style={styles.infoValue}>{isReplacement ? 'Replacement' : (delivery.delivery_type ?? 'Standard')}</Text>
         </View>
       </View>
     </View>
@@ -430,17 +442,17 @@ const DriverOrderDetailsScreen: React.FC = () => {
     </View>
   );
 
-    const orderItemsCard = (
+  const orderItemsCard = (
     <View style={styles.card}>
       <View style={styles.sectionHeaderRow}>
         <Ionicons name="cube-outline" size={15} color={COLORS.primary} />
-        <Text style={styles.sectionTitle}>Order Items</Text>
+        <Text style={styles.sectionTitle}>{isReplacement ? 'Replacement Item' : 'Order Items'}</Text>
       </View>
 
       <View style={isWideWeb ? styles.itemsRow : styles.itemsColumn}>
         {/* Items list */}
         <View style={isWideWeb ? { flex: 1.3 } : styles.itemsListFull}>
-          {isWideWeb && (
+          {isWideWeb && !isReplacement && (
             <View style={styles.itemsTableHeader}>
               <Text style={[styles.itemsTableHeaderText, { flex: 2 }]}>Item</Text>
               <Text style={[styles.itemsTableHeaderText, { flex: 0.8, textAlign: 'center' }]}>Qty</Text>
@@ -451,6 +463,16 @@ const DriverOrderDetailsScreen: React.FC = () => {
 
           {items.length === 0 ? (
             <Text style={styles.emptyText}>No item details available.</Text>
+          ) : isReplacement ? (
+            // Replacement: just product + qty, no prices
+            items.map((it: any) => (
+              <View key={it.id} style={styles.itemCardMobile}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.itemMobileName}>{it.product_name}</Text>
+                  <Text style={styles.itemMobileMeta}>Qty {it.qty}</Text>
+                </View>
+              </View>
+            ))
           ) : (
             items.map((it: any) =>
               isWideWeb ? (
@@ -473,28 +495,37 @@ const DriverOrderDetailsScreen: React.FC = () => {
               )
             )
           )}
+
+          {isReplacement && (
+            <View style={[styles.paidPill, { marginTop: 12, marginBottom: 0 }]}>
+              <Ionicons name="swap-horizontal-outline" size={14} color={COLORS.secondary} />
+              <Text style={styles.paidPillText}>Free replacement · no payment</Text>
+            </View>
+          )}
         </View>
 
-        {/* Payment summary */}
-        <View style={[styles.itemsSummaryBox, !isWideWeb && styles.itemsSummaryBoxFull]}>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Subtotal</Text>
-            <Text style={styles.summaryValue}>₹{delivery.subtotal ?? delivery.amount ?? 0}</Text>
+        {/* Payment summary (not applicable to replacements) */}
+        {!isReplacement && (
+          <View style={[styles.itemsSummaryBox, !isWideWeb && styles.itemsSummaryBoxFull]}>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Subtotal</Text>
+              <Text style={styles.summaryValue}>₹{delivery.subtotal ?? delivery.amount ?? 0}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Tax</Text>
+              <Text style={styles.summaryValue}>₹{delivery.tax ?? '0.00'}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Delivery Fee</Text>
+              <Text style={styles.summaryValue}>₹{delivery.delivery_fee ?? '0.00'}</Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.summaryRow}>
+              <Text style={styles.totalLabel}>Total Amount</Text>
+              <Text style={styles.totalValue}>₹{delivery.amount ?? 0}</Text>
+            </View>
           </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Tax</Text>
-            <Text style={styles.summaryValue}>₹{delivery.tax ?? '0.00'}</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Delivery Fee</Text>
-            <Text style={styles.summaryValue}>₹{delivery.delivery_fee ?? '0.00'}</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.summaryRow}>
-            <Text style={styles.totalLabel}>Total Amount</Text>
-            <Text style={styles.totalValue}>₹{delivery.amount ?? 0}</Text>
-          </View>
-        </View>
+        )}
       </View>
     </View>
   );
@@ -506,11 +537,19 @@ const DriverOrderDetailsScreen: React.FC = () => {
           <Ionicons name="cash-outline" size={15} color={COLORS.primary} />
           <Text style={styles.sectionTitle}>Payment Information</Text>
         </View>
-        <View style={[styles.paymentBadge, isCod ? styles.paymentBadgeCod : styles.paymentBadgePaid]}>
-          <Ionicons name={isCod ? 'cash-outline' : 'card-outline'} size={16} color={isCod ? COLORS.amber : COLORS.secondary} />
+        <View style={[styles.paymentBadge, isCod && !isReplacement ? styles.paymentBadgeCod : styles.paymentBadgePaid]}>
+          <Ionicons
+            name={isReplacement ? 'swap-horizontal-outline' : isCod ? 'cash-outline' : 'card-outline'}
+            size={16}
+            color={isCod && !isReplacement ? COLORS.amber : COLORS.secondary}
+          />
           <View>
-            <Text style={styles.paymentBadgeTitle}>{isCod ? 'Cash on Delivery' : (delivery.payment_method ?? '—').toUpperCase()}</Text>
-            <Text style={styles.paymentBadgeSub}>{isCod ? 'Payment to be collected from customer' : 'Paid online'}</Text>
+            <Text style={styles.paymentBadgeTitle}>
+              {isReplacement ? 'FREE REPLACEMENT' : isCod ? 'Cash on Delivery' : (delivery.payment_method ?? '—').toUpperCase()}
+            </Text>
+            <Text style={styles.paymentBadgeSub}>
+              {isReplacement ? 'No payment to collect' : isCod ? 'Payment to be collected from customer' : 'Paid online'}
+            </Text>
           </View>
         </View>
       </View>
@@ -520,7 +559,11 @@ const DriverOrderDetailsScreen: React.FC = () => {
           <Ionicons name="document-text-outline" size={15} color={COLORS.primary} />
           <Text style={styles.sectionTitle}>Order Notes</Text>
         </View>
-        <Text style={styles.notesText}>{delivery.delivery_instructions || delivery.notes || 'No notes for this order.'}</Text>
+        <Text style={styles.notesText}>
+          {[isReplacement ? delivery.notes : null, delivery.delivery_instructions].filter(Boolean).join('\n') ||
+            delivery.notes ||
+            'No notes for this order.'}
+        </Text>
       </View>
     </View>
   );
@@ -548,7 +591,7 @@ const DriverOrderDetailsScreen: React.FC = () => {
             <Text style={styles.dangerOutlineBtnText}>Reject</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.bigPrimaryBtn, { flex: 1 }, webNoOutlineStyle]} onPress={handleAccept} disabled={anyMutating}>
-            {acceptDelivery.isPending ? <ActivityIndicator color="#fff" size="small" /> : <><Ionicons name="checkmark-circle-outline" size={17} color="#fff" /><Text style={styles.bigPrimaryBtnText}>Accept Order</Text></>}
+            {acceptDelivery.isPending ? <ActivityIndicator color="#fff" size="small" /> : <><Ionicons name="checkmark-circle-outline" size={17} color="#fff" /><Text style={styles.bigPrimaryBtnText}>{isReplacement ? 'Accept Replacement' : 'Accept Order'}</Text></>}
           </TouchableOpacity>
         </View>
       )}
@@ -742,7 +785,7 @@ const DriverOrderDetailsScreen: React.FC = () => {
           <Ionicons name="arrow-back" size={22} color={COLORS.ink} />
         </TouchableOpacity>
         <View style={{ flex: 1, marginLeft: 10 }}>
-          <Text style={styles.mobileHeaderTitle}>Order #{delivery.id}</Text>
+          <Text style={styles.mobileHeaderTitle}>{isReplacement ? 'Replacement' : 'Order'} #{delivery.id}</Text>
           <Text style={styles.mobileHeaderSubtitle}>{STATUS_LABELS[delivery.status] ?? delivery.status}</Text>
         </View>
         <View style={[styles.statusPill, isDelivered && styles.statusPillSuccess, isCancelled && styles.statusPillDanger]}>
@@ -797,7 +840,7 @@ const styles = StyleSheet.create({
   // ── Order header card ─────────────────────────────────────────────
   orderHeaderTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   orderHeaderTitle: { fontFamily: FONT_FAMILY, fontSize: 19, fontWeight: '700', color: COLORS.ink },
-  orderHeaderMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
+  orderHeaderMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, flexWrap: 'wrap' },
   orderHeaderMetaText: { fontFamily: FONT_FAMILY, fontSize: 12, color: COLORS.slate },
   orderHeaderMetaDivider: { fontSize: 12, color: COLORS.border, marginHorizontal: 4 },
 
@@ -858,7 +901,7 @@ const styles = StyleSheet.create({
   totalLabel: { fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '700', color: COLORS.ink },
   totalValue: { fontFamily: FONT_FAMILY, fontSize: 16, fontWeight: '700', color: COLORS.primary },
 
-   // Mobile stacked item card
+  // Mobile stacked item card
   itemCardMobile: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border,

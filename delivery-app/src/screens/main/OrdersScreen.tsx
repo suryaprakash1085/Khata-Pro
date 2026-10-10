@@ -53,7 +53,7 @@ const DESKTOP_MAX_WIDTH = 1160;
 
 // ── Cancel / Return rules ────────────────────────────────────────
 const CANCEL_WINDOW_MS = 24 * 60 * 60 * 1000; // 1 day after placing
-const RETURN_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours after delivery (must match server RETURN_WINDOW_HOURS)
+const RETURN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // 24 hours after delivery (must match server RETURN_WINDOW_HOURS)
 
 const RETURN_STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   REQUESTED: { label: 'Return Requested', color: WARNING, bg: WARNING_BG },
