@@ -13,7 +13,7 @@ import App from './App';
 import './index.css';
 
 
-setBaseUrl(import.meta.env.VITE_API_URL || 'http://localhost:3000');
+setBaseUrl(import.meta.env.VITE_API_URL || 'https://khata-pro-ipct.onrender.com');
 
 // backend deloyment code 
 // setBaseUrl('https://khata-pro.onrender.com');
