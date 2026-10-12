@@ -1,7 +1,7 @@
 const IS_DRIVER = process.env.APP_VARIANT === 'driver';
 
 const CUSTOMER_PROJECT_ID = '1f926f44-064c-4b7a-b9f7-6666ab727879';
-const DRIVER_PROJECT_ID = 'PASTE_AFTER_EAS_INIT';
+const DRIVER_PROJECT_ID = "0d208f21-e4f6-41ba-aa85-ea3ec2dddf2b";
 
 const MAPS_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
@@ -12,11 +12,13 @@ export default {
     version: '1.0.0',
     owner: 'yogamurugan',
     extra: {
-      appMode: IS_DRIVER ? 'driver' : 'customer',
-      eas: {
-        projectId: IS_DRIVER ? DRIVER_PROJECT_ID : CUSTOMER_PROJECT_ID,
-      },
-    },
+  appMode: IS_DRIVER ? 'driver' : 'customer',
+  eas: {
+    ...(IS_DRIVER
+      ? DRIVER_PROJECT_ID ? { projectId: DRIVER_PROJECT_ID } : {}
+      : { projectId: CUSTOMER_PROJECT_ID }),
+  },
+},
     android: {
       package: IS_DRIVER
         ? 'com.subasri0102.deliverypartner'

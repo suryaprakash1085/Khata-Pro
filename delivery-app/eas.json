@@ -3,7 +3,7 @@
     "version": ">= 21.7.0",
     "appVersionSource": "remote"
   },
-"build": {
+  "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
@@ -12,7 +12,7 @@
         "EXPO_PUBLIC_API_BASE_URL": "https://khata-pro-ipct.onrender.com"
       }
     },
-     "preview": {
+    "preview": {
       "distribution": "internal",
       "node": "22.13.0",
       "env": {
@@ -20,10 +20,49 @@
         "EXPO_PUBLIC_API_BASE_URL": "https://khata-pro-ipct.onrender.com"
       }
     },
-     "production": {
+    "production": {
       "autoIncrement": true,
       "node": "22.13.0",
       "env": {
+        "EAS_BUILD_PACKAGE_MANAGER": "pnpm",
+        "EXPO_PUBLIC_API_BASE_URL": "https://khata-pro-ipct.onrender.com"
+      }
+    },
+
+    "customer-preview": {
+      "distribution": "internal",
+      "node": "22.13.0",
+      "android": { "buildType": "apk" },
+      "env": {
+        "APP_VARIANT": "customer",
+        "EAS_BUILD_PACKAGE_MANAGER": "pnpm",
+        "EXPO_PUBLIC_API_BASE_URL": "https://khata-pro-ipct.onrender.com"
+      }
+    },
+    "driver-preview": {
+      "distribution": "internal",
+      "node": "22.13.0",
+      "android": { "buildType": "apk" },
+      "env": {
+        "APP_VARIANT": "driver",
+        "EAS_BUILD_PACKAGE_MANAGER": "pnpm",
+        "EXPO_PUBLIC_API_BASE_URL": "https://khata-pro-ipct.onrender.com"
+      }
+    },
+    "customer-prod": {
+      "autoIncrement": true,
+      "node": "22.13.0",
+      "env": {
+        "APP_VARIANT": "customer",
+        "EAS_BUILD_PACKAGE_MANAGER": "pnpm",
+        "EXPO_PUBLIC_API_BASE_URL": "https://khata-pro-ipct.onrender.com"
+      }
+    },
+    "driver-prod": {
+      "autoIncrement": true,
+      "node": "22.13.0",
+      "env": {
+        "APP_VARIANT": "driver",
         "EAS_BUILD_PACKAGE_MANAGER": "pnpm",
         "EXPO_PUBLIC_API_BASE_URL": "https://khata-pro-ipct.onrender.com"
       }
