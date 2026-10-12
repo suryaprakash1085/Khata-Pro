@@ -21,7 +21,8 @@ const scooterLogo = require('../../assets/images/scooter-logo.png');
 
 import { AuthContext } from '../context/AuthContext';
 import { DriverAuthContext } from '../context/DriverAuthContext';
-import AuthNavigator from './AuthNavigator';
+import { CustomerAuthNavigator, DriverAuthNavigator } from './AuthNavigator';
+import { APP_MODE } from '../config/appMode';
 import DriverMainNavigator from './DriverMainNavigator';
 
 // Main (customer) screens
@@ -75,31 +76,30 @@ const DESKTOP_BREAKPOINT = 768;
 const linking: LinkingOptions<any> = {
   prefixes: [],
   config: {
-    screens: {
-      Login: '',
-      Signup: 'signup',
-      ForgotPassword: 'forgot-password',
-      StaffLogin: 'staff-login',
-      StaffOtp: 'staff-otp',
-      DriverHome: 'driver-home',
-      Tabs: {
-        screens: {
-          Home: 'home',
-          Search: 'search',
-          Cart: 'cart',
-          Orders: 'orders',
-          Profile: 'profile',
-        },
-      },
-      RestaurantDetail: 'restaurant/:restaurantId',
-      FoodDetail: 'food/:itemId',
-      MenuScreen: 'menu',
-      Checkout: 'checkout',
-      OrderTracking: 'order-tracking/:orderId',
-      OrderHistory: 'order-history',
-      Address: 'address',
-      Payment: 'payment',
-    },
+    screens:
+      APP_MODE === 'driver'
+        ? {
+            StaffLogin: '',
+            StaffOtp: 'staff-otp',
+            DriverHome: 'driver-home',
+          }
+        : {
+            Login: '',
+            Signup: 'signup',
+            ForgotPassword: 'forgot-password',
+            Tabs: {
+              screens: {
+                Home: 'home',
+                Cart: 'cart',
+                Orders: 'orders',
+                Profile: 'profile',
+              },
+            },
+            RestaurantDetail: 'restaurant/:restaurantId',
+            OrderTracking: 'order-tracking/:orderId',
+            Address: 'address',
+            Payment: 'payment',
+          },
   },
 };
 
@@ -476,19 +476,20 @@ export default function AppNavigator() {
   const { user, loading } = useContext(AuthContext);
   const { isDriverAuthenticated, loading: driverLoading } = useContext(DriverAuthContext);
 
-  // Wait for both auth checks before deciding what to show — otherwise a
-  // logged-in driver or customer can briefly flash the login screen on reload.
-  if (loading || driverLoading) return null;
+  if (APP_MODE === 'driver') {
+    if (driverLoading) return null;
+    return (
+      <NavigationContainer linking={linking}>
+        {isDriverAuthenticated ? <DriverMainNavigator /> : <DriverAuthNavigator />}
+      </NavigationContainer>
+    );
+  }
 
+  // Customer app
+  if (loading) return null;
   return (
     <NavigationContainer linking={linking}>
-      {isDriverAuthenticated ? (
-        <DriverMainNavigator />
-      ) : user ? (
-        <MainStack />
-      ) : (
-        <AuthNavigator />
-      )}
+      {user ? <MainStack /> : <CustomerAuthNavigator />}
     </NavigationContainer>
   );
 }
