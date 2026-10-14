@@ -720,6 +720,7 @@ router.put(
     }
 
     const updates: any = {};
+    const today = new Date().toISOString().split("T")[0];
     if (parsed.data.status) updates.status = parsed.data.status;
 
     const requestedPlan = (parsed.data as any).plan;
@@ -754,6 +755,10 @@ router.put(
     } else if (parsed.data.end_date) {
       // Manual end-date override (e.g. reactivation with a custom date)
       updates.endDate = parsed.data.end_date;
+    }else if (parsed.data.status === "active" && existing.endDate <= today) {
+      // Reactivate pannumbodhu end date past la irundha, today irundhu pudhu period
+      updates.startDate = today;
+      updates.endDate = calculateSubscriptionEndDate(today, existing.billingCycle as any);
     }
 
     const [sub] = await db
@@ -768,6 +773,14 @@ router.put(
       });
       return;
     }
+
+    const shouldBeActive =
+      (sub.status === "active" || sub.status === "trial") && sub.endDate >= today;
+
+    await db
+      .update(businessesTable)
+      .set({ isActive: shouldBeActive })
+      .where(eq(businessesTable.id, Number(sub.businessId)));
 
     const [biz] = await db
       .select({

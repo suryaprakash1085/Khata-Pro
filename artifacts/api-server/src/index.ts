@@ -3,6 +3,9 @@ import "dotenv/config";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startSubscriptionReminderJob } from "./jobs/subscriptionReminders.job";
+import cron from "node-cron";
+import { expireOverdueSubscriptions } from "./services/subscriptionExpiry.service";
+
 const rawPort = process.env["PORT"];
 
 if (!rawPort) {
@@ -25,6 +28,14 @@ const server = app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
   startSubscriptionReminderJob();
+
+   const runExpiry = () =>
+    expireOverdueSubscriptions()
+      .then((n) => { if (n) logger.info({ expired: n }, "Expired overdue subscriptions"); })
+      .catch((e) => logger.error({ err: e }, "Expiry job failed"));
+
+  runExpiry(); // startup la oru thadava (Render sleep safety)
+  cron.schedule("5 0 * * *", runExpiry, { timezone: "Asia/Kolkata" });
 });
 
 // Graceful shutdown - old process port-a properly release pannum

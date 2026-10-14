@@ -86,7 +86,7 @@ async function activateSubscription(businessId: number, plan: any, billingCycle:
   const [sub] = existing
     ? await db.update(subscriptionsTable).set(values).where(eq(subscriptionsTable.id, existing.id)).returning()
     : await db.insert(subscriptionsTable).values({ businessId, ...values }).returning();
-
+    await db.update(businessesTable).set({ isActive: true }).where(eq(businessesTable.id, businessId));
   return sub;
 }
 
