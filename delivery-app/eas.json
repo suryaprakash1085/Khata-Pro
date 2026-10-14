@@ -30,6 +30,7 @@
     },
 
     "customer-preview": {
+      "environment": "preview",
       "distribution": "internal",
       "node": "22.13.0",
       "android": { "buildType": "apk" },
@@ -40,6 +41,7 @@
       }
     },
     "driver-preview": {
+      "environment": "preview",
       "distribution": "internal",
       "node": "22.13.0",
       "android": { "buildType": "apk" },

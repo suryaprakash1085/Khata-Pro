@@ -32,11 +32,17 @@ export default {
       bundleIdentifier: IS_DRIVER
         ? 'com.subasri0102.deliverypartner'
         : 'com.subasri0102.deliveryapp',
-      config: { googleMapsApiKey: "AIzaSyD3u4E5kVRbD6UR_VXUfjMWVPRtYxKkgT4" },
+      config: { googleMapsApiKey: MAPS_KEY  },
     },
-    plugins: [
-      'expo-notifications',
-      ...(IS_DRIVER ? ['expo-location'] : []),
-    ],
+   plugins: [
+  'expo-notifications',
+  ...(IS_DRIVER
+    ? [['expo-location', {
+        isAndroidBackgroundLocationEnabled: true,
+        locationAlwaysAndWhenInUsePermission:
+          'Delivery track panna location venum.',
+      }]]
+    : []),
+],
   },
 };
