@@ -393,6 +393,8 @@ function RootLayoutNav() {
   <Stack.Screen name="delivery-settings" options={{ headerShown: false }} />
   <Stack.Screen name="add-expense" options={{ headerShown: false }} />
   <Stack.Screen name="add-promotion" options={{ headerShown: false }} />
+  <Stack.Screen name="restock" options={{ headerShown: false }} />
+<Stack.Screen name="create-purchase-order" options={{ headerShown: false }} />
 
   <Stack.Screen
     name="add-customer"
