@@ -348,21 +348,21 @@ export default function BillingScreen() {
   };
 
   const fetchNextInvoicePreview = useCallback(async () => {
-  if (!business?.id) return;
-  try {
-    const res = await customFetch<{ next_invoice_no: string }>(
-      `/api/transactions/next-invoice-number?business_id=${business.id}`,
-      { responseType: 'json' } as any,
-    );
-    setNextInvoicePreview(res.next_invoice_no);
-  } catch (e) {
-    console.error('Failed to fetch next invoice preview:', e);
-  }
-}, [business?.id]);
+    if (!business?.id) return;
+    try {
+      const res = await customFetch<{ next_invoice_no: string }>(
+        `/api/transactions/next-invoice-number?business_id=${business.id}`,
+        { responseType: 'json' } as any,
+      );
+      setNextInvoicePreview(res.next_invoice_no);
+    } catch (e) {
+      console.error('Failed to fetch next invoice preview:', e);
+    }
+  }, [business?.id]);
 
-useEffect(() => {
-  fetchNextInvoicePreview();
-}, [fetchNextInvoicePreview]);
+  useEffect(() => {
+    fetchNextInvoicePreview();
+  }, [fetchNextInvoicePreview]);
 
   const handleDiscardAutosave = () => {
     setResumeBill(null);
@@ -462,14 +462,23 @@ useEffect(() => {
           setPreviouslyPaidAmount(0);
         }
 
-        // Bill-level discount isn't stored historically — derive it the same
-        // honest way the receipt views do: (line total + tax) - recorded total.
-        const itemsSubtotal = newCart.reduce((sum, c) => sum + (c.product.selling_price ?? 0) * c.qty, 0);
+        // Bill-level discount isn't stored historically. Derive it so the
+        // reloaded cart (items + GST recomputed from each product's gst_rate,
+        // exactly like `totals` does) reproduces the ORIGINAL recorded total.
+        // An untouched edit must therefore show "Nothing more to collect".
+        // NOTE: we deliberately use itemsGst here, NOT tx.tax — the stored
+        // tax was calculated after the original discount, so using it would
+        // make the reloaded total drift by the GST difference.
+        const itemsSubtotal = newCart.reduce(
+          (sum, c) => sum + (c.product.selling_price ?? 0) * c.qty,
+          0,
+        );
         const itemsGst = newCart.reduce(
-  (sum, c) => sum + ((c.product.selling_price ?? 0) * c.qty * (c.product.gst_rate ?? 0)) / 100,
-  0,
-);
-        const derived = Math.max(itemsSubtotal + (tx.tax ?? 0) - (tx.amount ?? 0), 0);
+          (sum, c) =>
+            sum + ((c.product.selling_price ?? 0) * c.qty * (c.product.gst_rate ?? 0)) / 100,
+          0,
+        );
+        const derived = Math.max(itemsSubtotal + itemsGst - (tx.amount ?? 0), 0);
         setDiscountValue(derived > 0.01 ? derived.toFixed(2) : '0');
 
         setPaymentMethod(mapApiPaymentModeToUi(tx.payment_mode));
@@ -578,34 +587,23 @@ useEffect(() => {
   // Conflict rule: a product-specific BOGO promotion always wins over the
   // general "All Products 10% OFF" promotion (spec §11) — checking BOGO
   // first and returning immediately on a match implements this priority.
-  // const getPromotionForProduct = (productId: number): { promo: any; type: 'bogo' | 'percentage' } | null => {
-  //   const bogo = activePromotions.find(
-  //     (p) => p.promotion_type === 'bogo' && (p.apply_to === 'all' || (p.product_ids ?? []).includes(productId))
-  //   );
-  //   if (bogo) return { promo: bogo, type: 'bogo' };
-  //   const pct = activePromotions.find(
-  //     (p) => p.promotion_type === 'percentage' && (p.apply_to === 'all' || (p.product_ids ?? []).includes(productId))
-  //   );
-  //   if (pct) return { promo: pct, type: 'percentage' };
-  //   return null;
-  // };
-
   const getPromotionForProduct = (productId: number, productCategory?: string): { promo: any; type: 'bogo' | 'percentage' } | null => {
-  const bogo = activePromotions.find(
-    (p) => p.promotion_type === 'bogo' && (p.apply_to === 'all' || (p.product_ids ?? []).includes(productId))
-  );
-  if (bogo) return { promo: bogo, type: 'bogo' };
+    const bogo = activePromotions.find(
+      (p) => p.promotion_type === 'bogo' && (p.apply_to === 'all' || (p.product_ids ?? []).includes(productId))
+    );
+    if (bogo) return { promo: bogo, type: 'bogo' };
 
-  const pct = activePromotions.find((p) => {
-    if (p.promotion_type !== 'percentage') return false;
-    if (p.apply_to === 'all') return true;
-    if (p.apply_to === 'category') return !!productCategory && p.category === productCategory;
-    return (p.product_ids ?? []).includes(productId); // covers a 'selected' percentage apply_to, if you ever add it
-  });
-  if (pct) return { promo: pct, type: 'percentage' };
+    const pct = activePromotions.find((p) => {
+      if (p.promotion_type !== 'percentage') return false;
+      if (p.apply_to === 'all') return true;
+      if (p.apply_to === 'category') return !!productCategory && p.category === productCategory;
+      return (p.product_ids ?? []).includes(productId); // covers a 'selected' percentage apply_to, if you ever add it
+    });
+    if (pct) return { promo: pct, type: 'percentage' };
 
-  return null;
-};
+    return null;
+  };
+
   // -------------------------------------------------------------------------
   // Cart operations
   // -------------------------------------------------------------------------
@@ -903,7 +901,7 @@ useEffect(() => {
       queryClient.invalidateQueries({ queryKey: ['/api/customers'], exact: false });
       queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === 'string' && (q.queryKey[0] as string).includes('/stats') });
 
-            setIsSubmitting(false);
+      setIsSubmitting(false);
       setPrintData({
         invoiceNumber: currentInvoice,
         date: new Date(),
@@ -952,10 +950,6 @@ useEffect(() => {
       setResultModal({ type: 'error', title: 'No customer on this bill', message: 'This bill has no customer attached — please reload it from Edit.' });
       return;
     }
-
-    const customerChanged =
-    originalCustomerIdRef.current !== null &&
-    originalCustomerIdRef.current !== (selectedCustomer as Customer).id;
 
     // Only block on amount-received when there's actually still something
     // owed — if the edit didn't increase the total (or previous payments
@@ -1260,7 +1254,7 @@ useEffect(() => {
     setPrintVisible(true);
   };
 
-    const triggerBrowserPrint = () => {
+  const triggerBrowserPrint = () => {
     if (!printData) return;
     const effectiveGstRate = printData.totals.subtotal > 0 ? (printData.totals.gst / printData.totals.subtotal) * 100 : 0;
     const isCredit = printData.paymentMethod === 'credit';
@@ -1330,6 +1324,7 @@ useEffect(() => {
       Share.share({ message: generateReceiptText(printData), title: printData.invoiceNumber });
     }
   };
+
   // -------------------------------------------------------------------------
   // Left panel — search, categories, quick products
   // -------------------------------------------------------------------------
@@ -1463,234 +1458,234 @@ useEffect(() => {
           <Text style={[styles.billMeta, { color: colors.mutedForeground }]}>Phone: {selectedCustomer?.phone || '—'}</Text>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
-        <Text style={[styles.billMeta, { color: colors.foreground }]}>
-  Bill no: {invoiceNumber || nextInvoicePreview || 'Auto (on payment)'}
-</Text>
+          <Text style={[styles.billMeta, { color: colors.foreground }]}>
+            Bill no: {invoiceNumber || nextInvoicePreview || 'Auto (on payment)'}
+          </Text>
           <Text style={[styles.billMeta, { color: colors.mutedForeground }]}>Salesman: {salesPerson || 'Admin'}</Text>
         </View>
       </View>
 
       <ScrollView style={isWide ? { flex: 1, marginTop: 4 } : undefined} nestedScrollEnabled showsVerticalScrollIndicator={false}>
-      {/* Item table */}
-      {cart.length === 0 ? (
-        <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-          <Feather name="shopping-cart" size={28} color={colors.mutedForeground} />
-          <Text style={[styles.emptyText, { color: colors.mutedForeground, marginTop: 8 }]}>No items added yet</Text>
-        </View>
-      ) : (
-        <View style={{ marginTop: 10 }}>
-          {isWide && (
-            <View style={[styles.tableHeaderRow, { backgroundColor: colors.primary + '10', borderColor: colors.border }]}>
-              <Text style={[styles.th, { flex: 2.4, color: colors.primary }]}>Item name</Text>
-              <Text style={[styles.th, { flex: 1, textAlign: 'center', color: colors.primary }]}>Qty</Text>
-              <Text style={[styles.th, { flex: 1, textAlign: 'right', color: colors.primary }]}>Price</Text>
-              <Text style={[styles.th, { flex: 0.8, textAlign: 'right', color: colors.primary }]}>Disc</Text>
-              <Text style={[styles.th, { flex: 0.8, textAlign: 'right', color: colors.primary }]}>Tax</Text>
-              <Text style={[styles.th, { flex: 1, textAlign: 'right', color: colors.primary }]}>Total</Text>
-              <View style={{ width: 24 }} />
-            </View>
-          )}
+        {/* Item table */}
+        {cart.length === 0 ? (
+          <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+            <Feather name="shopping-cart" size={28} color={colors.mutedForeground} />
+            <Text style={[styles.emptyText, { color: colors.mutedForeground, marginTop: 8 }]}>No items added yet</Text>
+          </View>
+        ) : (
+          <View style={{ marginTop: 10 }}>
+            {isWide && (
+              <View style={[styles.tableHeaderRow, { backgroundColor: colors.primary + '10', borderColor: colors.border }]}>
+                <Text style={[styles.th, { flex: 2.4, color: colors.primary }]}>Item name</Text>
+                <Text style={[styles.th, { flex: 1, textAlign: 'center', color: colors.primary }]}>Qty</Text>
+                <Text style={[styles.th, { flex: 1, textAlign: 'right', color: colors.primary }]}>Price</Text>
+                <Text style={[styles.th, { flex: 0.8, textAlign: 'right', color: colors.primary }]}>Disc</Text>
+                <Text style={[styles.th, { flex: 0.8, textAlign: 'right', color: colors.primary }]}>Tax</Text>
+                <Text style={[styles.th, { flex: 1, textAlign: 'right', color: colors.primary }]}>Total</Text>
+                <View style={{ width: 24 }} />
+              </View>
+            )}
 
-          <FlatList
-            data={cart}
-            keyExtractor={(c) => String(c.product.id)}
-            scrollEnabled={false}
-            renderItem={({ item }) => {
-              const price = item.product.selling_price ?? 0;
-              const lineTotal = price * item.qty;
-              const afterDiscount = lineTotal - (lineTotal * item.discountPercent) / 100;
-              const gstAmount = (afterDiscount * (item.product.gst_rate ?? 0)) / 100;
-              const finalTotal = afterDiscount + gstAmount;
+            <FlatList
+              data={cart}
+              keyExtractor={(c) => String(c.product.id)}
+              scrollEnabled={false}
+              renderItem={({ item }) => {
+                const price = item.product.selling_price ?? 0;
+                const lineTotal = price * item.qty;
+                const afterDiscount = lineTotal - (lineTotal * item.discountPercent) / 100;
+                const gstAmount = (afterDiscount * (item.product.gst_rate ?? 0)) / 100;
+                const finalTotal = afterDiscount + gstAmount;
 
-              if (isWide) {
+                if (isWide) {
+                  return (
+                    <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
+                      <View style={{ flex: 2.4 }}>
+                        <Text style={[styles.tdName, { color: colors.foreground }]} numberOfLines={1}>
+                          {item.product.name}
+                        </Text>
+                        <Text style={[styles.tdSub, { color: colors.mutedForeground }]}>{unitLabel(item.product.unit)}</Text>
+                        {item.isBogo ? (
+                          <Text style={{ fontFamily: F, fontSize: 10, color: '#7C3AED', fontWeight: '700', marginTop: 2 }}>
+                            🎁 Buy 1 Get 1 Free · Free Qty: {item.freeQty}
+                          </Text>
+                        ) : item.discountPercent > 0 ? (
+                          <Text style={{ fontFamily: F, fontSize: 10, color: '#16A34A', fontWeight: '700', marginTop: 2 }}>
+                            {item.discountPercent}% OFF · -₹{(((item.product.selling_price ?? 0) * item.qty * item.discountPercent) / 100).toFixed(2)}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                        <Pressable onPress={() => changeQty(item.product.id, item.qty - 1)}>
+                          <Feather name="minus-circle" size={16} color={colors.mutedForeground} />
+                        </Pressable>
+                        <TextInput
+                          value={String(item.qty)}
+                          onChangeText={(t) => {
+                            const n = parseInt(t.replace(/[^0-9]/g, ''), 10);
+                            if (!isNaN(n)) changeQty(item.product.id, n);
+                          }}
+                          keyboardType="number-pad"
+                          style={[styles.qtyInput, { color: colors.foreground }]}
+                        />
+                        <Pressable onPress={() => changeQty(item.product.id, item.qty + 1)}>
+                          <Feather name="plus-circle" size={16} color={colors.mutedForeground} />
+                        </Pressable>
+                        <Text style={[styles.tdSub, { color: colors.mutedForeground, marginLeft: 2 }]}>{unitLabel(item.product.unit)}</Text>
+                      </View>
+                      <Text style={[styles.td, { flex: 1, textAlign: 'right', color: colors.foreground }]}>{price.toFixed(2)}</Text>
+                      <Text style={[styles.td, { flex: 0.8, textAlign: 'right', color: '#DC2626' }]}>{item.discountPercent}%</Text>
+                      <Text style={[styles.td, { flex: 0.8, textAlign: 'right', color: '#16A34A' }]}>{item.product.gst_rate ?? 0}%</Text>
+                      <Text style={[styles.tdTotal, { flex: 1, textAlign: 'right', color: colors.foreground }]}>{finalTotal.toFixed(2)}</Text>
+                      <Pressable onPress={() => removeItem(item.product.id)} style={{ width: 24, alignItems: 'flex-end' }}>
+                        <Feather name="trash-2" size={15} color="#DC2626" />
+                      </Pressable>
+                    </View>
+                  );
+                }
+
                 return (
-                  <View style={[styles.tableRow, { borderBottomColor: colors.border }]}>
-                    <View style={{ flex: 2.4 }}>
-                      <Text style={[styles.tdName, { color: colors.foreground }]} numberOfLines={1}>
+                  <View style={[styles.mobileCartCard, { borderColor: colors.border }]}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={[styles.tdName, { color: colors.foreground, flex: 1 }]} numberOfLines={1}>
                         {item.product.name}
                       </Text>
-                      <Text style={[styles.tdSub, { color: colors.mutedForeground }]}>{unitLabel(item.product.unit)}</Text>
-                      {item.isBogo ? (
-                        <Text style={{ fontFamily: F, fontSize: 10, color: '#7C3AED', fontWeight: '700', marginTop: 2 }}>
-                          🎁 Buy 1 Get 1 Free · Free Qty: {item.freeQty}
-                        </Text>
-                      ) : item.discountPercent > 0 ? (
-                        <Text style={{ fontFamily: F, fontSize: 10, color: '#16A34A', fontWeight: '700', marginTop: 2 }}>
-                          {item.discountPercent}% OFF · -₹{(((item.product.selling_price ?? 0) * item.qty * item.discountPercent) / 100).toFixed(2)}
-                        </Text>
-                      ) : null}
-                    </View>
-                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                      <Pressable onPress={() => changeQty(item.product.id, item.qty - 1)}>
-                        <Feather name="minus-circle" size={16} color={colors.mutedForeground} />
+                      <Pressable onPress={() => removeItem(item.product.id)} hitSlop={8}>
+                        <Feather name="trash-2" size={15} color="#DC2626" />
                       </Pressable>
-                      <TextInput
-                        value={String(item.qty)}
-                        onChangeText={(t) => {
-                          const n = parseInt(t.replace(/[^0-9]/g, ''), 10);
-                          if (!isNaN(n)) changeQty(item.product.id, n);
-                        }}
-                        keyboardType="number-pad"
-                        style={[styles.qtyInput, { color: colors.foreground }]}
-                      />
-                      <Pressable onPress={() => changeQty(item.product.id, item.qty + 1)}>
-                        <Feather name="plus-circle" size={16} color={colors.mutedForeground} />
-                      </Pressable>
-                      <Text style={[styles.tdSub, { color: colors.mutedForeground, marginLeft: 2 }]}>{unitLabel(item.product.unit)}</Text>
                     </View>
-                    <Text style={[styles.td, { flex: 1, textAlign: 'right', color: colors.foreground }]}>{price.toFixed(2)}</Text>
-                    <Text style={[styles.td, { flex: 0.8, textAlign: 'right', color: '#DC2626' }]}>{item.discountPercent}%</Text>
-                    <Text style={[styles.td, { flex: 0.8, textAlign: 'right', color: '#16A34A' }]}>{item.product.gst_rate ?? 0}%</Text>
-                    <Text style={[styles.tdTotal, { flex: 1, textAlign: 'right', color: colors.foreground }]}>{finalTotal.toFixed(2)}</Text>
-                    <Pressable onPress={() => removeItem(item.product.id)} style={{ width: 24, alignItems: 'flex-end' }}>
-                      <Feather name="trash-2" size={15} color="#DC2626" />
-                    </Pressable>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Pressable onPress={() => changeQty(item.product.id, item.qty - 1)}>
+                          <Feather name="minus-circle" size={18} color={colors.mutedForeground} />
+                        </Pressable>
+                        <Text style={[styles.tdName, { minWidth: 18, textAlign: 'center', color: colors.foreground }]}>
+                          {item.qty} {unitLabel(item.product.unit)}
+                        </Text>
+                        <Pressable onPress={() => changeQty(item.product.id, item.qty + 1)}>
+                          <Feather name="plus-circle" size={18} color={colors.mutedForeground} />
+                        </Pressable>
+                      </View>
+                      <Text style={[styles.tdTotal, { color: colors.foreground }]}>{formatCurrency(finalTotal, business?.currency)}</Text>
+                    </View>
                   </View>
                 );
-              }
-
-              return (
-                <View style={[styles.mobileCartCard, { borderColor: colors.border }]}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={[styles.tdName, { color: colors.foreground, flex: 1 }]} numberOfLines={1}>
-                      {item.product.name}
-                    </Text>
-                    <Pressable onPress={() => removeItem(item.product.id)} hitSlop={8}>
-                      <Feather name="trash-2" size={15} color="#DC2626" />
-                    </Pressable>
-                  </View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <Pressable onPress={() => changeQty(item.product.id, item.qty - 1)}>
-                        <Feather name="minus-circle" size={18} color={colors.mutedForeground} />
-                      </Pressable>
-                      <Text style={[styles.tdName, { minWidth: 18, textAlign: 'center', color: colors.foreground }]}>
-                        {item.qty} {unitLabel(item.product.unit)}
-                      </Text>
-                      <Pressable onPress={() => changeQty(item.product.id, item.qty + 1)}>
-                        <Feather name="plus-circle" size={18} color={colors.mutedForeground} />
-                      </Pressable>
-                    </View>
-                    <Text style={[styles.tdTotal, { color: colors.foreground }]}>{formatCurrency(finalTotal, business?.currency)}</Text>
-                  </View>
-                </View>
-              );
-            }}
-          />
-        </View>
-      )}
-
-      {/* Totals + payment row */}
-      {cart.length > 0 && (
-        <View style={isWide ? styles.summaryRowWide : { marginTop: 14, gap: 12 }}>
-          {/* Left: discount / gst / round off */}
-          <View style={[styles.summaryLeftCol, { borderColor: colors.border, backgroundColor: colors.background }]}>
-            <View style={styles.discountEditRow}>
-              <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Discount</Text>
-              <TextInput
-                value={discountValue}
-                onChangeText={setDiscountValue}
-                keyboardType="numeric"
-                style={[styles.discountInput, { borderColor: colors.border, color: '#DC2626' }]}
-              />
-            </View>
-            {totals.promoDiscountTotal > 0 ? (
-    <SummaryRow label="Promo Discount (10% OFF)" value={`- ₹ ${totals.promoDiscountTotal.toFixed(2)}`} valueColor="#16A34A" />
-  ) : null}
-            <SummaryRow label="GST" value={`₹ ${totals.gst.toFixed(2)}`} valueColor="#16A34A" />
-            <SummaryRow label="Round off" value={`₹ ${totals.roundOff.toFixed(2)}`} last />
+              }}
+            />
           </View>
+        )}
 
-          {/* Right: grand total + payment + received/balance */}
-          <View style={styles.summaryRightCol}>
-            <View style={styles.netAmountBox}>
-              <Text style={styles.netAmountLabel}>{editingBillId ? 'New bill total' : 'Grand total'}</Text>
-              <Text style={styles.netAmountValue}>{formatCurrency(totals.grandTotal, business?.currency)}</Text>
-              {editingBillId && previouslyPaidAmount > 0 && (
-                <View style={{ marginTop: 6 }}>
-                  <Text style={{ fontFamily: F, fontSize: 12, color: '#92400E' }}>
-                    Already paid: {formatCurrency(previouslyPaidAmount, business?.currency)}
-                  </Text>
-                  <Text style={{ fontFamily: F, fontSize: 13, color: '#92400E', fontWeight: '700', marginTop: 2 }}>
-                    {amountDueNow > 0.01 ? `Additional due: ${formatCurrency(amountDueNow, business?.currency)}` : 'Nothing more to collect'}
+        {/* Totals + payment row */}
+        {cart.length > 0 && (
+          <View style={isWide ? styles.summaryRowWide : { marginTop: 14, gap: 12 }}>
+            {/* Left: discount / gst / round off */}
+            <View style={[styles.summaryLeftCol, { borderColor: colors.border, backgroundColor: colors.background }]}>
+              <View style={styles.discountEditRow}>
+                <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>Discount</Text>
+                <TextInput
+                  value={discountValue}
+                  onChangeText={setDiscountValue}
+                  keyboardType="numeric"
+                  style={[styles.discountInput, { borderColor: colors.border, color: '#DC2626' }]}
+                />
+              </View>
+              {totals.promoDiscountTotal > 0 ? (
+                <SummaryRow label="Promo Discount (10% OFF)" value={`- ₹ ${totals.promoDiscountTotal.toFixed(2)}`} valueColor="#16A34A" />
+              ) : null}
+              <SummaryRow label="GST" value={`₹ ${totals.gst.toFixed(2)}`} valueColor="#16A34A" />
+              <SummaryRow label="Round off" value={`₹ ${totals.roundOff.toFixed(2)}`} last />
+            </View>
+
+            {/* Right: grand total + payment + received/balance */}
+            <View style={styles.summaryRightCol}>
+              <View style={styles.netAmountBox}>
+                <Text style={styles.netAmountLabel}>{editingBillId ? 'New bill total' : 'Grand total'}</Text>
+                <Text style={styles.netAmountValue}>{formatCurrency(totals.grandTotal, business?.currency)}</Text>
+                {editingBillId && previouslyPaidAmount > 0 && (
+                  <View style={{ marginTop: 6 }}>
+                    <Text style={{ fontFamily: F, fontSize: 12, color: '#92400E' }}>
+                      Already paid: {formatCurrency(previouslyPaidAmount, business?.currency)}
+                    </Text>
+                    <Text style={{ fontFamily: F, fontSize: 13, color: '#92400E', fontWeight: '700', marginTop: 2 }}>
+                      {amountDueNow > 0.01 ? `Additional due: ${formatCurrency(amountDueNow, business?.currency)}` : 'Nothing more to collect'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.chipsRow}>
+                {PAYMENT_METHODS.map((m) => {
+                  const active = m.value === paymentMethod;
+                  return (
+                    <Pressable
+                      key={m.value}
+                      onPress={() => setPaymentMethod(m.value)}
+                      style={[styles.paymentChip, { borderColor: active ? m.color : colors.border, backgroundColor: active ? m.color + '18' : colors.background }]}
+                    >
+                      <PaymentIcon method={m.value} icon={m.icon} size={13} color={m.color} />
+                      <Text style={[styles.paymentChipText, { color: active ? m.color : colors.foreground }]}>{m.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {paymentMethod === 'split' && (
+                <View style={{ marginTop: 10, gap: 10 }}>
+                  <SplitLeg
+                    label="Payment 1"
+                    method={splitMethod1}
+                    onMethodChange={setSplitMethod1}
+                    amount={splitAmount1}
+                    onAmountChange={handleSplitAmount1Change}
+                    colors={colors}
+                  />
+                  <SplitLeg
+                    label="Payment 2"
+                    method={splitMethod2}
+                    onMethodChange={setSplitMethod2}
+                    amount={splitAmount2}
+                    onAmountChange={handleSplitAmount2Change}
+                    colors={colors}
+                  />
+                  <Text
+                    style={[
+                      styles.summaryLabel,
+                      { color: Math.abs(splitTotal - amountDueNow) < 0.01 ? '#16A34A' : '#DC2626', fontWeight: '700' },
+                    ]}
+                  >
+                    {formatCurrency(splitTotal, business?.currency)} of {formatCurrency(amountDueNow, business?.currency)} allocated
                   </Text>
                 </View>
               )}
-            </View>
 
-            <View style={styles.chipsRow}>
-              {PAYMENT_METHODS.map((m) => {
-                const active = m.value === paymentMethod;
-                return (
-                  <Pressable
-                    key={m.value}
-                    onPress={() => setPaymentMethod(m.value)}
-                    style={[styles.paymentChip, { borderColor: active ? m.color : colors.border, backgroundColor: active ? m.color + '18' : colors.background }]}
-                  >
-                    <PaymentIcon method={m.value} icon={m.icon} size={13} color={m.color} />
-                    <Text style={[styles.paymentChipText, { color: active ? m.color : colors.foreground }]}>{m.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {paymentMethod === 'split' && (
-              <View style={{ marginTop: 10, gap: 10 }}>
-                <SplitLeg
-                  label="Payment 1"
-                  method={splitMethod1}
-                  onMethodChange={setSplitMethod1}
-                  amount={splitAmount1}
-                  onAmountChange={handleSplitAmount1Change}
-                  colors={colors}
-                />
-                <SplitLeg
-                  label="Payment 2"
-                  method={splitMethod2}
-                  onMethodChange={setSplitMethod2}
-                  amount={splitAmount2}
-                  onAmountChange={handleSplitAmount2Change}
-                  colors={colors}
-                />
-                <Text
-                  style={[
-                    styles.summaryLabel,
-                    { color: Math.abs(splitTotal - amountDueNow) < 0.01 ? '#16A34A' : '#DC2626', fontWeight: '700' },
-                  ]}
-                >
-                  {formatCurrency(splitTotal, business?.currency)} of {formatCurrency(amountDueNow, business?.currency)} allocated
-                </Text>
-              </View>
-            )}
-
-            {paymentMethod !== 'credit' && paymentMethod !== 'split' && (
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.summaryLabel, { color: colors.mutedForeground, marginBottom: 4 }]}>
-                    {editingBillId ? 'Collecting now' : 'Received'}
-                  </Text>
-                  <TextInput
-                    value={amountReceived}
-                    onChangeText={setAmountReceived}
-                    keyboardType="numeric"
-                    style={[styles.receivedInput, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.summaryLabel, { color: colors.mutedForeground, marginBottom: 4 }]}>Balance</Text>
-                  <View style={[styles.receivedInput, { borderColor: colors.border, backgroundColor: colors.background, justifyContent: 'center' }]}>
-                    <Text style={{ fontFamily: F, fontSize: 14, fontWeight: '700', color: balanceAmount < 0 ? '#DC2626' : '#16A34A' }}>
-                      {formatCurrency(Math.abs(balanceAmount), business?.currency)}
+              {paymentMethod !== 'credit' && paymentMethod !== 'split' && (
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.summaryLabel, { color: colors.mutedForeground, marginBottom: 4 }]}>
+                      {editingBillId ? 'Collecting now' : 'Received'}
                     </Text>
+                    <TextInput
+                      value={amountReceived}
+                      onChangeText={setAmountReceived}
+                      keyboardType="numeric"
+                      style={[styles.receivedInput, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.background }]}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.summaryLabel, { color: colors.mutedForeground, marginBottom: 4 }]}>Balance</Text>
+                    <View style={[styles.receivedInput, { borderColor: colors.border, backgroundColor: colors.background, justifyContent: 'center' }]}>
+                      <Text style={{ fontFamily: F, fontSize: 14, fontWeight: '700', color: balanceAmount < 0 ? '#DC2626' : '#16A34A' }}>
+                        {formatCurrency(Math.abs(balanceAmount), business?.currency)}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            )}
+              )}
+            </View>
           </View>
-        </View>
-      )}
+        )}
 
-      {submitError ? <Text style={[styles.emptyText, { color: '#DC2626', marginTop: 10 }]}>{submitError}</Text> : null}
+        {submitError ? <Text style={[styles.emptyText, { color: '#DC2626', marginTop: 10 }]}>{submitError}</Text> : null}
       </ScrollView>
 
       <View style={{ marginTop: 16 }}>
@@ -2293,8 +2288,6 @@ function ReceiptTotalRow({
     </View>
   );
 }
-
-
 
 function SummaryRow({ label, value, valueColor, last }: { label: string; value: string; valueColor?: string; last?: boolean }) {
   return (
