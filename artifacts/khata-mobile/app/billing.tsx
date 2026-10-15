@@ -465,6 +465,10 @@ useEffect(() => {
         // Bill-level discount isn't stored historically — derive it the same
         // honest way the receipt views do: (line total + tax) - recorded total.
         const itemsSubtotal = newCart.reduce((sum, c) => sum + (c.product.selling_price ?? 0) * c.qty, 0);
+        const itemsGst = newCart.reduce(
+  (sum, c) => sum + ((c.product.selling_price ?? 0) * c.qty * (c.product.gst_rate ?? 0)) / 100,
+  0,
+);
         const derived = Math.max(itemsSubtotal + (tx.tax ?? 0) - (tx.amount ?? 0), 0);
         setDiscountValue(derived > 0.01 ? derived.toFixed(2) : '0');
 

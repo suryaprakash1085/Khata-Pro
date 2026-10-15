@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -226,6 +226,7 @@ useEffect(() => {
 
   return (
     <View style={{ flex: 1, backgroundColor: THEME.background }}>
+       <Stack.Screen options={{ headerShown: false }} />
       {/* ---- Header ---- */}
       <View style={[styles.pageHeader, { paddingTop: insets.top + 14 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
@@ -452,13 +453,13 @@ const styles = StyleSheet.create({
   pageTitle: { fontSize: 19, fontWeight: '700', color: THEME.text, fontFamily: FONT_FAMILY },
   pageSubtitle: { fontSize: 12.5, color: THEME.muted, marginTop: 2, fontFamily: FONT_FAMILY },
 
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 28,
-    maxWidth: 900,
-    width: '100%',
-    alignSelf: 'center',
-  },
+ scrollContent: {
+  padding: 20,
+  paddingBottom: 28,
+  maxWidth: 1160,
+  width: '100%',
+  alignSelf: 'center',
+},
   errorContainer: {
     backgroundColor: THEME.dangerBg,
     borderRadius: 8,
