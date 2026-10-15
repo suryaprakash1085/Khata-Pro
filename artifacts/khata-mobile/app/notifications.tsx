@@ -25,6 +25,7 @@ import {
   getGetAdminNotificationsUnreadCountQueryKey,
   type ListAdminNotificationsFilter
 } from '@workspace/api-client-react';
+import { getNotificationRoute } from '@/lib/notificationRoute';
 
 const ICONS: Record<string, { icon: keyof typeof Feather.glyphMap; color: string }> = {
   new_order: { icon: 'shopping-bag', color: '#16A34A' },
@@ -91,27 +92,19 @@ export default function NotificationsScreen() {
     });
   };
 
-  const handlePress = async (n: any) => {
-    if (n.type === 'low_stock' && n.product_id) {
-      router.push({ pathname: '/add-product', params: { id: String(n.product_id) } });
-    } else if (n.type === 'new_order') {
-      router.push('/delivery-list' as any);
-    } else if (n.type.startsWith('vendor_payment')) {
-      router.push('/reports' as any);
-    }else if (n.type.startsWith('subscription_')) {
-    // NEW
-    router.push('/subscription-status' as any);
-  }
+ const handlePress = async (n: any) => {
+  const route = getNotificationRoute(n);
+  if (route) router.push(route as any);
 
-    if (!n.is_read) {
-      try {
-        await markRead.mutateAsync({ id: n.id });
-        invalidate();
-      } catch (err) {
-        console.warn('[Notifications] failed to mark read:', err);
-      }
+  if (!n.is_read) {
+    try {
+      await markRead.mutateAsync({ id: n.id });
+      invalidate();
+    } catch (err) {
+      console.warn('[Notifications] failed to mark read:', err);
     }
-  };
+  }
+};
 
   const handleMarkAll = async () => {
     await markAllRead.mutateAsync({ params: { business_id: business?.id as number } } as any);

@@ -86,13 +86,20 @@ export default function RestockScreen() {
   }) as { data: any; isLoading: boolean };
 
   // Pre-fill cost + vendor from the product (once per selected product)
-  useEffect(() => {
-    if (product && !prefilled) {
-      setUnitCost(product.cost_price ? String(product.cost_price) : '');
-      if (product.vendor_id != null) setVendorId(Number(product.vendor_id));
-      setPrefilled(true);
-    }
-  }, [product, prefilled]);
+ // Pre-fill cost + vendor: last purchase wins, product's own values are fallback
+useEffect(() => {
+  if (product && !prefilled) {
+    const last = product.last_purchase;
+
+    const cost = last?.unit_cost ?? product.cost_price;
+    setUnitCost(cost ? String(cost) : '');
+
+    const vid = last?.vendor_id ?? product.vendor_id;
+    if (vid != null) setVendorId(Number(vid));
+
+    setPrefilled(true);
+  }
+}, [product, prefilled]);
 
   // ---- Product picker (only when no product is selected) ----
   const pickerParams = { business_id: business?.id as number, search: search.trim(), limit: 8 };

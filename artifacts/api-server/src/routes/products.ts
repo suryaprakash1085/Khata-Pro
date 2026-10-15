@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, productsTable } from "@workspace/db";
+import { db, productsTable , purchasesTable, purchaseItemsTable} from "@workspace/db";
 import { 
   eq, 
   and, 
@@ -18,6 +18,7 @@ import {
   UpdateProductBody,
 } from "@workspace/api-zod";
 import { syncLowStockNotification, notifyVendorPaymentOnProductCreate } from "../services/adminNotifications.service";
+
 const router: IRouter = Router();
 
 router.get("/test", (req, res) => {
@@ -263,6 +264,7 @@ router.get("/products/barcode/:barcode", requireAuth, async (req, res): Promise<
 });
 
 // GET /products/:id
+// GET /products/:id
 router.get("/products/:id", requireAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
@@ -272,7 +274,28 @@ router.get("/products/:id", requireAuth, async (req, res): Promise<void> => {
     res.status(404).json({ error: "Product not found" });
     return;
   }
-  res.json(formatProduct(product));
+
+  // Most recent purchase of this product -> vendor + unit cost
+  const [lastPurchase] = await db
+    .select({
+      vendorId: purchasesTable.vendorId,
+      unitCost: purchaseItemsTable.unitCost,
+    })
+    .from(purchaseItemsTable)
+    .innerJoin(purchasesTable, eq(purchaseItemsTable.purchaseId, purchasesTable.id))
+    .where(and(eq(purchaseItemsTable.productId, id), eq(purchasesTable.isDeleted, false)))
+    .orderBy(desc(purchasesTable.createdAt), desc(purchaseItemsTable.id))
+    .limit(1);
+
+  res.json({
+    ...formatProduct(product),
+    last_purchase: lastPurchase
+      ? {
+          vendor_id: Number(lastPurchase.vendorId),
+          unit_cost: parseFloat(lastPurchase.unitCost),
+        }
+      : null,
+  });
 });
 
 // PUT /products/:id
