@@ -153,9 +153,9 @@ function getDateRange(f: DateFilterState) {
     return { from: toYMD(y), to: toYMD(y) };
   }
   if (f.period === 'week') {
-    // This Week = Monday → today
+    // This Week = last 7 days including today (same as Reports → Sales Report)
     const start = new Date(today);
-    start.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+    start.setDate(today.getDate() - 6);
     return { from: toYMD(start), to: toYMD(today) };
   }
   if (f.period === 'month') {
@@ -394,7 +394,7 @@ export default function HomeScreen() {
     business_id: business?.id as number,
     from: activityRange.from,
     to: activityRange.to,
-    limit: 500,
+    limit: 1000,
   };
   const activityOrdersQuery = useListSalesOrders(activityOrdersParams, {
     query: { enabled: !!business?.id, queryKey: getListSalesOrdersQueryKey(activityOrdersParams) },
@@ -402,10 +402,13 @@ export default function HomeScreen() {
   const activityOrders: any[] = activityOrdersQuery.data?.data ?? [];
 
   // Online Sales / Online Orders — channel === 'online' (Customer/Delivery App), for the selected range.
+  // Same rules as Reports → Online (App): order count excludes cancelled,
+  // revenue counts only invoiced orders.
   const onlineOrderMetrics = useMemo(() => {
-    const onlineOrders = activityOrders.filter(isOnlineChannelOrder);
-    const totalAmount = onlineOrders.reduce((sum, so) => sum + getOrderAmount(so), 0);
-    return { count: onlineOrders.length, totalAmount };
+    const live = activityOrders.filter((o) => isOnlineChannelOrder(o) && o?.status !== 'cancelled');
+    const invoiced = live.filter((o) => o?.status === 'invoiced');
+    const totalAmount = invoiced.reduce((sum, so) => sum + getOrderAmount(so), 0);
+    return { count: live.length, totalAmount };
   }, [activityOrders]);
 
   // Direct Sales / Transactions for the selected range.

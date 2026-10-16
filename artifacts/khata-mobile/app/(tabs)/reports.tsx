@@ -534,7 +534,7 @@ function periodToDateRange(period: PeriodKey): { from?: string; to?: string } {
     }
     case 'week': {
       const start = new Date(now);
-      start.setDate(now.getDate() - now.getDay());
+      start.setDate(now.getDate() - 6);
       return { from: toLocalISODate(start), to: toLocalISODate(now) };
     }
     case 'month': {
