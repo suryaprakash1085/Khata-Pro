@@ -1,7 +1,8 @@
-﻿import React, { useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -36,8 +37,8 @@ import { formatCurrency } from '@/lib/format';
 import { customFetch } from '@workspace/api-client-react';
 import { useQuery } from '@tanstack/react-query';
 import { AIAssistantButton } from '@/components/AIAssistant/AIAssistantButton';
-// Add import near the top:
 import { NotificationBell } from '@/components/NotificationBell/NotificationBell';
+
 const IS_WEB = Platform.OS === 'web';
 
 const ACTIONS = [
@@ -46,11 +47,10 @@ const ACTIONS = [
   { icon: 'user-plus', label: 'Add Customer', route: '/add-customer', color: '#8B5CF6' },
   { icon: 'file-text', label: 'Create Order', route: '/create-purchase-order', color: '#F59E0B' },
   { icon: 'trending-down', label: 'Add Expense', route: '/add-expense', color: '#E4664B' },
-
 ] as const;
 
 // Sales Activity — 3x2 grid on desktop (order matters: fills left-to-right, top-to-bottom)
-// "direct_*" cards come from POS/Admin billing (existing business-stats calculation).
+// "direct_*" cards come from POS/Admin billing (business-stats calculation).
 // "online_*" cards come from Customer/Delivery App orders (sales_orders with channel === 'online').
 const SALES_ACTIVITY_CARDS = [
   {
@@ -104,33 +104,72 @@ const SALES_ACTIVITY_CARDS = [
 ] as const;
 
 // ---------------------------------------------------------------------------
-// Period filter — powers the "Today / This Week / This Month" dropdown that
-// used to be a static, non-interactive "This Month" label on Top Selling
-// Items, Purchase Order, and Sales Order.
+// Date filter — Today / Yesterday / This Week / This Month / Custom (calendar)
 // ---------------------------------------------------------------------------
-type PeriodFilter = 'today' | 'week' | 'month';
+type PeriodFilter = 'today' | 'yesterday' | 'week' | 'month' | 'custom';
+type FilterTarget = 'salesActivity' | 'topSelling' | 'purchaseOrder' | 'salesOrder';
+type DateFilterState = { period: PeriodFilter; from?: string; to?: string };
 
 const PERIOD_OPTIONS: { value: PeriodFilter; label: string }[] = [
   { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
   { value: 'week', label: 'This Week' },
   { value: 'month', label: 'This Month' },
+  { value: 'custom', label: 'Custom Range' },
 ];
 
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+const WEEKDAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+// Local-time YYYY-MM-DD (toISOString uses UTC, which gives the wrong day in IST before 5:30 AM)
+function toYMD(d: Date) {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+function parseYMD(s: string) {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+function formatShort(ymd: string) {
+  const d = parseYMD(ymd);
+  return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}`;
+}
+
 // Returns { from, to } as YYYY-MM-DD strings (matches entry_date filters on the API)
-function getDateRange(period: PeriodFilter) {
+function getDateRange(f: DateFilterState) {
   const now = new Date();
-  const toStr = now.toISOString().split('T')[0];
-  let from: Date;
-  if (period === 'today') {
-    from = new Date(now);
-  } else if (period === 'week') {
-    from = new Date(now);
-    from.setDate(now.getDate() - 6); // last 7 days, inclusive of today
-  } else {
-    from = new Date(now.getFullYear(), now.getMonth(), 1);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  if (f.period === 'custom' && f.from) {
+    return { from: f.from, to: f.to ?? f.from };
   }
-  const fromStr = from.toISOString().split('T')[0];
-  return { from: fromStr, to: toStr };
+  if (f.period === 'yesterday') {
+    const y = new Date(today);
+    y.setDate(today.getDate() - 1);
+    return { from: toYMD(y), to: toYMD(y) };
+  }
+  if (f.period === 'week') {
+    // This Week = Monday → today
+    const start = new Date(today);
+    start.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+    return { from: toYMD(start), to: toYMD(today) };
+  }
+  if (f.period === 'month') {
+    return { from: toYMD(new Date(today.getFullYear(), today.getMonth(), 1)), to: toYMD(today) };
+  }
+  return { from: toYMD(today), to: toYMD(today) }; // today
+}
+
+function getFilterLabel(f: DateFilterState) {
+  if (f.period === 'custom' && f.from) {
+    const to = f.to ?? f.from;
+    return f.from === to ? formatShort(f.from) : `${formatShort(f.from)} – ${formatShort(to)}`;
+  }
+  return PERIOD_OPTIONS.find((o) => o.value === f.period)?.label ?? 'This Month';
 }
 
 const SO_STATUSES = ['pending', 'confirmed', 'packed', 'shipped', 'invoiced'] as const;
@@ -141,7 +180,6 @@ const SO_CHANNEL_LABELS: Record<(typeof SO_CHANNELS)[number], string> = {
   phone: 'Phone',
 };
 
-// Defensive field readers — exact schema names can vary by backend version.
 // Defensive field readers — matches productsTable schema (snake_case from API/Drizzle)
 function getStockQty(p: any): number {
   return Number(p?.stock_qty ?? 0) || 0;
@@ -160,9 +198,6 @@ function getProductUnit(p: any): string {
 }
 
 // Defensive readers for sales_orders (Customer/Delivery App orders).
-// NOTE: field name for the order amount is not confirmed against the live schema —
-// this tries the common candidates. If your sales_orders rows use a different
-// column, narrow this to just that one field.
 function getOrderAmount(so: any): number {
   return Number(so?.amount ?? so?.total_amount ?? so?.order_amount ?? so?.grand_total ?? 0) || 0;
 }
@@ -186,6 +221,18 @@ function usePendingReceiveQty(businessId?: number, enabled?: boolean) {
   });
 }
 
+// Direct Sales / Direct Transactions for the selected date range.
+// ⚠️ The backend stats endpoint must accept ?from=&to= — change the URL below to your real stats route.
+function useRangeStats(businessId?: number, range?: { from: string; to: string }) {
+  return useQuery<any>({
+    queryKey: ['business-stats-range', businessId, range?.from, range?.to],
+    enabled: !!businessId && !!range,
+    retry: false,
+    queryFn: () =>
+      customFetch(`/api/businesses/${businessId}/stats?from=${range?.from}&to=${range?.to}`, { responseType: 'json' }),
+  });
+}
+
 // Defensive readers for product search results in the global search dropdown.
 function getBarcode(p: any): string {
   return p?.barcode ?? p?.sku ?? '';
@@ -200,18 +247,48 @@ export default function HomeScreen() {
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // Responsive breakpoints — used for the header (search/bell/profile),
-  // AI assistant button position, and the Sales Activity grid overflow fix.
-  const isSmallMobile = width < 380;
+  // Responsive breakpoints
   const isMobile = width < 600;
   const isTablet = width >= 600 && width < 900;
 
-  // Which section's Today/This Week/This Month dropdown is currently open —
-  // only one at a time, anchored directly under that section's chip.
-  const [openDropdown, setOpenDropdown] = useState<'topSelling' | 'purchaseOrder' | 'salesOrder' | null>(null);
-  const [topSellingPeriod, setTopSellingPeriod] = useState<PeriodFilter>('month');
-  const [purchaseOrderPeriod, setPurchaseOrderPeriod] = useState<PeriodFilter>('month');
-  const [salesOrderPeriod, setSalesOrderPeriod] = useState<PeriodFilter>('month');
+  // ---------------- Date filters ----------------
+  // Which section's period dropdown is open (only one at a time)
+  const [openDropdown, setOpenDropdown] = useState<FilterTarget | null>(null);
+  // Which section the calendar popup is currently editing
+  const [calendarTarget, setCalendarTarget] = useState<FilterTarget | null>(null);
+
+  const [salesActivityFilter, setSalesActivityFilter] = useState<DateFilterState>({ period: 'month' });
+  const [topSellingFilter, setTopSellingFilter] = useState<DateFilterState>({ period: 'month' });
+  const [purchaseOrderFilter, setPurchaseOrderFilter] = useState<DateFilterState>({ period: 'month' });
+  const [salesOrderFilter, setSalesOrderFilter] = useState<DateFilterState>({ period: 'month' });
+
+  const filterState: Record<FilterTarget, DateFilterState> = {
+    salesActivity: salesActivityFilter,
+    topSelling: topSellingFilter,
+    purchaseOrder: purchaseOrderFilter,
+    salesOrder: salesOrderFilter,
+  };
+
+  const setFilter = (t: FilterTarget, v: DateFilterState) => {
+    if (t === 'salesActivity') setSalesActivityFilter(v);
+    else if (t === 'topSelling') setTopSellingFilter(v);
+    else if (t === 'purchaseOrder') setPurchaseOrderFilter(v);
+    else setSalesOrderFilter(v);
+  };
+
+  const handlePickPeriod = (t: FilterTarget, p: PeriodFilter) => {
+    setOpenDropdown(null);
+    if (p === 'custom') setCalendarTarget(t); // open calendar
+    else setFilter(t, { period: p });
+  };
+
+  // Spread onto <CardSection {...periodProps('x')} />
+  const periodProps = (t: FilterTarget) => ({
+    filter: filterState[t],
+    isOpen: openDropdown === t,
+    onTogglePeriod: () => setOpenDropdown((d) => (d === t ? null : t)),
+    onSelectPeriod: (p: PeriodFilter) => handlePickPeriod(t, p),
+  });
 
   // Sales Activity grid columns — 3 on wide/desktop screens, 2 on tablet, 1 on narrow mobile.
   const salesActivityColumns = width >= 700 ? 3 : width >= 420 ? 2 : 1;
@@ -228,9 +305,6 @@ export default function HomeScreen() {
   const customerResults: Customer[] = search.trim().length > 0 ? customersQuery.data?.data ?? [] : [];
   const customerSearchLoading = customersQuery.isLoading && search.trim().length > 0;
 
-  // Product search — reuses the existing product API's `search` param, which already
-  // matches name AND barcode (same param Billing.tsx's product search relies on for
-  // barcode-scan lookups), so a scanned/typed barcode surfaces the exact product here too.
   const productSearchParams = { business_id: business?.id as number, search: search.trim(), limit: 6 };
   const productSearchQuery = useListProducts(productSearchParams, {
     query: {
@@ -263,20 +337,18 @@ export default function HomeScreen() {
     return { totalItems, quantityInHand, lowStockCount, activePercent, itemGroups: groupSet.size };
   }, [products]);
 
-  // "Top selling" — best-effort sort by stock movement proxy (falls back to insertion order).
-  // NOTE: `sold_count` is a lifetime counter on the product record — there's no
-  // per-period (today/week/month) sales-by-product data available client-side,
-  // so the Today/This Week/This Month picker on this card is UI-only for now;
-  // the ranking itself doesn't change with it. Making that real needs a
-  // backend endpoint that returns sales counts grouped by product + date range.
+  // "Top selling" — sorted by lifetime `sold_count`.
+  // NOTE: there's no per-period sales-by-product data client-side, so the date picker on this
+  // card is UI-only for now; the ranking doesn't change with it. Making that real needs a
+  // backend endpoint returning sales counts grouped by product + date range.
   const topSellingItems = useMemo(() => {
     return [...products]
       .sort((a, b) => (Number(b?.sold_count ?? 0) || 0) - (Number(a?.sold_count ?? 0) || 0))
       .slice(0, 10);
   }, [products]);
 
-  // ---------------- Purchase Order — driven by its own period picker ----------------
-  const purchaseDateRange = useMemo(() => getDateRange(purchaseOrderPeriod), [purchaseOrderPeriod]);
+  // ---------------- Purchase Order — driven by its own date filter ----------------
+  const purchaseDateRange = useMemo(() => getDateRange(purchaseOrderFilter), [purchaseOrderFilter]);
 
   const purchasesParams = {
     business_id: business?.id as number,
@@ -291,19 +363,17 @@ export default function HomeScreen() {
   const purchasesLoading = purchasesQuery.isLoading;
 
   const purchaseMetrics = useMemo(() => {
-    // NOTE: list endpoint returns product_count (line items) per purchase, not exact unit qty
-    // (unit qty requires a per-purchase fetch of items). This is "items ordered", not "units ordered".
+    // NOTE: list endpoint returns product_count (line items) per purchase, not exact unit qty.
     const itemsOrdered = purchases.reduce((sum, p) => sum + (Number(p?.product_count) || 0), 0);
     const totalCost = purchases.reduce((sum, p) => sum + (Number(p?.amount) || 0), 0);
     return { itemsOrdered, totalCost };
   }, [purchases]);
 
   const { data: vendorPending } = useVendorPendingTotal(business?.id, !!business?.id);
-
   const { data: pendingReceiveQty } = usePendingReceiveQty(business?.id, !!business?.id);
 
-  // ---------------- Sales Order — driven by its own period picker ----------------
-  const salesOrderDateRange = useMemo(() => getDateRange(salesOrderPeriod), [salesOrderPeriod]);
+  // ---------------- Sales Order — driven by its own date filter ----------------
+  const salesOrderDateRange = useMemo(() => getDateRange(salesOrderFilter), [salesOrderFilter]);
 
   const salesOrdersParams = {
     business_id: business?.id as number,
@@ -317,14 +387,31 @@ export default function HomeScreen() {
   const salesOrders: any[] = salesOrdersQuery.data?.data ?? [];
   const salesOrdersLoading = salesOrdersQuery.isLoading;
 
-  // Online Sales / Online Orders — sourced from the same sales_orders data used by the
-  // Sales Order table below, filtered to channel === 'online' (Customer/Delivery App).
-  // This is live query data, so it stays in sync as new online orders come in — nothing hardcoded.
+  // ---------------- Sales Activity — driven by its own date filter ----------------
+  const activityRange = useMemo(() => getDateRange(salesActivityFilter), [salesActivityFilter]);
+
+  const activityOrdersParams = {
+    business_id: business?.id as number,
+    from: activityRange.from,
+    to: activityRange.to,
+    limit: 500,
+  };
+  const activityOrdersQuery = useListSalesOrders(activityOrdersParams, {
+    query: { enabled: !!business?.id, queryKey: getListSalesOrdersQueryKey(activityOrdersParams) },
+  });
+  const activityOrders: any[] = activityOrdersQuery.data?.data ?? [];
+
+  // Online Sales / Online Orders — channel === 'online' (Customer/Delivery App), for the selected range.
   const onlineOrderMetrics = useMemo(() => {
-    const onlineOrders = salesOrders.filter(isOnlineChannelOrder);
+    const onlineOrders = activityOrders.filter(isOnlineChannelOrder);
     const totalAmount = onlineOrders.reduce((sum, so) => sum + getOrderAmount(so), 0);
     return { count: onlineOrders.length, totalAmount };
-  }, [salesOrders]);
+  }, [activityOrders]);
+
+  // Direct Sales / Transactions for the selected range.
+  const rangeStatsQuery = useRangeStats(business?.id, activityRange);
+  // Fallback: if the range endpoint isn't ready yet, "Today" still works from the existing stats.
+  const directStats: any = rangeStatsQuery.data ?? (salesActivityFilter.period === 'today' ? stats : undefined);
 
   const salesOrderMatrix = useMemo(() => {
     return SO_CHANNELS.map((channel) => {
@@ -356,14 +443,8 @@ export default function HomeScreen() {
     ? ({ outlineStyle: 'none', outlineWidth: 0, caretColor: colors.primary } as any)
     : undefined;
 
-  // AI Assistant button — on mobile the header row sits close to the top,
-  // so push the button down below the header/quick-actions area instead of
-  // letting it float over the search bar / bell / profile. Desktop keeps its
-  // original position.
-  // Desktop/tablet: match the header row's own top position (paddingTop
-  // below) so the AI trigger sits in the exact same row as the bell/profile
-  // icons. Mobile: push it below the header so it doesn't overlap search/
-  // bell/profile there.
+  // Desktop/tablet: AI trigger sits in the same row as bell/profile.
+  // Mobile: pushed below the header so it doesn't overlap search/bell/profile.
   const aiButtonTopOffset = isMobile ? insets.top + 108 : insets.top + 12;
 
   return (
@@ -521,7 +602,7 @@ export default function HomeScreen() {
         </View>
 
         {/* ---------------- Sales Activity ---------------- */}
-        <CardSection title="Sales Activity" colors={colors}>
+        <CardSection title="Sales Activity" colors={colors} {...periodProps('salesActivity')}>
           <View style={[styles.statGrid, isMobile && styles.statGridMobile]}>
             {SALES_ACTIVITY_CARDS.map((item, i) => {
               let value: string;
@@ -530,13 +611,13 @@ export default function HomeScreen() {
                   value = formatCurrency(vendorPending?.total_pending ?? 0, business?.currency);
                   break;
                 case 'direct_sales':
-                  value = formatCurrency((stats as any)?.today_sales ?? 0, business?.currency);
+                  value = formatCurrency(directStats?.direct_sales ?? directStats?.today_sales ?? 0, business?.currency);
                   break;
                 case 'online_sales':
                   value = formatCurrency(onlineOrderMetrics.totalAmount, business?.currency);
                   break;
                 case 'direct_transactions':
-                  value = String(stats?.transaction_count ?? 0);
+                  value = String(directStats?.direct_transactions ?? directStats?.transaction_count ?? 0);
                   break;
                 case 'online_orders':
                   value = String(onlineOrderMetrics.count);
@@ -592,12 +673,12 @@ export default function HomeScreen() {
             onPress={() => router.push('/product-list' as any)}
           />
           <LabelValueRow
-  colors={colors}
-  label="Quantity to be Received"
-  value={String(pendingReceiveQty?.total_pending_qty ?? 0)}
-  muted
-  last
-/>
+            colors={colors}
+            label="Quantity to be Received"
+            value={String(pendingReceiveQty?.total_pending_qty ?? 0)}
+            muted
+            last
+          />
         </CardSection>
 
         {/* ---------------- Product Details ---------------- */}
@@ -641,17 +722,7 @@ export default function HomeScreen() {
         </CardSection>
 
         {/* ---------------- Top Selling Items ---------------- */}
-        <CardSection
-          title="Top Selling Items"
-          colors={colors}
-          periodValue={topSellingPeriod}
-          isOpen={openDropdown === 'topSelling'}
-          onTogglePeriod={() => setOpenDropdown((d) => (d === 'topSelling' ? null : 'topSelling'))}
-          onSelectPeriod={(v) => {
-            setTopSellingPeriod(v);
-            setOpenDropdown(null);
-          }}
-        >
+        <CardSection title="Top Selling Items" colors={colors} {...periodProps('topSelling')}>
           {productsLoading ? (
             <ActivityIndicator style={{ paddingVertical: 20 }} color={colors.primary} />
           ) : topSellingItems.length === 0 ? (
@@ -694,17 +765,7 @@ export default function HomeScreen() {
         </CardSection>
 
         {/* ---------------- Purchase Order ---------------- */}
-        <CardSection
-          title="Purchase Order"
-          colors={colors}
-          periodValue={purchaseOrderPeriod}
-          isOpen={openDropdown === 'purchaseOrder'}
-          onTogglePeriod={() => setOpenDropdown((d) => (d === 'purchaseOrder' ? null : 'purchaseOrder'))}
-          onSelectPeriod={(v) => {
-            setPurchaseOrderPeriod(v);
-            setOpenDropdown(null);
-          }}
-        >
+        <CardSection title="Purchase Order" colors={colors} {...periodProps('purchaseOrder')}>
           <View style={styles.purchaseOrderRow}>
             <View style={styles.purchaseOrderCol}>
               <Text style={[styles.purchaseOrderLabel, { color: colors.mutedForeground }]}>Items Ordered</Text>
@@ -729,17 +790,7 @@ export default function HomeScreen() {
         </CardSection>
 
         {/* ---------------- Sales Order ---------------- */}
-        <CardSection
-          title="Sales Order"
-          colors={colors}
-          periodValue={salesOrderPeriod}
-          isOpen={openDropdown === 'salesOrder'}
-          onTogglePeriod={() => setOpenDropdown((d) => (d === 'salesOrder' ? null : 'salesOrder'))}
-          onSelectPeriod={(v) => {
-            setSalesOrderPeriod(v);
-            setOpenDropdown(null);
-          }}
-        >
+        <CardSection title="Sales Order" colors={colors} {...periodProps('salesOrder')}>
           <View style={[styles.tableHeaderRow, { borderBottomColor: colors.border }]}>
             {['Channel', 'Pending', 'Confirmed', 'Packed', 'Shipped', 'Invoiced'].map((h) => (
               <Text key={h} style={[styles.tableHeaderCell, { color: colors.mutedForeground }]}>
@@ -771,14 +822,24 @@ export default function HomeScreen() {
             ))
           )}
         </CardSection>
-
       </ScrollView>
 
       <AIAssistantButton topOffset={aiButtonTopOffset} />
 
+      {/* Calendar popup for "Custom Range" */}
+      <DateRangeModal
+        visible={!!calendarTarget}
+        initialFrom={calendarTarget ? filterState[calendarTarget].from : undefined}
+        initialTo={calendarTarget ? filterState[calendarTarget].to : undefined}
+        colors={colors}
+        onClose={() => setCalendarTarget(null)}
+        onApply={(from, to) => {
+          if (calendarTarget) setFilter(calendarTarget, { period: 'custom', from, to });
+          setCalendarTarget(null);
+        }}
+      />
     </View>
-
-);
+  );
 }
 
 /* ---------------- Reusable pieces ---------------- */
@@ -787,7 +848,7 @@ function CardSection({
   title,
   colors,
   children,
-  periodValue,
+  filter,
   isOpen,
   onTogglePeriod,
   onSelectPeriod,
@@ -795,12 +856,12 @@ function CardSection({
   title: string;
   colors: any;
   children: React.ReactNode;
-  periodValue?: PeriodFilter;
+  filter?: DateFilterState;
   isOpen?: boolean;
   onTogglePeriod?: () => void;
   onSelectPeriod?: (v: PeriodFilter) => void;
 }) {
-  const chipLabel = periodValue ? PERIOD_OPTIONS.find((o) => o.value === periodValue)?.label : undefined;
+  const chipLabel = filter ? getFilterLabel(filter) : undefined;
 
   return (
     <View style={[styles.sectionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -808,6 +869,7 @@ function CardSection({
         <Text style={[styles.sectionCardTitle, { color: colors.foreground }]}>{title}</Text>
         {chipLabel && (
           <Pressable onPress={onTogglePeriod} style={styles.chip} hitSlop={8}>
+            <Feather name="calendar" size={12} color={colors.mutedForeground} />
             <Text style={[styles.chipText, { color: colors.mutedForeground }]}>{chipLabel}</Text>
             <Feather name={isOpen ? 'chevron-up' : 'chevron-down'} size={12} color={colors.mutedForeground} />
           </Pressable>
@@ -817,7 +879,7 @@ function CardSection({
       {isOpen && (
         <View style={[styles.periodInlineRow, { borderBottomColor: colors.border, backgroundColor: colors.background }]}>
           {PERIOD_OPTIONS.map((opt) => {
-            const active = opt.value === periodValue;
+            const active = opt.value === filter?.period;
             return (
               <Pressable
                 key={opt.value}
@@ -827,6 +889,9 @@ function CardSection({
                   { backgroundColor: active ? colors.primary : colors.card, borderColor: active ? colors.primary : colors.border },
                 ]}
               >
+                {opt.value === 'custom' && (
+                  <Feather name="calendar" size={11} color={active ? colors.primaryForeground : colors.foreground} />
+                )}
                 <Text
                   style={{
                     fontSize: 12,
@@ -884,6 +949,155 @@ function LabelValueRow({
         {value}
       </Text>
     </Wrapper>
+  );
+}
+
+// Calendar popup — tap a start date, then an end date (tap the same day twice for a single day).
+function DateRangeModal({
+  visible,
+  initialFrom,
+  initialTo,
+  onClose,
+  onApply,
+  colors,
+}: {
+  visible: boolean;
+  initialFrom?: string;
+  initialTo?: string;
+  onClose: () => void;
+  onApply: (from: string, to: string) => void;
+  colors: any;
+}) {
+  const todayStr = toYMD(new Date());
+  const seed = initialFrom ? parseYMD(initialFrom) : new Date();
+  const [viewYear, setViewYear] = useState(seed.getFullYear());
+  const [viewMonth, setViewMonth] = useState(seed.getMonth());
+  const [start, setStart] = useState<string | null>(initialFrom ?? null);
+  const [end, setEnd] = useState<string | null>(initialTo ?? null);
+
+  // Re-seed whenever the popup is opened
+  useEffect(() => {
+    if (!visible) return;
+    const s = initialFrom ? parseYMD(initialFrom) : new Date();
+    setViewYear(s.getFullYear());
+    setViewMonth(s.getMonth());
+    setStart(initialFrom ?? null);
+    setEnd(initialTo ?? null);
+  }, [visible]);
+
+  const goMonth = (delta: number) => {
+    const d = new Date(viewYear, viewMonth + delta, 1);
+    setViewYear(d.getFullYear());
+    setViewMonth(d.getMonth());
+  };
+
+  const weeks = useMemo(() => {
+    const offset = (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7; // Monday-first
+    const days = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const cells: (string | null)[] = Array(offset).fill(null);
+    for (let d = 1; d <= days; d++) cells.push(`${viewYear}-${pad(viewMonth + 1)}-${pad(d)}`);
+    while (cells.length % 7 !== 0) cells.push(null);
+    const rows: (string | null)[][] = [];
+    for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7));
+    return rows;
+  }, [viewYear, viewMonth]);
+
+  const onDayPress = (ymd: string) => {
+    if (!start || (start && end)) {
+      setStart(ymd);
+      setEnd(null);
+    } else if (ymd < start) {
+      setStart(ymd);
+    } else {
+      setEnd(ymd); // same day tapped twice = single-day range
+    }
+  };
+
+  const summary = !start
+    ? 'Select start date'
+    : !end
+    ? `${formatShort(start)} → select end date`
+    : start === end
+    ? formatShort(start)
+    : `${formatShort(start)} → ${formatShort(end)}`;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <Pressable
+          onPress={() => {}}
+          style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+        >
+          <View style={styles.calHeader}>
+            <Pressable onPress={() => goMonth(-1)} hitSlop={8} style={styles.calNavBtn}>
+              <Feather name="chevron-left" size={18} color={colors.foreground} />
+            </Pressable>
+            <Text style={[styles.calTitle, { color: colors.foreground }]}>
+              {MONTHS[viewMonth]} {viewYear}
+            </Text>
+            <Pressable onPress={() => goMonth(1)} hitSlop={8} style={styles.calNavBtn}>
+              <Feather name="chevron-right" size={18} color={colors.foreground} />
+            </Pressable>
+          </View>
+
+          <View style={styles.calRow}>
+            {WEEKDAYS.map((w) => (
+              <Text key={w} style={[styles.calWeekday, { color: colors.mutedForeground }]}>
+                {w}
+              </Text>
+            ))}
+          </View>
+
+          {weeks.map((week, wi) => (
+            <View key={wi} style={styles.calRow}>
+              {week.map((ymd, di) => {
+                if (!ymd) return <View key={di} style={styles.calCell} />;
+                const isStart = ymd === start;
+                const isEnd = ymd === end;
+                const selected = isStart || isEnd;
+                const inRange = !!start && !!end && ymd > start && ymd < end;
+                const future = ymd > todayStr;
+                return (
+                  <Pressable
+                    key={di}
+                    disabled={future}
+                    onPress={() => onDayPress(ymd)}
+                    style={[styles.calCell, inRange && { backgroundColor: colors.primary + '20' }]}
+                  >
+                    <View style={[styles.calDayCircle, selected && { backgroundColor: colors.primary }]}>
+                      <Text
+                        style={[
+                          styles.calDayText,
+                          { color: selected ? colors.primaryForeground : future ? colors.border : colors.foreground },
+                          ymd === todayStr && !selected && { color: colors.primary, fontFamily: 'Inter_700Bold' },
+                        ]}
+                      >
+                        {Number(ymd.slice(8))}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ))}
+
+          <Text style={[styles.calSummary, { color: colors.mutedForeground }]}>{summary}</Text>
+
+          <View style={styles.calFooter}>
+            <Pressable onPress={onClose} style={[styles.calBtn, { borderColor: colors.border, borderWidth: 1 }]}>
+              <Text style={[styles.calBtnText, { color: colors.foreground }]}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              disabled={!start}
+              onPress={() => start && onApply(start, end ?? start)}
+              style={[styles.calBtn, { backgroundColor: colors.primary, opacity: start ? 1 : 0.4 }]}
+            >
+              <Text style={[styles.calBtnText, { color: colors.primaryForeground }]}>Apply</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -1009,56 +1223,74 @@ const styles = StyleSheet.create({
   searchResultSubText: { fontSize: 11, fontFamily: 'Inter_500Medium', marginTop: 1 },
   searchEmptyText: { fontSize: 13, fontFamily: 'Inter_500Medium', textAlign: 'center', paddingVertical: 18 },
 
-  actionRow: { flexDirection: 'row', flexWrap: 'wrap',gap: 18, marginBottom: 22 },
+  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 18, marginBottom: 22 },
   actionItem: { alignItems: 'center', width: 72 },
   actionIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   actionLabel: { fontSize: 10.5, fontFamily: 'Inter_500Medium', textAlign: 'center', lineHeight: 13 },
 
-  /* Card section shell (matches the boxed header-bar reference look).
-     No overflow:hidden here — a clipped card would cut off the anchored
-     period dropdown, so the header gets its own top corner radius instead. */
+  /* Card section shell */
   sectionCard: { borderWidth: 1, borderRadius: 16, marginBottom: 16, overflow: 'hidden' },
-sectionCardHeader: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  paddingHorizontal: 14,
-  paddingVertical: 11,
-  borderBottomWidth: 1,
-},
-sectionCardTitle: { fontSize: 13.5, fontFamily: 'Inter_700Bold' },
-sectionCardBody: { padding: 14 },
-chip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 2 },
-chipText: { fontSize: 11.5, fontFamily: 'Inter_500Medium' },
-
-periodInlineRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1 },
-periodInlinePill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
-
-  /* Period dropdown — anchored directly under its chip */
-  periodMenu: {
-    position: 'absolute',
-    top: '100%',
-    right: 0,
-    marginTop: 6,
-    width: 150,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 4,
-    // @ts-ignore - web-only shadow, harmless no-op on native
-    boxShadow: '0 10px 24px rgba(0,0,0,0.14)',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    zIndex: 100,
+  sectionCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
   },
-  periodMenuItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 9 },
+  sectionCardTitle: { fontSize: 13.5, fontFamily: 'Inter_700Bold' },
+  sectionCardBody: { padding: 14 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 4, paddingHorizontal: 2 },
+  chipText: { fontSize: 11.5, fontFamily: 'Inter_500Medium' },
+
+  periodInlineRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  periodInlinePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+
+  /* Calendar popup */
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  modalCard: { width: '100%', maxWidth: 360, borderRadius: 16, borderWidth: 1, padding: 16 },
+  calHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  calNavBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  calTitle: { fontSize: 15, fontFamily: 'Inter_700Bold' },
+  calRow: { flexDirection: 'row' },
+  calWeekday: {
+    width: `${100 / 7}%`,
+    textAlign: 'center',
+    fontSize: 11,
+    fontFamily: 'Inter_600SemiBold',
+    paddingBottom: 6,
+  },
+  calCell: { width: `${100 / 7}%`, height: 38, alignItems: 'center', justifyContent: 'center' },
+  calDayCircle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  calDayText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
+  calSummary: { textAlign: 'center', fontSize: 12, fontFamily: 'Inter_500Medium', marginTop: 12 },
+  calFooter: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  calBtn: { flex: 1, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  calBtnText: { fontSize: 13, fontFamily: 'Inter_700Bold' },
 
   /* Sales Activity stat grid — columns are set inline (flexBasis) based on screen width.
-     The negative margin on statGrid must match statCell's horizontal padding, or the
-     grid overflows the card horizontally on narrow phones — statGridMobile/statCellMobile
-     shrink both together instead of leaving statGrid at -14 on a small screen. */
+     The negative margin on statGrid must match statCell's horizontal padding. */
   statGrid: { flexDirection: 'row', flexWrap: 'wrap', margin: -14 },
   statGridMobile: { margin: -8 },
   statCell: { paddingVertical: 16, paddingHorizontal: 14 },
@@ -1099,14 +1331,6 @@ periodInlinePill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
   purchaseOrderValue: { fontSize: 20, fontFamily: 'Inter_700Bold' },
 
   centeredComingSoon: { alignItems: 'center', paddingVertical: 20, gap: 6 },
-  comingSoonBadge: {
-    fontSize: 11,
-    fontFamily: 'Inter_600SemiBold',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
   comingSoonText: { fontSize: 12, fontFamily: 'Inter_500Medium', textAlign: 'center', paddingHorizontal: 20, lineHeight: 17 },
 
   tableHeaderRow: { flexDirection: 'row', marginBottom: 4, paddingBottom: 8, borderBottomWidth: 1 },

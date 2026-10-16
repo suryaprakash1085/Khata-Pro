@@ -245,9 +245,24 @@ router.put("/businesses/:id", requireAuth, async (req, res): Promise<void> => {
 });
 
 // GET /businesses/:id/stats
+
+
+// GET /businesses/:id/stats
+// Optional ?from=YYYY-MM-DD&to=YYYY-MM-DD → adds direct_sales / direct_transactions for that range.
+// Without from/to, behaviour is unchanged (today_sales + lifetime transaction_count) so other screens don't break.
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 router.get("/businesses/:id/stats", requireAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
+
+  const from = typeof req.query.from === "string" ? req.query.from : undefined;
+  const to = typeof req.query.to === "string" ? req.query.to : undefined;
+  if ((from && !DATE_RE.test(from)) || (to && !DATE_RE.test(to))) {
+    res.status(400).json({ error: "from/to must be YYYY-MM-DD" });
+    return;
+  }
+  const rangeTo = to ?? from;
 
   const [customerCount] = await db.select({ count: count() }).from(customersTable)
     .where(and(eq(customersTable.businessId, id), eq(customersTable.isDeleted, false)));
@@ -279,6 +294,25 @@ router.get("/businesses/:id/stats", requireAuth, async (req, res): Promise<void>
     ));
   const todaySales = parseFloat(todaySalesTotal.total ?? "0");
 
+  // ── Date-range figures (Direct Sales / Direct Transactions on the dashboard) ──
+  let directSales = todaySales;
+  let directTransactions = Number(txCount.count);
+  if (from) {
+    const [rangeAgg] = await db.select({
+      total: sql<string>`coalesce(sum(amount), 0)`,
+      count: count(),
+    }).from(transactionsTable)
+      .where(and(
+        eq(transactionsTable.businessId, id),
+        eq(transactionsTable.isDeleted, false),
+        eq(transactionsTable.type, "you_gave"),
+        sql`${transactionsTable.entryDate} >= ${from}::date`,
+        sql`${transactionsTable.entryDate} <= ${rangeTo}::date`,
+      ));
+    directSales = parseFloat(rangeAgg.total ?? "0");
+    directTransactions = Number(rangeAgg.count);
+  }
+
   const customerBalances = await db.select({
     currentBalance: customersTable.currentBalance,
   }).from(customersTable)
@@ -297,6 +331,9 @@ router.get("/businesses/:id/stats", requireAuth, async (req, res): Promise<void>
     today_sales: todaySales,
     customer_count: Number(customerCount.count),
     transaction_count: Number(txCount.count),
+    // New: figures for the requested range (same as today_sales / lifetime count when no range is sent)
+    direct_sales: directSales,
+    direct_transactions: directTransactions,
   });
 });
 
