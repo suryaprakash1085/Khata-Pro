@@ -424,41 +424,103 @@ router.get("/admin/businesses", requireAdmin, async (req, res): Promise<void> =>
 });
 
 // PUT /admin/businesses/:id/status
+// router.put(
+//   "/admin/businesses/:id/status",
+//   requireAdmin,
+//   async (req, res): Promise<void> => {
+//     const raw = Array.isArray(req.params.id)
+//       ? req.params.id[0]
+//       : req.params.id;
+
+//     const id = parseInt(raw, 10);
+
+//     const parsed =
+//       UpdateBusinessStatusBody.safeParse(req.body);
+
+//     if (!parsed.success) {
+//       res.status(400).json({
+//         error: parsed.error.message,
+//       });
+//       return;
+//     }
+    
+//     const isActive = parsed.data.is_active;
+
+//     await db
+//       .update(businessesTable)
+//       .set({
+//         isActive: parsed.data.is_active,
+//       })
+//       .where(eq(businessesTable.id, id));
+
+//     res.json({
+//       message: parsed.data.is_active
+//         ? "Business activated"
+//         : "Business suspended",
+//     });
+//   }
+// );
+// PUT /admin/businesses/:id/status
 router.put(
   "/admin/businesses/:id/status",
   requireAdmin,
   async (req, res): Promise<void> => {
-    const raw = Array.isArray(req.params.id)
-      ? req.params.id[0]
-      : req.params.id;
-
+    const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const id = parseInt(raw, 10);
 
-    const parsed =
-      UpdateBusinessStatusBody.safeParse(req.body);
-
+    const parsed = UpdateBusinessStatusBody.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({
-        error: parsed.error.message,
-      });
+      res.status(400).json({ error: parsed.error.message });
       return;
     }
 
+    const isActive = parsed.data.is_active;
+
+    // 1. Business update
     await db
       .update(businessesTable)
-      .set({
-        isActive: parsed.data.is_active,
-      })
+      .set({ isActive })
       .where(eq(businessesTable.id, id));
 
+    // 2. Subscription sync
+    const [sub] = await db
+      .select()
+      .from(subscriptionsTable)
+      .where(eq(subscriptionsTable.businessId, id));
+
+    if (sub) {
+      const today = new Date().toISOString().split("T")[0];
+      const updates: any = {};
+
+      if (!isActive) {
+        // Suspend business -> cancel subscription
+        updates.status = "cancelled";
+      } else {
+        // Activate business -> reactivate subscription
+        updates.status = "active";
+
+        // End date past-la irundha, today-irundhu pudhu period
+        // (subscription route-la reactivate panra mari same logic)
+        if (sub.endDate <= today) {
+          updates.startDate = today;
+          updates.endDate = calculateSubscriptionEndDate(
+            today,
+            sub.billingCycle as any
+          );
+        }
+      }
+
+      await db
+        .update(subscriptionsTable)
+        .set(updates)
+        .where(eq(subscriptionsTable.id, sub.id));
+    }
+
     res.json({
-      message: parsed.data.is_active
-        ? "Business activated"
-        : "Business suspended",
+      message: isActive ? "Business activated" : "Business suspended",
     });
   }
 );
-
 // GET /admin/users
 router.get(
   "/admin/users",

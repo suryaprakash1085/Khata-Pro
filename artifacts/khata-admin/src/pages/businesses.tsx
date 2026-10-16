@@ -7,6 +7,7 @@ import {
   useListSubscriptionPlans,
   getListSubscriptionPlansQueryKey,
   ListAdminBusinessesStatus,
+  getListSubscriptionsQueryKey
 } from "@workspace/api-client-react"
 import { useQueryClient } from "@tanstack/react-query"
 
@@ -164,6 +165,7 @@ export default function Businesses() {
           queryClient.invalidateQueries({
             queryKey: getListAdminBusinessesQueryKey({}),
           })
+          queryClient.invalidateQueries({ queryKey: getListSubscriptionsQueryKey({}) })
         },
 
         onError: () => {

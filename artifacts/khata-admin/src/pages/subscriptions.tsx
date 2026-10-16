@@ -6,6 +6,7 @@ import {
   ListSubscriptionsPlan,
   ListSubscriptionsStatus,
   ListSubscriptionsBillingCycle,
+  getListAdminBusinessesQueryKey
 } from "@workspace/api-client-react"
 import { useQueryClient } from "@tanstack/react-query"
 
@@ -134,6 +135,7 @@ export default function Subscriptions() {
         onSuccess: () => {
           toast({ title: "Subscription updated", description: successMsg })
           queryClient.invalidateQueries({ queryKey: getListSubscriptionsQueryKey({}) })
+          queryClient.invalidateQueries({ queryKey: getListAdminBusinessesQueryKey({}) })
         },
         onError: () => {
           toast({ variant: "destructive", title: "Update failed", description: "Could not modify subscription." })
