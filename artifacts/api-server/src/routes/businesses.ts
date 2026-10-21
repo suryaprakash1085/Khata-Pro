@@ -273,15 +273,7 @@ router.get("/businesses/:id/stats", requireAuth, async (req, res): Promise<void>
       eq(transactionsTable.type, "you_gave"),
     ));
 
-  // const [salesTotal] = await db.select({
-  //   total: sql<string>`coalesce(sum(amount), 0)`,
-  // }).from(transactionsTable)
-  //   .where(and(
-  //     eq(transactionsTable.businessId, id),
-  //     eq(transactionsTable.isDeleted, false),
-  //     eq(transactionsTable.type, "you_gave"),
-  //   ));
-  // const totalToCollect = parseFloat(salesTotal.total ?? "0");
+  
 
   const [todaySalesTotal] = await db.select({
     total: sql<string>`coalesce(sum(amount), 0)`,
