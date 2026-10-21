@@ -273,15 +273,15 @@ router.get("/businesses/:id/stats", requireAuth, async (req, res): Promise<void>
       eq(transactionsTable.type, "you_gave"),
     ));
 
-  const [salesTotal] = await db.select({
-    total: sql<string>`coalesce(sum(amount), 0)`,
-  }).from(transactionsTable)
-    .where(and(
-      eq(transactionsTable.businessId, id),
-      eq(transactionsTable.isDeleted, false),
-      eq(transactionsTable.type, "you_gave"),
-    ));
-  const totalToCollect = parseFloat(salesTotal.total ?? "0");
+  // const [salesTotal] = await db.select({
+  //   total: sql<string>`coalesce(sum(amount), 0)`,
+  // }).from(transactionsTable)
+  //   .where(and(
+  //     eq(transactionsTable.businessId, id),
+  //     eq(transactionsTable.isDeleted, false),
+  //     eq(transactionsTable.type, "you_gave"),
+  //   ));
+  // const totalToCollect = parseFloat(salesTotal.total ?? "0");
 
   const [todaySalesTotal] = await db.select({
     total: sql<string>`coalesce(sum(amount), 0)`,
@@ -318,11 +318,13 @@ router.get("/businesses/:id/stats", requireAuth, async (req, res): Promise<void>
   }).from(customersTable)
     .where(and(eq(customersTable.businessId, id), eq(customersTable.isDeleted, false)));
 
-  let totalToPay = 0;
-  for (const row of customerBalances) {
-    const bal = parseFloat(row.currentBalance ?? "0");
-    if (bal < 0) totalToPay += Math.abs(bal);
-  }
+  let totalToCollect = 0;
+let totalToPay = 0;
+for (const row of customerBalances) {
+  const bal = parseFloat(row.currentBalance ?? "0");
+  if (bal > 0) totalToCollect += bal;
+  else if (bal < 0) totalToPay += Math.abs(bal);
+}
 
   res.json({
     total_to_collect: totalToCollect,
