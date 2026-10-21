@@ -52,14 +52,15 @@ const ACTIONS = [
 // Sales Activity — 3x2 grid on desktop (order matters: fills left-to-right, top-to-bottom)
 // "direct_*" cards come from POS/Admin billing (business-stats calculation).
 // "online_*" cards come from Customer/Delivery App orders (sales_orders with channel === 'online').
+// "total_sales" = Direct + Online for the selected period (default: Overall).
 const SALES_ACTIVITY_CARDS = [
   {
-    label: 'To be Collected',
-    description: 'COD & pending',
+    label: 'Total Sales',
+    description: 'Direct + Online',
     unit: 'Amount',
-    field: 'total_to_collect',
+    field: 'total_sales',
     color: '#2563EB',
-    icon: 'inbox',
+    icon: 'trending-up',
   },
   {
     label: 'To be Paid',
@@ -104,13 +105,14 @@ const SALES_ACTIVITY_CARDS = [
 ] as const;
 
 // ---------------------------------------------------------------------------
-// Date filter — Today / Yesterday / This Week / This Month / Custom (calendar)
+// Date filter — Overall / Today / Yesterday / This Week / This Month / Custom (calendar)
 // ---------------------------------------------------------------------------
-type PeriodFilter = 'today' | 'yesterday' | 'week' | 'month' | 'custom';
+type PeriodFilter = 'all' | 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 type FilterTarget = 'salesActivity' | 'topSelling' | 'purchaseOrder' | 'salesOrder';
 type DateFilterState = { period: PeriodFilter; from?: string; to?: string };
 
 const PERIOD_OPTIONS: { value: PeriodFilter; label: string }[] = [
+  { value: 'all', label: 'Overall' },
   { value: 'today', label: 'Today' },
   { value: 'yesterday', label: 'Yesterday' },
   { value: 'week', label: 'This Week' },
@@ -144,6 +146,10 @@ function getDateRange(f: DateFilterState) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
+  if (f.period === 'all') {
+    // Overall = everything from the beginning until today
+    return { from: '2000-01-01', to: toYMD(today) };
+  }
   if (f.period === 'custom' && f.from) {
     return { from: f.from, to: f.to ?? f.from };
   }
@@ -222,7 +228,7 @@ function usePendingReceiveQty(businessId?: number, enabled?: boolean) {
 }
 
 // Direct Sales / Direct Transactions for the selected date range.
-// ⚠️ The backend stats endpoint must accept ?from=&to= — change the URL below to your real stats route.
+// Backend: GET /api/businesses/:id/stats?from=YYYY-MM-DD&to=YYYY-MM-DD
 function useRangeStats(businessId?: number, range?: { from: string; to: string }) {
   return useQuery<any>({
     queryKey: ['business-stats-range', businessId, range?.from, range?.to],
@@ -257,7 +263,8 @@ export default function HomeScreen() {
   // Which section the calendar popup is currently editing
   const [calendarTarget, setCalendarTarget] = useState<FilterTarget | null>(null);
 
-  const [salesActivityFilter, setSalesActivityFilter] = useState<DateFilterState>({ period: 'month' });
+  // Sales Activity opens on "Overall" (all-time Direct + Online), others stay on This Month
+  const [salesActivityFilter, setSalesActivityFilter] = useState<DateFilterState>({ period: 'all' });
   const [topSellingFilter, setTopSellingFilter] = useState<DateFilterState>({ period: 'month' });
   const [purchaseOrderFilter, setPurchaseOrderFilter] = useState<DateFilterState>({ period: 'month' });
   const [salesOrderFilter, setSalesOrderFilter] = useState<DateFilterState>({ period: 'month' });
@@ -394,7 +401,7 @@ export default function HomeScreen() {
     business_id: business?.id as number,
     from: activityRange.from,
     to: activityRange.to,
-    limit: 1000,
+    limit: 5000, // high enough for "Overall"
   };
   const activityOrdersQuery = useListSalesOrders(activityOrdersParams, {
     query: { enabled: !!business?.id, queryKey: getListSalesOrdersQueryKey(activityOrdersParams) },
@@ -415,6 +422,10 @@ export default function HomeScreen() {
   const rangeStatsQuery = useRangeStats(business?.id, activityRange);
   // Fallback: if the range endpoint isn't ready yet, "Today" still works from the existing stats.
   const directStats: any = rangeStatsQuery.data ?? (salesActivityFilter.period === 'today' ? stats : undefined);
+
+  const directSalesValue = Number(directStats?.direct_sales ?? 0) || 0;
+  const totalSalesValue = directSalesValue + onlineOrderMetrics.totalAmount;
+  const statsLoading = rangeStatsQuery.isLoading || activityOrdersQuery.isLoading;
 
   const salesOrderMatrix = useMemo(() => {
     return SO_CHANNELS.map((channel) => {
@@ -610,24 +621,26 @@ export default function HomeScreen() {
             {SALES_ACTIVITY_CARDS.map((item, i) => {
               let value: string;
               switch (item.field) {
+                case 'total_sales':
+                  value = statsLoading ? '—' : formatCurrency(totalSalesValue, business?.currency);
+                  break;
                 case 'total_to_pay':
                   value = formatCurrency(vendorPending?.total_pending ?? 0, business?.currency);
                   break;
                 case 'direct_sales':
-                  value = formatCurrency(directStats?.direct_sales ?? directStats?.today_sales ?? 0, business?.currency);
+                  value = rangeStatsQuery.isLoading ? '—' : formatCurrency(directSalesValue, business?.currency);
                   break;
                 case 'online_sales':
-                  value = formatCurrency(onlineOrderMetrics.totalAmount, business?.currency);
+                  value = activityOrdersQuery.isLoading ? '—' : formatCurrency(onlineOrderMetrics.totalAmount, business?.currency);
                   break;
                 case 'direct_transactions':
-                  value = String(directStats?.direct_transactions ?? directStats?.transaction_count ?? 0);
+                  value = rangeStatsQuery.isLoading ? '—' : String(directStats?.direct_transactions ?? 0);
                   break;
                 case 'online_orders':
-                  value = String(onlineOrderMetrics.count);
+                  value = activityOrdersQuery.isLoading ? '—' : String(onlineOrderMetrics.count);
                   break;
-                case 'total_to_collect':
                 default:
-                  value = formatCurrency((stats as any)?.[item.field] ?? 0, business?.currency);
+                  value = '0';
                   break;
               }
 

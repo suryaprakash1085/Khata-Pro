@@ -1,3 +1,610 @@
+// import { Router, type IRouter } from "express";
+// import { requireAuth, AuthPayload } from "../middlewares/auth";
+// import {
+//   db,
+//   salesOrdersTable,
+//   salesOrderItemsTable,
+//   customersTable,
+//   productsTable,
+//   businessesTable,
+//   deliveriesTable,
+//   notificationsTable,
+// } from "@workspace/db";
+// import {
+//   CreateSalesOrderBody,
+//   CreatePublicSalesOrderBody,
+//   UpdateSalesOrderBody,
+//   UpdateSalesOrderStatusBody,
+// } from "@workspace/api-zod";
+// import { eq, and, gte, sql, desc, count, inArray } from "drizzle-orm";
+// import { notifyCustomerOrderConfirmed } from "../services/pushNotifications";
+// import {
+//   calculateDeliveryFeeForBusiness,
+//   ShopLocationMissingError,
+//   CustomerLocationMissingError,
+// } from "../services/deliveryFee.service";
+// import { getNextDeliveryNumber } from "../services/deliveryCounter";
+// import { createNewOrderNotification, syncLowStockNotification, createOrderCancelledNotification } from "../services/adminNotifications.service";
+// import { calculatePromoDiscount, PromoError } from "../services/promoDiscount.service";
+
+// const router: IRouter = Router();
+
+
+// type DeliveryPaymentMethod = "online" | "cod" | "card";
+
+
+// function formatSalesOrder(so: any, customerName?: string, itemCount?: number, paymentMode?: string | null) {
+//   return {
+//     id: Number(so.id),
+//     business_id: Number(so.businessId),
+//     customer_id: Number(so.customerId),
+//     customer_name: customerName ?? "",
+//     channel: so.channel,
+//     status: so.status,
+//     amount: parseFloat(so.amount ?? "0"),
+//     tax: parseFloat(so.tax ?? "0"),
+//     discount: parseFloat(so.discount ?? "0"),
+//     promo_code: so.promoCode ?? null,
+//     gst_rate: parseFloat(so.gstRate ?? "0"),
+//     invoice_no: so.invoiceNo ?? null,
+//     description: so.description,
+//     shipping_address: so.shippingAddress,
+//     // payment mode (e.g. 'online' | 'cod' | 'card'), sourced from the linked
+//     // deliveries row. null for in-store pickup orders that never got a
+//     // deliveries row.
+//     payment_mode: paymentMode ?? null,
+//     delivery_distance_km:
+//       so.deliveryDistanceKm !== null && so.deliveryDistanceKm !== undefined
+//         ? parseFloat(so.deliveryDistanceKm)
+//         : null,
+//     delivery_fee: so.deliveryFee !== null && so.deliveryFee !== undefined ? parseFloat(so.deliveryFee) : null,
+//     delivery_fee_radius:
+//       so.deliveryFeeRadius !== null && so.deliveryFeeRadius !== undefined
+//         ? parseFloat(so.deliveryFeeRadius)
+//         : null,
+//     delivery_fee_per_km:
+//       so.deliveryFeePerKm !== null && so.deliveryFeePerKm !== undefined
+//         ? parseFloat(so.deliveryFeePerKm)
+//         : null,
+//     customer_latitude:
+//       so.customerLatitude !== null && so.customerLatitude !== undefined
+//         ? parseFloat(so.customerLatitude)
+//         : null,
+//     customer_longitude:
+//       so.customerLongitude !== null && so.customerLongitude !== undefined
+//         ? parseFloat(so.customerLongitude)
+//         : null,
+//     entry_date: so.entryDate,
+//     transaction_id: so.transactionId ? Number(so.transactionId) : null,
+//     item_count: itemCount ?? 0,
+//     created_by: Number(so.createdBy),
+//     created_at: so.createdAt,
+//   };
+// }
+
+
+// async function resolvePickupAddress(businessId: number): Promise<string> {
+//   const [business] = await db.select().from(businessesTable).where(eq(businessesTable.id, businessId));
+//   return (
+//     [business?.addressLine1, business?.addressLine2].filter(Boolean).join(", ") ||
+//     business?.businessName ||
+//     "Store"
+//   );
+// }
+
+
+// async function resolveDeliveryFee(d: {
+//   business_id: number;
+//   customer_latitude?: number;
+//   customer_longitude?: number;
+//   shipping_address?: string;
+// }) {
+//   if (!d.shipping_address || d.customer_latitude === undefined || d.customer_longitude === undefined) {
+//     return {
+//       fee: 0,
+//       distanceKm: null as number | null,
+//       radius: null as number | null,
+//       perKm: null as number | null,
+//       lat: null as number | null,
+//       lng: null as number | null,
+//     };
+//   }
+
+//   try {
+//     const result = await calculateDeliveryFeeForBusiness(
+//       d.business_id,
+//       d.customer_latitude,
+//       d.customer_longitude,
+//     );
+//     return {
+//       fee: result.delivery_fee,
+//       distanceKm: result.distance_km,
+//       radius: result.free_delivery_radius,
+//       perKm: result.per_km_charge,
+//       lat: d.customer_latitude,
+//       lng: d.customer_longitude,
+//     };
+//   } catch (err) {
+//     if (err instanceof ShopLocationMissingError || err instanceof CustomerLocationMissingError) {
+//       console.warn(`[sales-orders] Delivery fee not calculated for business ${d.business_id}: ${err.message}`);
+//     } else {
+//       console.error("[sales-orders] Unexpected delivery fee calc error:", err);
+//     }
+//     return {
+//       fee: 0,
+//       distanceKm: null,
+//       radius: null,
+//       perKm: null,
+//       lat: d.customer_latitude ?? null,
+//       lng: d.customer_longitude ?? null,
+//     };
+//   }
+// }
+
+// // GET /sales-orders
+// // Also joins deliveries to resolve each order's payment_mode.
+// router.get("/sales-orders", requireAuth, async (req, res): Promise<void> => {
+//   const businessId = parseInt(req.query.business_id as string, 10);
+//   if (isNaN(businessId)) {
+//     res.status(400).json({ error: "business_id is required" });
+//     return;
+//   }
+
+//   const customerId = req.query.customer_id ? parseInt(req.query.customer_id as string, 10) : undefined;
+//   const status = req.query.status as string | undefined;
+//   const channel = req.query.channel as string | undefined;
+//   const from = req.query.from as string | undefined;
+//   const to = req.query.to as string | undefined;
+//   const page = parseInt(req.query.page as string) || 1;
+//   const limit = parseInt(req.query.limit as string) || 50;
+//   const offset = (page - 1) * limit;
+
+//   const conditions: any[] = [eq(salesOrdersTable.businessId, businessId), eq(salesOrdersTable.isDeleted, false)];
+//   if (customerId) conditions.push(eq(salesOrdersTable.customerId, customerId));
+//   if (status) conditions.push(eq(salesOrdersTable.status, status as any));
+//   if (channel) conditions.push(eq(salesOrdersTable.channel, channel as any));
+//   if (from) conditions.push(gte(salesOrdersTable.entryDate, from));
+//   if (to) conditions.push(sql`${salesOrdersTable.entryDate} <= ${to}`);
+
+//   const [orders, totalResult] = await Promise.all([
+//     db.select().from(salesOrdersTable).where(and(...conditions)).limit(limit).offset(offset).orderBy(desc(salesOrdersTable.entryDate)),
+//     db.select({ count: count() }).from(salesOrdersTable).where(and(...conditions)),
+//   ]);
+
+//   const orderIds = orders.map((o: any) => Number(o.id));
+//   const customerIds = [...new Set(orders.map((o: any) => Number(o.customerId)))];
+
+//   const [customers, itemCounts, deliveries] = await Promise.all([
+//     customerIds.length > 0
+//       ? db.select({ id: customersTable.id, name: customersTable.name }).from(customersTable).where(inArray(customersTable.id, customerIds))
+//       : Promise.resolve([] as any[]),
+//     orderIds.length > 0
+//       ? db
+//           .select({ salesOrderId: salesOrderItemsTable.salesOrderId, count: count() })
+//           .from(salesOrderItemsTable)
+//           .where(inArray(salesOrderItemsTable.salesOrderId, orderIds))
+//           .groupBy(salesOrderItemsTable.salesOrderId)
+//       : Promise.resolve([] as any[]),
+//     // Fetch payment_method per sales order via the linked deliveries row
+//     orderIds.length > 0
+//       ? db
+//           .select({ salesOrderId: deliveriesTable.salesOrderId, paymentMethod: deliveriesTable.payment_method })
+//           .from(deliveriesTable)
+//           .where(inArray(deliveriesTable.salesOrderId, orderIds))
+//       : Promise.resolve([] as any[]),
+//   ]);
+
+//   const customerMap = new Map(customers.map((c: any) => [Number(c.id), c.name]));
+//   const itemCountMap = new Map(itemCounts.map((r: any) => [Number(r.salesOrderId), Number(r.count)]));
+//   const paymentMap = new Map(deliveries.map((d: any) => [Number(d.salesOrderId), d.paymentMethod as string | null]));
+
+//   res.json({
+//     data: orders.map((o: any) =>
+//       formatSalesOrder(
+//         o,
+//         customerMap.get(Number(o.customerId)),
+//         itemCountMap.get(Number(o.id)),
+//         paymentMap.get(Number(o.id)),
+//       ),
+//     ),
+//     total: Number(totalResult[0].count),
+//     page,
+//     limit,
+//   });
+// });
+
+// // GET /sales-orders/:id
+// // Also resolves payment_mode for the single-order response.
+// router.get("/sales-orders/:id", requireAuth, async (req, res): Promise<void> => {
+//   const id = parseInt(req.params.id as string, 10);
+//   const [order] = await db.select().from(salesOrdersTable).where(and(eq(salesOrdersTable.id, id), eq(salesOrdersTable.isDeleted, false)));
+//   if (!order) {
+//     res.status(404).json({ error: "Sales order not found" });
+//     return;
+//   }
+
+//   const [customer] = await db.select({ name: customersTable.name }).from(customersTable).where(eq(customersTable.id, Number(order.customerId)));
+//   const items = await db
+//     .select({
+//       id: salesOrderItemsTable.id,
+//       productId: salesOrderItemsTable.productId,
+//       productName: productsTable.name,
+//       qty: salesOrderItemsTable.qty,
+//       unitPrice: salesOrderItemsTable.unitPrice,
+//     })
+//     .from(salesOrderItemsTable)
+//     .innerJoin(productsTable, eq(salesOrderItemsTable.productId, productsTable.id))
+//     .where(eq(salesOrderItemsTable.salesOrderId, id));
+
+//   const [delivery] = await db
+//     .select({ paymentMethod: deliveriesTable.payment_method })
+//     .from(deliveriesTable)
+//     .where(eq(deliveriesTable.salesOrderId, id));
+
+//   res.json({
+//     ...formatSalesOrder(order, customer?.name, items.length, delivery?.paymentMethod ?? null),
+//     items: items.map((it: any) => ({
+//       id: Number(it.id),
+//       product_id: Number(it.productId),
+//       product_name: it.productName,
+//       qty: parseFloat(it.qty),
+//       unit_price: parseFloat(it.unitPrice),
+//     })),
+//   });
+// });
+
+
+// router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
+//   const parsed = CreateSalesOrderBody.safeParse(req.body);
+//   if (!parsed.success) {
+//     res.status(400).json({ error: parsed.error.message });
+//     return;
+//   }
+//   const d = parsed.data;
+//   const { userId } = (req as any).user as AuthPayload;
+
+//   const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, d.customer_id));
+//   if (!customer) {
+//     res.status(404).json({ error: "Customer not found" });
+//     return;
+//   }
+
+//   const itemsTotal = d.items.reduce((sum, it) => sum + it.qty * it.unit_price, 0);
+//   const tax = d.tax ?? 0;
+
+//   const deliveryFeeResult = await resolveDeliveryFee(d);
+//   const amount = itemsTotal + tax + deliveryFeeResult.fee;
+
+//   const toDateStr = (v: string | Date | null | undefined): string | undefined =>
+//     v instanceof Date ? v.toISOString().split("T")[0] : (v as string | undefined);
+
+//   const [order] = await db
+//     .insert(salesOrdersTable)
+//     .values({
+//       businessId: d.business_id,
+//       customerId: d.customer_id,
+//       channel: d.channel ?? "online",
+//       status: "pending",
+//       amount: amount.toString(),
+//       tax: tax.toString(),
+//       gstRate: (d.tax ?? 0).toString(),
+//       description: d.description,
+//       shippingAddress: d.shipping_address,
+//       deliveryDistanceKm: deliveryFeeResult.distanceKm !== null ? deliveryFeeResult.distanceKm.toString() : null,
+//       deliveryFee: deliveryFeeResult.fee.toString(),
+//       deliveryFeeRadius: deliveryFeeResult.radius !== null ? deliveryFeeResult.radius.toString() : null,
+//       deliveryFeePerKm: deliveryFeeResult.perKm !== null ? deliveryFeeResult.perKm.toString() : null,
+//       customerLatitude: deliveryFeeResult.lat !== null ? deliveryFeeResult.lat.toString() : null,
+//       customerLongitude: deliveryFeeResult.lng !== null ? deliveryFeeResult.lng.toString() : null,
+//       entryDate: toDateStr(d.entry_date) ?? new Date().toISOString().split("T")[0],
+//       createdBy: userId,
+//     })
+//     .returning();
+
+//   if (d.items.length > 0) {
+//     await db.insert(salesOrderItemsTable).values(
+//       d.items.map((it) => ({
+//         salesOrderId: order.id,
+//         productId: it.product_id,
+//         qty: it.qty.toString(),
+//         unitPrice: it.unit_price.toString(),
+//       })),
+//     );
+//   }
+
+//   // Track payment_mode locally so it can be returned in the response
+//   // without an extra round-trip query right after inserting it.
+//    let paymentMode: DeliveryPaymentMethod | null = null;
+//   if (d.shipping_address) {
+//     const pickupAddress = await resolvePickupAddress(d.business_id);
+//     paymentMode = (d as any).payment_method as DeliveryPaymentMethod | undefined ?? "online";
+//     const nextNo = await getNextDeliveryNumber(d.business_id);
+//     await db.insert(deliveriesTable).values({
+//       businessId: d.business_id,
+//       businessDeliveryNo: nextNo,
+//       customerId: d.customer_id,
+//       salesOrderId: order.id,
+//       pickupAddress,
+//       dropAddress: d.shipping_address,
+//       amount: amount.toString(),
+//       payment_method: paymentMode,
+//       status: "pending",
+//     });
+//   }
+//     await createNewOrderNotification({
+//     businessId: d.business_id,
+//     salesOrderId: order.id,
+//     customerName: customer.name,
+//     amount,
+//   });
+//   res.status(201).json(formatSalesOrder(order, customer.name, d.items.length, paymentMode));
+// });
+
+
+// router.post("/public/sales-orders", async (req, res): Promise<void> => {
+//   try {
+//     const parsed = CreatePublicSalesOrderBody.safeParse(req.body);
+//     if (!parsed.success) {
+//       res.status(400).json({ error: parsed.error.message });
+//       return;
+//     }
+//     const d = parsed.data;
+
+//     const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, d.customer_id));
+//     if (!customer) {
+//       res.status(404).json({ error: "Customer not found" });
+//       return;
+//     }
+
+//     const itemsTotal = d.items.reduce((sum, it) => sum + it.qty * it.unit_price, 0);
+//     const tax = d.tax ?? 0;
+
+//     // Authoritative recalculation, ignores anything the client may have
+//     // precomputed and displayed in the checkout preview.
+//     const deliveryFeeResult = await resolveDeliveryFee(d);
+
+// let promo;
+// try {
+//   promo = await calculatePromoDiscount(
+//   d.business_id,
+//   (req.body as any)?.promo_code,
+//   d.items,
+//   (req.body as any)?.promotion_id,
+// );
+// } catch (err) {
+//   if (err instanceof PromoError) {
+//     res.status(400).json({ error: err.message });
+//     return;
+//   }
+//   throw err;
+// }
+
+// const amount = itemsTotal - promo.discount + tax + deliveryFeeResult.fee;
+
+//     const [order] = await db
+//       .insert(salesOrdersTable)
+//       .values({
+//         businessId: d.business_id,
+//         customerId: d.customer_id,
+//         channel: d.channel ?? "online",
+//         status: "pending",
+//         amount: amount.toString(),
+//         tax: tax.toString(),
+//         discount: promo.discount.toString(),
+//         promoCode: promo.promoCode,
+//         gstRate: (d.tax ?? 0).toString(),
+//         description: d.description,
+//         shippingAddress: d.shipping_address,
+//         deliveryDistanceKm: deliveryFeeResult.distanceKm !== null ? deliveryFeeResult.distanceKm.toString() : null,
+//         deliveryFee: deliveryFeeResult.fee.toString(),
+//         deliveryFeeRadius: deliveryFeeResult.radius !== null ? deliveryFeeResult.radius.toString() : null,
+//         deliveryFeePerKm: deliveryFeeResult.perKm !== null ? deliveryFeeResult.perKm.toString() : null,
+//         customerLatitude: deliveryFeeResult.lat !== null ? deliveryFeeResult.lat.toString() : null,
+//         customerLongitude: deliveryFeeResult.lng !== null ? deliveryFeeResult.lng.toString() : null,
+//         entryDate: new Date().toISOString().split("T")[0],
+//         createdBy: customer.id, // no staff user for public orders — attribute to the customer
+//       })
+//       .returning();
+
+//     if (d.items.length > 0) {
+//       await db.insert(salesOrderItemsTable).values(
+//         d.items.map((it) => ({
+//           salesOrderId: order.id,
+//           productId: it.product_id,
+//           qty: it.qty.toString(),
+//           unitPrice: it.unit_price.toString(),
+//         })),
+//       );
+//     }
+
+//         let paymentMode: DeliveryPaymentMethod | null = null;
+//     if (d.shipping_address) {
+//       try {
+//         const pickupAddress = await resolvePickupAddress(d.business_id);
+//         paymentMode = (d.payment_method as DeliveryPaymentMethod | undefined) ?? "online";
+//         const nextNo = await getNextDeliveryNumber(d.business_id);
+//         await db.insert(deliveriesTable).values({
+//           businessId: d.business_id,
+//           businessDeliveryNo: nextNo,
+//           customerId: d.customer_id,
+//           salesOrderId: order.id,
+//           pickupAddress,
+//           dropAddress: d.shipping_address,
+//           amount: amount.toString(),
+//           payment_method: paymentMode,
+//           status: "pending",
+//         });
+//       } catch (err) {
+//         console.error("[public/sales-orders] Failed to create delivery:", err);
+//         // Order still succeeds even if delivery creation fails
+//         paymentMode = null; // delivery row failed, so no payment_mode to report
+//       }
+//     }
+//         await createNewOrderNotification({
+//       businessId: d.business_id,
+//       salesOrderId: order.id,
+//       customerName: customer.name,
+//       amount,
+//     });
+//     res.status(201).json(formatSalesOrder(order, customer.name, d.items.length, paymentMode));
+//   } catch (err) {
+//     console.error("[public/sales-orders] failed:", err);
+//     res.status(500).json({
+//       error: "Failed to create sales order",
+//       details: err instanceof Error ? err.message : "Unknown error",
+//     });
+//   }
+// });
+
+// // PUT /sales-orders/:id — meta only
+// router.put("/sales-orders/:id", requireAuth, async (req, res): Promise<void> => {
+//   const id = parseInt(req.params.id as string, 10);
+//   const parsed = UpdateSalesOrderBody.safeParse(req.body);
+//   if (!parsed.success) {
+//     res.status(400).json({ error: parsed.error.message });
+//     return;
+//   }
+//   const d = parsed.data;
+
+//   const [existing] = await db.select().from(salesOrdersTable).where(and(eq(salesOrdersTable.id, id), eq(salesOrdersTable.isDeleted, false)));
+//   if (!existing) {
+//     res.status(404).json({ error: "Sales order not found" });
+//     return;
+//   }
+
+//   const updates: any = {};
+//   if (d.description !== undefined) updates.description = d.description;
+//   if (d.shipping_address !== undefined) updates.shippingAddress = d.shipping_address;
+//   if (d.entry_date) updates.entryDate = d.entry_date instanceof Date ? d.entry_date.toISOString().split("T")[0] : d.entry_date;
+
+//   const [order] = await db
+//     .update(salesOrdersTable)
+//     .set(updates)
+//     .where(and(eq(salesOrdersTable.id, id), eq(salesOrdersTable.isDeleted, false)))
+//     .returning();
+
+//   const [customer] = await db.select({ name: customersTable.name }).from(customersTable).where(eq(customersTable.id, Number(order.customerId)));
+//   res.json(formatSalesOrder(order, customer?.name));
+// });
+
+// // PUT /sales-orders/:id/status — moves order through the pipeline.
+// // When status becomes "invoiced", stock is reduced (order is fulfilled here).
+// router.put("/sales-orders/:id/status", requireAuth, async (req, res): Promise<void> => {
+//   const id = parseInt(req.params.id as string, 10);
+//   const parsed = UpdateSalesOrderStatusBody.safeParse(req.body);
+//   if (!parsed.success) {
+//     res.status(400).json({ error: parsed.error.message });
+//     return;
+//   }
+//   const { status } = parsed.data;
+
+//   const [existing] = await db.select().from(salesOrdersTable).where(and(eq(salesOrdersTable.id, id), eq(salesOrdersTable.isDeleted, false)));
+//   if (!existing) {
+//     res.status(404).json({ error: "Sales order not found" });
+//     return;
+//   }
+
+//   const updates: any = { status: status as any };
+
+//   // Only reduce stock + assign invoice number the first time an order transitions INTO invoiced
+//   if (status === "invoiced" && existing.status !== "invoiced") {
+
+//     const items = await db.select().from(salesOrderItemsTable).where(eq(salesOrderItemsTable.salesOrderId, id));
+
+//     const productIds = items.map((it) => Number(it.productId));
+//     const products = productIds.length > 0 ? await db.select().from(productsTable).where(inArray(productsTable.id, productIds)) : [];
+//     const stockMap = new Map(products.map((p: any) => [Number(p.id), p.stockQty]));
+
+//     const shortages = items
+//       .map((item) => {
+//         const needed = Math.round(parseFloat(item.qty));
+//         const available = stockMap.get(Number(item.productId)) ?? 0;
+//         return { productId: Number(item.productId), needed, available };
+//       })
+//       .filter((s) => s.needed > s.available);
+
+//     if (shortages.length > 0) {
+//       const productNames = new Map(products.map((p: any) => [Number(p.id), p.name]));
+//       res.status(409).json({
+//         error: "Insufficient stock",
+//         shortages: shortages.map((s) => ({
+//           product_id: s.productId,
+//           product_name: productNames.get(s.productId) ?? "",
+//           needed: s.needed,
+//           available: s.available,
+//         })),
+//       });
+//       return;
+//     }
+
+//     for (const item of items) {
+//       await db
+//         .update(productsTable)
+//         .set({ stockQty: sql`${productsTable.stockQty} - ${Math.round(parseFloat(item.qty))}` })
+//         .where(eq(productsTable.id, Number(item.productId)));
+//     }
+//     updates.invoiceNo = `INV-${existing.businessId}-${String(id).padStart(5, "0")}`;
+
+//         for (const item of items) {
+//       await db
+//         .update(productsTable)
+//         .set({ stockQty: sql`${productsTable.stockQty} - ${Math.round(parseFloat(item.qty))}` })
+//         .where(eq(productsTable.id, Number(item.productId)));
+//       await syncLowStockNotification(Number(item.productId));
+//     }
+//   }
+
+  
+
+//   const [order] = await db
+//     .update(salesOrdersTable)
+//     .set(updates)
+//     .where(and(eq(salesOrdersTable.id, id), eq(salesOrdersTable.isDeleted, false)))
+//     .returning();
+
+//   // Notify the customer when the order gets confirmed (invoiced)
+//   if (status === "invoiced" && existing.status !== "invoiced") {
+//     const [customerForPush] = await db.select().from(customersTable).where(eq(customersTable.id, order.customerId));
+//     if (customerForPush?.pushToken) {
+//       notifyCustomerOrderConfirmed(customerForPush.pushToken, Number(order.id)).catch((err) =>
+//         console.error("[sales-orders] Failed to send order-confirmed push:", err),
+//       );
+//     }
+//   }
+
+//  if (status === "cancelled" && existing.status !== "cancelled") {
+//     await db
+//       .update(deliveriesTable)
+//       .set({ status: "cancelled", cancelledAt: new Date() })
+//       .where(eq(deliveriesTable.salesOrderId, id));
+
+//     const [customerForNotif] = await db.select().from(customersTable).where(eq(customersTable.id, order.customerId));
+//     await createOrderCancelledNotification({
+//       businessId: Number(order.businessId),
+//       salesOrderId: Number(order.id),
+//       customerName: customerForNotif?.name ?? "Customer",
+//     }).catch((err) =>
+//       console.error("[sales-orders] Failed to create order-cancelled notification:", err),
+//     );
+//   }
+
+//   const [customer] = await db.select({ name: customersTable.name }).from(customersTable).where(eq(customersTable.id, Number(order.customerId)));
+//   res.json(formatSalesOrder(order, customer?.name));
+// });
+
+// // DELETE /sales-orders/:id
+// router.delete("/sales-orders/:id", requireAuth, async (req, res): Promise<void> => {
+//   const id = parseInt(req.params.id as string, 10);
+//   const [order] = await db.update(salesOrdersTable).set({ isDeleted: true }).where(eq(salesOrdersTable.id, id)).returning();
+//   if (!order) {
+//     res.status(404).json({ error: "Sales order not found" });
+//     return;
+//   }
+//   res.json({ message: "Sales order deleted" });
+// });
+
+// export default router;
+
 import { Router, type IRouter } from "express";
 import { requireAuth, AuthPayload } from "../middlewares/auth";
 import {
@@ -314,10 +921,10 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
 
   // Track payment_mode locally so it can be returned in the response
   // without an extra round-trip query right after inserting it.
-   let paymentMode: DeliveryPaymentMethod | null = null;
+  let paymentMode: DeliveryPaymentMethod | null = null;
   if (d.shipping_address) {
     const pickupAddress = await resolvePickupAddress(d.business_id);
-    paymentMode = (d as any).payment_method as DeliveryPaymentMethod | undefined ?? "online";
+    paymentMode = ((d as any).payment_method as DeliveryPaymentMethod | undefined) ?? "online";
     const nextNo = await getNextDeliveryNumber(d.business_id);
     await db.insert(deliveriesTable).values({
       businessId: d.business_id,
@@ -331,7 +938,8 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
       status: "pending",
     });
   }
-    await createNewOrderNotification({
+
+  await createNewOrderNotification({
     businessId: d.business_id,
     salesOrderId: order.id,
     customerName: customer.name,
@@ -363,23 +971,23 @@ router.post("/public/sales-orders", async (req, res): Promise<void> => {
     // precomputed and displayed in the checkout preview.
     const deliveryFeeResult = await resolveDeliveryFee(d);
 
-let promo;
-try {
-  promo = await calculatePromoDiscount(
-  d.business_id,
-  (req.body as any)?.promo_code,
-  d.items,
-  (req.body as any)?.promotion_id,
-);
-} catch (err) {
-  if (err instanceof PromoError) {
-    res.status(400).json({ error: err.message });
-    return;
-  }
-  throw err;
-}
+    let promo;
+    try {
+      promo = await calculatePromoDiscount(
+        d.business_id,
+        (req.body as any)?.promo_code,
+        d.items,
+        (req.body as any)?.promotion_id,
+      );
+    } catch (err) {
+      if (err instanceof PromoError) {
+        res.status(400).json({ error: err.message });
+        return;
+      }
+      throw err;
+    }
 
-const amount = itemsTotal - promo.discount + tax + deliveryFeeResult.fee;
+    const amount = itemsTotal - promo.discount + tax + deliveryFeeResult.fee;
 
     const [order] = await db
       .insert(salesOrdersTable)
@@ -417,7 +1025,7 @@ const amount = itemsTotal - promo.discount + tax + deliveryFeeResult.fee;
       );
     }
 
-        let paymentMode: DeliveryPaymentMethod | null = null;
+    let paymentMode: DeliveryPaymentMethod | null = null;
     if (d.shipping_address) {
       try {
         const pickupAddress = await resolvePickupAddress(d.business_id);
@@ -440,7 +1048,7 @@ const amount = itemsTotal - promo.discount + tax + deliveryFeeResult.fee;
         paymentMode = null; // delivery row failed, so no payment_mode to report
       }
     }
-        await createNewOrderNotification({
+    await createNewOrderNotification({
       businessId: d.business_id,
       salesOrderId: order.id,
       customerName: customer.name,
@@ -537,15 +1145,10 @@ router.put("/sales-orders/:id/status", requireAuth, async (req, res): Promise<vo
       return;
     }
 
-    for (const item of items) {
-      await db
-        .update(productsTable)
-        .set({ stockQty: sql`${productsTable.stockQty} - ${Math.round(parseFloat(item.qty))}` })
-        .where(eq(productsTable.id, Number(item.productId)));
-    }
     updates.invoiceNo = `INV-${existing.businessId}-${String(id).padStart(5, "0")}`;
 
-        for (const item of items) {
+    // ✅ FIX: stock is reduced ONCE per item (previously two loops reduced it twice)
+    for (const item of items) {
       await db
         .update(productsTable)
         .set({ stockQty: sql`${productsTable.stockQty} - ${Math.round(parseFloat(item.qty))}` })
@@ -553,8 +1156,6 @@ router.put("/sales-orders/:id/status", requireAuth, async (req, res): Promise<vo
       await syncLowStockNotification(Number(item.productId));
     }
   }
-
-  
 
   const [order] = await db
     .update(salesOrdersTable)
@@ -572,7 +1173,7 @@ router.put("/sales-orders/:id/status", requireAuth, async (req, res): Promise<vo
     }
   }
 
- if (status === "cancelled" && existing.status !== "cancelled") {
+  if (status === "cancelled" && existing.status !== "cancelled") {
     await db
       .update(deliveriesTable)
       .set({ status: "cancelled", cancelledAt: new Date() })
