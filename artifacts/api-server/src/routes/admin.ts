@@ -15,6 +15,7 @@ import {
 import { eq, and, ilike, count, desc, sql, gte, lte, inArray } from "drizzle-orm";
 import { requireAdmin } from "../middlewares/auth";
 import { calculateSubscriptionEndDate, getPriceForCycle } from "../services/subscription-billing.service";
+import { logAudit } from "../lib/audit";
 import {
   UpdateBusinessStatusBody,
   UpdateUserStatusBody,
@@ -121,16 +122,16 @@ router.get("/admin/analytics", requireAdmin, async (req, res): Promise<void> => 
     // ── PLATFORM-LEVEL: Plan Distribution = ACTIVE subscriptions only,
     // grouped by plan. "Active subscriptions" per the UI label — trial /
     // expired / cancelled rows are excluded so counts match what's shown.
-   const planBreakdown = await db
-  .select({ plan: subscriptionsTable.plan, count: count() })
-  .from(subscriptionsTable)
-  .where(inArray(subscriptionsTable.status, ["active", "trial"]))
-  .groupBy(subscriptionsTable.plan);
+    const planBreakdown = await db
+      .select({ plan: subscriptionsTable.plan, count: count() })
+      .from(subscriptionsTable)
+      .where(inArray(subscriptionsTable.status, ["active", "trial"]))
+      .groupBy(subscriptionsTable.plan);
 
-const planMap: any = { pro: 0, premium: 0 };
-for (const row of planBreakdown) {
-  planMap[row.plan] = Number(row.count);
-}
+    const planMap: any = { pro: 0, premium: 0 };
+    for (const row of planBreakdown) {
+      planMap[row.plan] = Number(row.count);
+    }
 
     // Format recent signups
     const subs = await db.select().from(subscriptionsTable);
@@ -195,21 +196,21 @@ for (const row of planBreakdown) {
 
     // ── Subscription Status Breakdown ──
     const todayStr = new Date().toISOString().slice(0, 10);
-const in7 = new Date();
-in7.setDate(in7.getDate() + 7);
-const in7Str = in7.toISOString().slice(0, 10);
+    const in7 = new Date();
+    in7.setDate(in7.getDate() + 7);
+    const in7Str = in7.toISOString().slice(0, 10);
 
-const statusBreakdown: any = { active: 0, trial: 0, expiring_soon: 0, expired: 0, cancelled: 0 };
+    const statusBreakdown: any = { active: 0, trial: 0, expiring_soon: 0, expired: 0, cancelled: 0 };
 
-for (const s of subs) {
-  if (s.status === "cancelled") { statusBreakdown.cancelled++; continue; }
-  const end = s.status === "trial" ? (s.trialEndDate ?? s.endDate) : s.endDate;
+    for (const s of subs) {
+      if (s.status === "cancelled") { statusBreakdown.cancelled++; continue; }
+      const end = s.status === "trial" ? (s.trialEndDate ?? s.endDate) : s.endDate;
 
-  if (end < todayStr)            statusBreakdown.expired++;
-  else if (end <= in7Str)        statusBreakdown.expiring_soon++;
-  else if (s.status === "trial") statusBreakdown.trial++;
-  else                           statusBreakdown.active++;
-}
+      if (end < todayStr)            statusBreakdown.expired++;
+      else if (end <= in7Str)        statusBreakdown.expiring_soon++;
+      else if (s.status === "trial") statusBreakdown.trial++;
+      else                           statusBreakdown.active++;
+    }
 
     // ── System Alerts ──
     const [failedPaymentsCount, suspendedBusinessesCount] = await Promise.all([
@@ -424,43 +425,6 @@ router.get("/admin/businesses", requireAdmin, async (req, res): Promise<void> =>
 });
 
 // PUT /admin/businesses/:id/status
-// router.put(
-//   "/admin/businesses/:id/status",
-//   requireAdmin,
-//   async (req, res): Promise<void> => {
-//     const raw = Array.isArray(req.params.id)
-//       ? req.params.id[0]
-//       : req.params.id;
-
-//     const id = parseInt(raw, 10);
-
-//     const parsed =
-//       UpdateBusinessStatusBody.safeParse(req.body);
-
-//     if (!parsed.success) {
-//       res.status(400).json({
-//         error: parsed.error.message,
-//       });
-//       return;
-//     }
-    
-//     const isActive = parsed.data.is_active;
-
-//     await db
-//       .update(businessesTable)
-//       .set({
-//         isActive: parsed.data.is_active,
-//       })
-//       .where(eq(businessesTable.id, id));
-
-//     res.json({
-//       message: parsed.data.is_active
-//         ? "Business activated"
-//         : "Business suspended",
-//     });
-//   }
-// );
-// PUT /admin/businesses/:id/status
 router.put(
   "/admin/businesses/:id/status",
   requireAdmin,
@@ -475,6 +439,12 @@ router.put(
     }
 
     const isActive = parsed.data.is_active;
+
+    // Old status, for the audit log
+    const [beforeBiz] = await db
+      .select({ isActive: businessesTable.isActive })
+      .from(businessesTable)
+      .where(eq(businessesTable.id, id));
 
     // 1. Business update
     await db
@@ -499,8 +469,8 @@ router.put(
         // Activate business -> reactivate subscription
         updates.status = "active";
 
-        // End date past-la irundha, today-irundhu pudhu period
-        // (subscription route-la reactivate panra mari same logic)
+        // If end date is in the past, start a new period from today
+        // (same logic as the subscription route's reactivate)
         if (sub.endDate <= today) {
           updates.startDate = today;
           updates.endDate = calculateSubscriptionEndDate(
@@ -516,11 +486,24 @@ router.put(
         .where(eq(subscriptionsTable.id, sub.id));
     }
 
+    // 3. Audit log
+    const adminId = (req as any).user?.userId ?? null;
+    await logAudit({
+      businessId: id,
+      userId: adminId,
+      action: isActive ? "business_activated" : "business_suspended",
+      entityType: "business",
+      entityId: id,
+      oldValue: { isActive: beforeBiz?.isActive ?? null },
+      newValue: { isActive },
+    });
+
     res.json({
       message: isActive ? "Business activated" : "Business suspended",
     });
   }
 );
+
 // GET /admin/users
 router.get(
   "/admin/users",
@@ -624,33 +607,39 @@ router.put(
   "/admin/users/:id/status",
   requireAdmin,
   async (req, res): Promise<void> => {
-    const raw = Array.isArray(req.params.id)
-      ? req.params.id[0]
-      : req.params.id;
-
+    const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const id = parseInt(raw, 10);
 
-    const parsed =
-      UpdateUserStatusBody.safeParse(req.body);
-
+    const parsed = UpdateUserStatusBody.safeParse(req.body);
     if (!parsed.success) {
-      res.status(400).json({
-        error: parsed.error.message,
-      });
+      res.status(400).json({ error: parsed.error.message });
       return;
     }
 
-    await db
-      .update(usersTable)
-      .set({
-        isActive: parsed.data.is_active,
-      })
+    // Old status, for the audit log
+    const [beforeUser] = await db
+      .select({ isActive: usersTable.isActive })
+      .from(usersTable)
       .where(eq(usersTable.id, id));
 
+    await db
+      .update(usersTable)
+      .set({ isActive: parsed.data.is_active })
+      .where(eq(usersTable.id, id));
+
+    // Audit log
+    const adminId = (req as any).user?.userId ?? null;
+    await logAudit({
+      userId: adminId,
+      action: parsed.data.is_active ? "user_activated" : "user_suspended",
+      entityType: "user",
+      entityId: id,
+      oldValue: { isActive: beforeUser?.isActive ?? null },
+      newValue: { isActive: parsed.data.is_active },
+    });
+
     res.json({
-      message: parsed.data.is_active
-        ? "User activated"
-        : "User suspended",
+      message: parsed.data.is_active ? "User activated" : "User suspended",
     });
   }
 );
@@ -660,47 +649,32 @@ router.get(
   "/admin/subscriptions",
   requireAdmin,
   async (req, res): Promise<void> => {
-    const page =
-      parseInt(req.query.page as string) || 1;
-
-    const limit =
-      parseInt(req.query.limit as string) || 20;
-
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
     const offset = (page - 1) * limit;
 
-    const plan =
-      req.query.plan as string | undefined;
-
-    const status =
-      req.query.status as string | undefined;
+    const plan = req.query.plan as string | undefined;
+    const status = req.query.status as string | undefined;
 
     // NEW — filter by billing cycle (spec §6)
-    const billingCycle =
-      req.query.billing_cycle as string | undefined;
+    const billingCycle = req.query.billing_cycle as string | undefined;
 
     let subs = await db
       .select({
         s: subscriptionsTable,
-        businessName:
-          businessesTable.businessName,
+        businessName: businessesTable.businessName,
       })
       .from(subscriptionsTable)
       .leftJoin(
         businessesTable,
-        eq(
-          businessesTable.id,
-          subscriptionsTable.businessId
-        )
+        eq(businessesTable.id, subscriptionsTable.businessId)
       )
-      .orderBy(
-        desc(subscriptionsTable.createdAt)
-      );
+      .orderBy(desc(subscriptionsTable.createdAt));
 
     let data = subs.map((row) => ({
       id: Number(row.s.id),
       business_id: Number(row.s.businessId),
-      business_name:
-        row.businessName ?? "",
+      business_name: row.businessName ?? "",
       plan: row.s.plan,
       billing_cycle: row.s.billingCycle,        // NEW
       amount: parseFloat(row.s.amount),         // NEW
@@ -712,30 +686,21 @@ router.get(
     }));
 
     if (plan) {
-      data = data.filter(
-        (s) => s.plan === plan
-      );
+      data = data.filter((s) => s.plan === plan);
     }
 
     if (status) {
-      data = data.filter(
-        (s) => s.status === status
-      );
+      data = data.filter((s) => s.status === status);
     }
 
     if (billingCycle) {
-      data = data.filter(
-        (s) => s.billing_cycle === billingCycle
-      );
+      data = data.filter((s) => s.billing_cycle === billingCycle);
     }
 
     const total = data.length;
 
     res.json({
-      data: data.slice(
-        offset,
-        offset + limit
-      ),
+      data: data.slice(offset, offset + limit),
       total,
       page,
       limit,
@@ -751,21 +716,15 @@ router.put(
   "/admin/subscriptions/:id",
   requireAdmin,
   async (req, res): Promise<void> => {
-    const raw = Array.isArray(req.params.id)
-      ? req.params.id[0]
-      : req.params.id;
-
+    const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const id = parseInt(raw, 10);
 
-    const parsed =
-      UpdateSubscriptionBody.safeParse(req.body);
+    const parsed = UpdateSubscriptionBody.safeParse(req.body);
 
     // ⚠️ UpdateSubscriptionBody zod schema must include an optional
     // `billing_cycle` field: z.enum(["monthly","quarterly","half_yearly","yearly"]).optional()
     if (!parsed.success) {
-      res.status(400).json({
-        error: parsed.error.message,
-      });
+      res.status(400).json({ error: parsed.error.message });
       return;
     }
 
@@ -775,9 +734,7 @@ router.put(
       .where(eq(subscriptionsTable.id, id));
 
     if (!existing) {
-      res.status(404).json({
-        error: "Subscription not found",
-      });
+      res.status(404).json({ error: "Subscription not found" });
       return;
     }
 
@@ -805,9 +762,7 @@ router.put(
         .where(eq(subscriptionPlansTable.plan, finalPlan));
 
       if (!planConfig) {
-        res.status(400).json({
-          error: `Plan "${finalPlan}" is not configured`,
-        });
+        res.status(400).json({ error: `Plan "${finalPlan}" is not configured` });
         return;
       }
 
@@ -817,8 +772,8 @@ router.put(
     } else if (parsed.data.end_date) {
       // Manual end-date override (e.g. reactivation with a custom date)
       updates.endDate = parsed.data.end_date;
-    }else if (parsed.data.status === "active" && existing.endDate <= today) {
-      // Reactivate pannumbodhu end date past la irundha, today irundhu pudhu period
+    } else if (parsed.data.status === "active" && existing.endDate <= today) {
+      // On reactivate, if end date is in the past, start a new period from today
       updates.startDate = today;
       updates.endDate = calculateSubscriptionEndDate(today, existing.billingCycle as any);
     }
@@ -830,11 +785,31 @@ router.put(
       .returning();
 
     if (!sub) {
-      res.status(404).json({
-        error: "Subscription not found",
-      });
+      res.status(404).json({ error: "Subscription not found" });
       return;
     }
+
+    // ── Audit log ──
+    const adminId = (req as any).user?.userId ?? null;
+    await logAudit({
+      businessId: Number(sub.businessId),
+      userId: adminId,
+      action: "subscription_updated",
+      entityType: "subscription",
+      entityId: Number(sub.id),
+      oldValue: {
+        plan: existing.plan,
+        billingCycle: existing.billingCycle,
+        status: existing.status,
+        endDate: existing.endDate,
+      },
+      newValue: {
+        plan: sub.plan,
+        billingCycle: sub.billingCycle,
+        status: sub.status,
+        endDate: sub.endDate,
+      },
+    });
 
     const shouldBeActive =
       (sub.status === "active" || sub.status === "trial") && sub.endDate >= today;
@@ -845,23 +820,14 @@ router.put(
       .where(eq(businessesTable.id, Number(sub.businessId)));
 
     const [biz] = await db
-      .select({
-        businessName:
-          businessesTable.businessName,
-      })
+      .select({ businessName: businessesTable.businessName })
       .from(businessesTable)
-      .where(
-        eq(
-          businessesTable.id,
-          Number(sub.businessId)
-        )
-      );
+      .where(eq(businessesTable.id, Number(sub.businessId)));
 
     res.json({
       id: Number(sub.id),
       business_id: Number(sub.businessId),
-      business_name:
-        biz?.businessName ?? "",
+      business_name: biz?.businessName ?? "",
       plan: sub.plan,
       billing_cycle: sub.billingCycle,
       amount: parseFloat(sub.amount),
@@ -878,52 +844,37 @@ router.get(
   "/admin/audit-logs",
   requireAdmin,
   async (req, res): Promise<void> => {
-    const page =
-      parseInt(req.query.page as string) || 1;
-
-    const limit =
-      parseInt(req.query.limit as string) || 50;
-
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 50;
     const offset = (page - 1) * limit;
 
-    const [logs, total] =
-      await Promise.all([
-        db
-          .select({
-            l: auditLogsTable,
-            userName: usersTable.name,
-          })
-          .from(auditLogsTable)
-          .leftJoin(
-            usersTable,
-            sql`${usersTable.id} = ${auditLogsTable.userId}`
-          )
-          .orderBy(
-            desc(auditLogsTable.createdAt)
-          )
-          .limit(limit)
-          .offset(offset),
+    const [logs, total] = await Promise.all([
+      db
+        .select({
+          l: auditLogsTable,
+          userName: usersTable.name,
+        })
+        .from(auditLogsTable)
+        .leftJoin(
+          usersTable,
+          sql`${usersTable.id} = ${auditLogsTable.userId}`
+        )
+        .orderBy(desc(auditLogsTable.createdAt))
+        .limit(limit)
+        .offset(offset),
 
-        db
-          .select({ count: count() })
-          .from(auditLogsTable),
-      ]);
+      db.select({ count: count() }).from(auditLogsTable),
+    ]);
 
     res.json({
       data: logs.map((row) => ({
         id: Number(row.l.id),
-        business_id: row.l.businessId
-          ? Number(row.l.businessId)
-          : null,
-        user_id: row.l.userId
-          ? Number(row.l.userId)
-          : null,
+        business_id: row.l.businessId ? Number(row.l.businessId) : null,
+        user_id: row.l.userId ? Number(row.l.userId) : null,
         user_name: row.userName,
         action: row.l.action,
         entity_type: row.l.entityType,
-        entity_id: row.l.entityId
-          ? Number(row.l.entityId)
-          : null,
+        entity_id: row.l.entityId ? Number(row.l.entityId) : null,
         old_value: row.l.oldValue,
         new_value: row.l.newValue,
         created_at: row.l.createdAt,
@@ -975,6 +926,15 @@ router.post("/admin/broadcast", requireAdmin, async (req, res): Promise<void> =>
 
     req.log.info({ channel, target_plan, businesses: businessIds.length }, "Broadcast stored");
 
+    // Audit log
+    const adminId = (req as any).user?.userId ?? null;
+    await logAudit({
+      userId: adminId,
+      action: "broadcast_sent",
+      entityType: "broadcast",
+      newValue: { title, target_plan, businesses_targeted: businessIds.length },
+    });
+
     res.json({
       message: `Broadcast delivered to ${businessIds.length} business(es)`,
       businesses_targeted: businessIds.length,
@@ -985,6 +945,7 @@ router.post("/admin/broadcast", requireAdmin, async (req, res): Promise<void> =>
     res.status(500).json({ error: "Broadcast failed", message: error?.message });
   }
 });
+
 // GET /admin/subscription-plans
 router.get(
   "/admin/subscription-plans",
@@ -1057,6 +1018,16 @@ router.post(
         isActive: req.body.is_active ?? true,
       })
       .returning();
+
+    // Audit log
+    const adminId = (req as any).user?.userId ?? null;
+    await logAudit({
+      userId: adminId,
+      action: "plan_created",
+      entityType: "subscription_plan",
+      entityId: Number(created.id),
+      newValue: { plan: created.plan },
+    });
 
     res.status(201).json({
       id: Number(created.id),
@@ -1141,6 +1112,12 @@ router.put(
     if (body.is_active != null) updates.isActive = body.is_active;
     updates.updatedAt = new Date();
 
+    // Old record, for the audit log
+    const [before] = await db
+      .select()
+      .from(subscriptionPlansTable)
+      .where(eq(subscriptionPlansTable.id, id));
+
     const [updated] = await db
       .update(subscriptionPlansTable)
       .set(updates)
@@ -1151,6 +1128,29 @@ router.put(
       res.status(404).json({ error: "Plan not found" });
       return;
     }
+
+    // Audit log: only price fields (the ones that matter most)
+    const adminId = (req as any).user?.userId ?? null;
+    await logAudit({
+      userId: adminId,
+      action: "plan_updated",
+      entityType: "subscription_plan",
+      entityId: id,
+      oldValue: before
+        ? {
+            monthlyPrice: before.monthlyPrice,
+            quarterlyPrice: before.quarterlyPrice,
+            halfYearlyPrice: before.halfYearlyPrice,
+            yearlyPrice: before.yearlyPrice,
+          }
+        : null,
+      newValue: {
+        monthlyPrice: updated.monthlyPrice,
+        quarterlyPrice: updated.quarterlyPrice,
+        halfYearlyPrice: updated.halfYearlyPrice,
+        yearlyPrice: updated.yearlyPrice,
+      },
+    });
 
     res.json({
       id: Number(updated.id),
@@ -1199,6 +1199,16 @@ router.patch(
       return;
     }
 
+    // Audit log
+    const adminId = (req as any).user?.userId ?? null;
+    await logAudit({
+      userId: adminId,
+      action: is_active ? "plan_activated" : "plan_deactivated",
+      entityType: "subscription_plan",
+      entityId: id,
+      newValue: { isActive: is_active },
+    });
+
     res.json({
       id: Number(updated.id),
       plan: updated.plan,
@@ -1220,4 +1230,5 @@ router.patch(
     });
   }
 );
+
 export default router;

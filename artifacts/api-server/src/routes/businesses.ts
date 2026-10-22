@@ -3,6 +3,7 @@ import { db, businessesTable, customersTable, transactionsTable, subscriptionsTa
 import { eq, and, or, ilike, count, sql, desc, inArray } from "drizzle-orm";
 import { requireAuth, AuthPayload } from "../middlewares/auth";
 import { calculateTrialEndDate, getPriceForCycle } from "../services/subscription-billing.service";
+import { logAudit, diffFields } from "../lib/audit";
 import {
   CreateBusinessBody,
   UpdateBusinessBody,
@@ -11,7 +12,6 @@ import {
   GetBusinessStatsParams,
   AddStaffParams,
   AddStaffBody,
-
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -170,6 +170,16 @@ router.post("/businesses", requireAuth, async (req, res): Promise<void> => {
     status: "trial",
   }).returning();
 
+  // ── Audit log ──
+  await logAudit({
+    businessId: Number(biz.id),
+    userId,
+    action: "business_created",
+    entityType: "business",
+    entityId: Number(biz.id),
+    newValue: { businessName: biz.businessName, plan, billing_cycle },
+  });
+
   res.status(201).json(
     formatBusiness(biz, {
       plan: sub.plan,
@@ -209,6 +219,7 @@ router.put("/businesses/:id", requireAuth, async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+
   const updates: any = {};
   if (parsed.data.business_name) updates.businessName = parsed.data.business_name;
   if (parsed.data.business_type) updates.businessType = parsed.data.business_type;
@@ -228,11 +239,35 @@ router.put("/businesses/:id", requireAuth, async (req, res): Promise<void> => {
   if (parsed.data.currency) updates.currency = parsed.data.currency;
   if (parsed.data.financial_year_start !== undefined) updates.financialYearStart = parsed.data.financial_year_start instanceof Date ? parsed.data.financial_year_start.toISOString().split("T")[0] : parsed.data.financial_year_start;
 
+  // 1. Old record, before updating
+  const [before] = await db.select().from(businessesTable).where(eq(businessesTable.id, id));
+  if (!before) {
+    res.status(404).json({ error: "Business not found" });
+    return;
+  }
+
+  // 2. Update
   const [biz] = await db.update(businessesTable).set(updates).where(eq(businessesTable.id, id)).returning();
   if (!biz) {
     res.status(404).json({ error: "Business not found" });
     return;
   }
+
+  // 3. Audit log (only if something actually changed)
+  const { userId } = (req as any).user as AuthPayload;
+  const { oldValue, newValue, changed } = diffFields(before, biz, Object.keys(updates));
+  if (changed) {
+    await logAudit({
+      businessId: id,
+      userId,
+      action: "business_updated",
+      entityType: "business",
+      entityId: id,
+      oldValue,
+      newValue,
+    });
+  }
+
   const [sub] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.businessId, Number(biz.id)));
   res.json(
     formatBusiness(
@@ -243,9 +278,6 @@ router.put("/businesses/:id", requireAuth, async (req, res): Promise<void> => {
     )
   );
 });
-
-// GET /businesses/:id/stats
-
 
 // GET /businesses/:id/stats
 // Optional ?from=YYYY-MM-DD&to=YYYY-MM-DD → adds direct_sales / direct_transactions for that range.
@@ -272,8 +304,6 @@ router.get("/businesses/:id/stats", requireAuth, async (req, res): Promise<void>
       eq(transactionsTable.isDeleted, false),
       eq(transactionsTable.type, "you_gave"),
     ));
-
-  
 
   const [todaySalesTotal] = await db.select({
     total: sql<string>`coalesce(sum(amount), 0)`,
@@ -311,12 +341,12 @@ router.get("/businesses/:id/stats", requireAuth, async (req, res): Promise<void>
     .where(and(eq(customersTable.businessId, id), eq(customersTable.isDeleted, false)));
 
   let totalToCollect = 0;
-let totalToPay = 0;
-for (const row of customerBalances) {
-  const bal = parseFloat(row.currentBalance ?? "0");
-  if (bal > 0) totalToCollect += bal;
-  else if (bal < 0) totalToPay += Math.abs(bal);
-}
+  let totalToPay = 0;
+  for (const row of customerBalances) {
+    const bal = parseFloat(row.currentBalance ?? "0");
+    if (bal > 0) totalToCollect += bal;
+    else if (bal < 0) totalToPay += Math.abs(bal);
+  }
 
   res.json({
     total_to_collect: totalToCollect,
@@ -350,6 +380,17 @@ router.post("/businesses/:id/staff", requireAuth, async (req, res): Promise<void
   await db.update(usersTable)
     .set({ role: "staff" })
     .where(eq(usersTable.id, parsed.data.user_id));
+
+  // ── Audit log ──
+  const { userId: actorId } = (req as any).user as AuthPayload;
+  await logAudit({
+    businessId,
+    userId: actorId,
+    action: "staff_added",
+    entityType: "staff",
+    entityId: Number(staff.id),
+    newValue: { staffUserId: Number(staff.userId) },
+  });
 
   res.status(201).json({
     id: Number(staff.id),
