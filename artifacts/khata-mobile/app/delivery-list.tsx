@@ -1076,6 +1076,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { Stack } from 'expo-router';
@@ -1136,6 +1137,14 @@ const PAYMENT_METHOD_LABEL: Record<string, string> = {
   online: 'Online',
   card: 'Card',
 };
+
+const CANCEL_REASON_PRESETS = [
+  'Customer requested cancellation',
+  'Item out of stock',
+  'Unable to deliver to address',
+  'Wrong address / contact',
+  'Duplicate order',
+];
 
 function formatCurrency(n?: number | null) {
   if (n === undefined || n === null || Number.isNaN(n)) return undefined;
@@ -1251,6 +1260,115 @@ function ConfirmDialog({
   );
 }
 
+// NEW — Cancel dialog with a required reason
+function CancelOrderDialog({
+  visible,
+  reason,
+  onChangeReason,
+  loading,
+  onBack,
+  onSubmit,
+  colors,
+}: {
+  visible: boolean;
+  reason: string;
+  onChangeReason: (v: string) => void;
+  loading?: boolean;
+  onBack: () => void;
+  onSubmit: () => void;
+  colors: ReturnType<typeof useColors>;
+}) {
+  if (!visible) return null;
+  const canSubmit = reason.trim().length > 0 && !loading;
+  return (
+    <ScreenOverlay visible={visible} elevated>
+      <View style={styles.confirmDialogWrap}>
+        <View style={[styles.confirmDialogCard, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+          <Text style={[styles.confirmDialogTitle, { color: colors.foreground }]}>Cancel this order?</Text>
+          <Text style={[styles.confirmDialogMessage, { color: colors.mutedForeground }]}>
+            Please select or type a reason. This cannot be undone.
+          </Text>
+
+          <View style={styles.reasonChipsWrap}>
+            {CANCEL_REASON_PRESETS.map((preset) => {
+              const active = reason === preset;
+              return (
+                <Pressable
+                  key={preset}
+                  onPress={() => onChangeReason(preset)}
+                  disabled={loading}
+                  style={[
+                    styles.reasonChip,
+                    {
+                      borderRadius: colors.radius,
+                      borderColor: active ? colors.primary : colors.border,
+                      backgroundColor: active ? colors.primary : colors.background,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontFamily: FONT_FAMILY,
+                      color: active ? colors.primaryForeground : colors.foreground,
+                    }}
+                  >
+                    {preset}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <TextInput
+            value={reason}
+            onChangeText={onChangeReason}
+            editable={!loading}
+            placeholder="Type a reason..."
+            placeholderTextColor={colors.mutedForeground}
+            multiline
+            maxLength={250}
+            style={[
+              styles.reasonInput,
+              { borderColor: colors.border, color: colors.foreground, borderRadius: colors.radius },
+            ]}
+          />
+          <Text style={[styles.reasonCounter, { color: colors.mutedForeground }]}>{reason.length}/250</Text>
+
+          <View style={styles.confirmDialogButtons}>
+            <Pressable
+              onPress={onBack}
+              disabled={loading}
+              style={[styles.confirmDialogCancelBtn, { borderColor: colors.border, borderRadius: colors.radius }]}
+            >
+              <Text style={{ color: colors.foreground, fontSize: 14, fontFamily: FONT_FAMILY, fontWeight: '600' }}>
+                Back
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={onSubmit}
+              disabled={!canSubmit}
+              style={[
+                styles.confirmDialogConfirmBtn,
+                { backgroundColor: colors.destructive, borderRadius: colors.radius },
+                !canSubmit && styles.footerBtnDisabled,
+              ]}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color={colors.primaryForeground} />
+              ) : (
+                <Text style={{ color: colors.primaryForeground, fontSize: 14, fontFamily: FONT_FAMILY, fontWeight: '700' }}>
+                  Yes, Cancel
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </ScreenOverlay>
+  );
+}
+
 export default function DeliveryListScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -1268,6 +1386,7 @@ export default function DeliveryListScreen() {
   // NEW — Actions dropdown + cancel dialog
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
 
   const deliveryParams = {
     business_id: business?.id as number,
@@ -1431,17 +1550,23 @@ export default function DeliveryListScreen() {
   const handleCancelOrderPress = () => {
     setActionsMenuOpen(false);
     if (!canCancelOrder) return;
+    setCancelReason('');
     setCancelDialogOpen(true);
   };
 
   const handleCancelOrderSubmit = () => {
     if (!salesOrder) return;
+    const reason = cancelReason.trim();
+    if (!reason) return;
     confirmOrder.mutate(
-      { id: salesOrder.id, data: { status: 'cancelled' } },
+      // NOTE: backend must accept `cancel_reason` on the status update endpoint
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { id: salesOrder.id, data: { status: 'cancelled', cancel_reason: reason } as any },
       {
         onSuccess: () => {
-          console.log('✅ Order cancelled');
+          console.log('✅ Order cancelled — reason:', reason);
           setCancelDialogOpen(false);
+          setCancelReason('');
           refetch();
           refetchSalesOrder();
           refetchDeliveryDetail();
@@ -1515,6 +1640,7 @@ export default function DeliveryListScreen() {
         payment_status?: string;
         discount?: number;
         delivery_charge?: number;
+        cancel_reason?: string;
       })
     | undefined;
 
@@ -2056,7 +2182,9 @@ export default function DeliveryListScreen() {
                     <Text style={[styles.bottomBarSubtitle, { color: colors.mutedForeground }]}>
                       {salesOrderId
                         ? salesOrder?.status === 'cancelled'
-                          ? 'This order was cancelled.'
+                          ? salesOrderAny?.cancel_reason
+                            ? `Reason: ${salesOrderAny.cancel_reason}`
+                            : 'This order was cancelled.'
                           : isOrderPending
                           ? 'Review the details above, then confirm to move it forward.'
                           : 'This order has already been confirmed.'
@@ -2140,15 +2268,13 @@ export default function DeliveryListScreen() {
       />
 
       {/* NEW — Cancel order dialog */}
-      <ConfirmDialog
+      <CancelOrderDialog
         visible={cancelDialogOpen}
-        title="Cancel this order?"
-        message="This will cancel the order. This action cannot be undone."
-        confirmLabel="Yes, Cancel"
-        destructive
+        reason={cancelReason}
+        onChangeReason={setCancelReason}
         loading={confirmOrder.isPending}
-        onCancel={() => setCancelDialogOpen(false)}
-        onConfirm={handleCancelOrderSubmit}
+        onBack={() => setCancelDialogOpen(false)}
+        onSubmit={handleCancelOrderSubmit}
         colors={colors}
       />
     </View>
@@ -2342,6 +2468,19 @@ const styles = StyleSheet.create({
   },
   footerSecondaryBtnText: { fontSize: 14, fontFamily: FONT_FAMILY, fontWeight: '600' },
   footerBtnDisabled: { opacity: 0.6 },
+
+  reasonChipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  reasonChip: { paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1 },
+  reasonInput: {
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 10,
+    minHeight: 72,
+    fontSize: 13,
+    fontFamily: FONT_FAMILY,
+    textAlignVertical: 'top',
+  },
+  reasonCounter: { fontSize: 11, fontFamily: FONT_FAMILY, textAlign: 'right', marginTop: 4 },
 
   confirmDialogWrap: { width: '100%', maxWidth: 380, padding: 20 },
   confirmDialogCard: { padding: 22 },
