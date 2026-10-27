@@ -43,6 +43,8 @@ export const notificationsTable = pgTable("notifications", {
       "vendor_payment_overdue",
       "order_cancelled",
       "return_requested",
+      "delivery_accepted",   // NEW
+      "delivery_rejected",   
       "subscription_renewal",
       "subscription_renewal_success",
       "subscription_trial_expiring",

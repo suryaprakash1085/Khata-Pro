@@ -24,7 +24,10 @@ import { initiateMaskedCall, CallMaskingConfigError, CallMaskingProviderError } 
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { getNextDeliveryNumber } from "../services/deliveryCounter";
-
+import {
+  createDeliveryAcceptedNotification,
+  createDeliveryRejectedNotification,
+} from "../services/adminNotifications.service";
 const router: IRouter = Router();
 
 const OTP_EXPIRY_MINUTES = 10;
@@ -604,6 +607,34 @@ router.post("/deliveries/:id/accept", requireDriverAuth, async (req, res): Promi
     message: `Your delivery for order has been accepted.`,
   });
 
+    await db.insert(notificationsTable).values({
+    businessId,
+    driverId,
+    deliveryId: id,
+    salesOrderId: delivery.salesOrderId ? Number(delivery.salesOrderId) : null,
+    type: "accepted",
+    title: "Delivery Accepted",
+    message: `Your delivery for order has been accepted.`,
+  });
+
+  // ── NEW: Admin panel notification ──
+  try {
+    const [driver] = await db.select().from(driversTable).where(eq(driversTable.id, driverId));
+    const { orderRef } = await getDeliveryContext(delivery);
+
+    await createDeliveryAcceptedNotification({
+      businessId: Number(businessId),
+      deliveryId: id,
+      salesOrderId: delivery.salesOrderId ? Number(delivery.salesOrderId) : null,
+      driverName: driver?.name ?? "A driver",
+      orderRef,
+    });
+  } catch (err) {
+    // admin notification fail aanalum driver accept flow break aaga koodadhu
+    console.error("[deliveries] admin notification (accepted) failed:", err);
+  }
+
+
   res.json(formatDelivery(updated));
 });
 
@@ -647,7 +678,22 @@ router.post("/deliveries/:id/reject", requireDriverAuth, async (req, res): Promi
   await db.insert(deliveryStatusHistoryTable).values(
     statusHistoryPayload(id, delivery.status, "pending", driverId, "driver", `Rejected: ${parsed.data.reason}`)
   );
+ 
+    try {
+    const [driver] = await db.select().from(driversTable).where(eq(driversTable.id, driverId));
+    const { orderRef } = await getDeliveryContext(delivery);
 
+    await createDeliveryRejectedNotification({
+      businessId: Number(businessId),
+      deliveryId: id,
+      salesOrderId: delivery.salesOrderId ? Number(delivery.salesOrderId) : null,
+      driverName: driver?.name ?? "A driver",
+      orderRef,
+      reason: parsed.data.reason,
+    });
+  } catch (err) {
+    console.error("[deliveries] admin notification (rejected) failed:", err);
+  }
   res.json(formatDelivery(updated));
 });
 

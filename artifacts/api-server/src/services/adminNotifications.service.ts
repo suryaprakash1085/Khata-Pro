@@ -182,3 +182,44 @@ export async function createOrderCancelledNotification(params: {
   });
 }
 
+
+// ── 6. Delivery Accepted by Driver ──────────────────────────────────────
+export async function createDeliveryAcceptedNotification(params: {
+  businessId: number;
+  deliveryId: number;
+  salesOrderId?: number | null;
+  driverName: string;
+  orderRef: number;
+}) {
+  const { businessId, deliveryId, salesOrderId, driverName, orderRef } = params;
+  await db.insert(notificationsTable).values({
+    businessId,
+    deliveryId,
+    salesOrderId: salesOrderId ?? null,
+    // driverId / customerId INTENTIONALLY not set — admin-level row
+    type: "delivery_accepted",
+    title: "Delivery Accepted",
+    message: `${driverName} accepted Order #ORD-${orderRef}`,
+  });
+}
+
+// ── 7. Delivery Rejected by Driver ──────────────────────────────────────
+export async function createDeliveryRejectedNotification(params: {
+  businessId: number;
+  deliveryId: number;
+  salesOrderId?: number | null;
+  driverName: string;
+  orderRef: number;
+  reason: string;
+}) {
+  const { businessId, deliveryId, salesOrderId, driverName, orderRef, reason } = params;
+  await db.insert(notificationsTable).values({
+    businessId,
+    deliveryId,
+    salesOrderId: salesOrderId ?? null,
+    type: "delivery_rejected",
+    title: "Delivery Rejected",
+    message: `${driverName} rejected Order #ORD-${orderRef} • Reason: ${reason}`,
+  });
+}
+
