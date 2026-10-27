@@ -32,3 +32,4 @@ export * from "./business_delivery_counters";
 export * from "./subscription_payments";
 export * from "./subscription_plans";
 export * from "./orderReturns";
+export * from "./platformSettings";

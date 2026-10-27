@@ -31,6 +31,7 @@ import addressesRouter from "./addresses";
 import subscriptions from "./subscriptions";
 import orderReturnsRouter from "./order-returns";
 import customerUploadsRouter from "./customer-uploads";
+import adminsettings from "./admin-settings";
 
 const router: IRouter = Router();
 
@@ -64,5 +65,6 @@ router.use(addressesRouter);
 router.use(subscriptions);
 router.use(orderReturnsRouter);
 router.use(customerUploadsRouter);
+router.use(adminsettings);
 
 export default router;
