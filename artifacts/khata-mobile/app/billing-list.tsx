@@ -61,8 +61,7 @@ interface ApiTransaction {
   created_at: string;
 }
 
-// 'month:2026-10' style values are used for the specific-month filter.
-type DateFilter = 'all' | 'today' | 'week' | 'month' | `month:${string}`;
+type DateFilter = 'all' | 'today' | 'week' | 'month';
 type BillStatus = 'paid' | 'partially_paid' | 'pending';
 
 interface BillRow {
@@ -142,6 +141,34 @@ function useAllPayments(params: { business_id?: number }, enabled: boolean) {
   });
 }
 
+// ---- All bills ("you_gave") across pages. Only enabled when a From/To date
+// range is chosen, so the range is applied to every bill and not just the
+// 100 loaded on the current page. Key starts with '/api/transactions' so
+// existing invalidations refresh it too. ----
+function useAllBills(params: { business_id?: number }, enabled: boolean) {
+  return useQuery<ApiTransaction[]>({
+    queryKey: ['/api/transactions', 'bills-all', params],
+    enabled,
+    queryFn: async () => {
+      const PAGE = 200;
+      const all: ApiTransaction[] = [];
+      for (let page = 1; page <= 50; page++) {
+        const qs = new URLSearchParams({
+          business_id: String(params.business_id),
+          type: 'you_gave',
+          page: String(page),
+          limit: String(PAGE),
+        }).toString();
+        const res = await customFetch<any>(`/api/transactions?${qs}`, { responseType: 'json' });
+        const rows: ApiTransaction[] = res?.data ?? [];
+        all.push(...rows);
+        if (rows.length < PAGE || all.length >= (res?.total ?? Infinity)) break;
+      }
+      return all;
+    },
+  });
+}
+
 const STATUS_META: Record<BillStatus, { label: string; color: string; bg: string }> = {
   paid: { label: 'Paid', color: '#15803D', bg: '#DCFCE7' },
   partially_paid: { label: 'Partially Paid', color: '#B45309', bg: '#FEF3C7' },
@@ -154,20 +181,6 @@ const DATE_FILTERS: { value: DateFilter; label: string }[] = [
   { value: 'week', label: 'This Week' },
   { value: 'month', label: 'This Month' },
 ];
-
-// Last N months, newest first -> "October 2026", "September 2026", ...
-// Value format is `month:YYYY-MM`, which matches the first 7 chars of entry_date.
-function buildMonthOptions(count = 12): { value: DateFilter; label: string }[] {
-  const now = new Date();
-  return Array.from({ length: count }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    return {
-      value: `month:${key}` as DateFilter,
-      label: d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
-    };
-  });
-}
 
 type StatusFilter = 'all' | BillStatus;
 const STATUS_FILTERS: { value: StatusFilter; label: string }[] = [
@@ -354,6 +367,51 @@ function ToolbarDropdown<T extends string>({
 }
 
 // ---------------------------------------------------------------------------
+// Calendar date picker (web only) — uses the browser's native date input, the
+// same calendar popup you see on the Reports page. Value is "YYYY-MM-DD".
+// ---------------------------------------------------------------------------
+function DateInput({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  colors,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  min?: string;
+  max?: string;
+  colors: any;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <Text style={{ fontFamily: FONT_FAMILY, fontSize: 12, color: colors.mutedForeground }}>{label}</Text>
+      {React.createElement('input', {
+        type: 'date',
+        value,
+        min,
+        max,
+        onChange: (e: any) => onChange(e.target.value),
+        style: {
+          fontFamily: FONT_FAMILY,
+          fontSize: 13,
+          padding: '9px 12px',
+          border: `1px solid ${colors.border}`,
+          borderRadius: colors.radius,
+          backgroundColor: colors.card,
+          color: colors.foreground,
+          outline: 'none',
+          boxSizing: 'border-box',
+          height: 40,
+        },
+      })}
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
 export default function BillingListScreen() {
@@ -379,14 +437,14 @@ export default function BillingListScreen() {
   // and owns its own Edit/Delete/WhatsApp/Download/Return actions.
   const [receiptBillId, setReceiptBillId] = useState<number | null>(null);
 
-  // Quick filters + last 12 months for the desktop date dropdown.
-  const monthOptions = useMemo(() => buildMonthOptions(12), []);
-  const dateOptions = useMemo(() => [...DATE_FILTERS, ...monthOptions], [monthOptions]);
+  // Custom calendar range ("YYYY-MM-DD", empty = not set). When either is
+  // set, the quick date dropdown is reset to "All Dates" and the range is
+  // applied on the client over ALL bills.
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const customRangeActive = !!(fromDate || toDate);
 
-  // A specific-month selection is filtered on the client, so the API just
-  // gets 'all' in that case.
-  const apiFilter = (dateFilter.startsWith('month:') ? 'all' : dateFilter) as 'all' | 'today' | 'week' | 'month';
-  const params = { business_id: business?.id as number, filter: apiFilter, page, limit: LIMIT };
+  const params = { business_id: business?.id as number, filter: dateFilter, page, limit: LIMIT };
   const {
     data,
     isLoading,
@@ -404,9 +462,17 @@ export default function BillingListScreen() {
   // Payments across ALL pages, so Paid/Balance/Status are always correct.
   const { data: allPayments } = useAllPayments({ business_id: business?.id }, !!business?.id);
 
+  // With a custom From/To range, load every bill (not just this page) so the
+  // range is applied across the full history.
+  const { data: allBills, isLoading: billsLoading } = useAllBills(
+    { business_id: business?.id },
+    !!business?.id && customRangeActive,
+  );
+  const isTableLoading = isLoading || (customRangeActive && billsLoading);
+
   const billRows = useMemo(
-    () => buildBillRows(transactions, allPayments ?? []),
-    [transactions, allPayments],
+    () => buildBillRows(customRangeActive ? allBills ?? [] : transactions, allPayments ?? []),
+    [customRangeActive, allBills, transactions, allPayments],
   );
 
   // Returns are matched to bills by transaction_id (the returns table
@@ -435,17 +501,21 @@ export default function BillingListScreen() {
     });
   }, [billRows, returnsByTransactionId]);
 
-  // Month-wise filter: when a specific month is picked, keep only the bills
-  // whose entry_date starts with that "YYYY-MM".
-  const monthRows = useMemo(() => {
-    if (!dateFilter.startsWith('month:')) return billRowsWithReturns;
-    const key = dateFilter.slice(6); // "2026-10"
-    return billRowsWithReturns.filter((r) => r.entryDate.slice(0, 7) === key);
-  }, [billRowsWithReturns, dateFilter]);
+  // Calendar range filter: keep bills whose entry_date ("YYYY-MM-DD...") falls
+  // between From and To (both inclusive). Either side can be left empty.
+  const dateRows = useMemo(() => {
+    if (!fromDate && !toDate) return billRowsWithReturns;
+    return billRowsWithReturns.filter((r) => {
+      const d = r.entryDate.slice(0, 10);
+      if (fromDate && d < fromDate) return false;
+      if (toDate && d > toDate) return false;
+      return true;
+    });
+  }, [billRowsWithReturns, fromDate, toDate]);
 
   const filteredRows = useMemo(() => {
     const q = searchText.trim().toLowerCase();
-    let rows = monthRows;
+    let rows = dateRows;
     if (q) {
       rows = rows.filter(
         (r) => r.invoiceNumber.toLowerCase().includes(q) || r.customerName.toLowerCase().includes(q),
@@ -455,24 +525,43 @@ export default function BillingListScreen() {
       rows = rows.filter((r) => r.status === statusFilter);
     }
     return rows;
-  }, [monthRows, searchText, statusFilter]);
+  }, [dateRows, searchText, statusFilter]);
 
   // Stat-card counts follow the selected date/month filter.
   const stats = useMemo(() => {
     let paid = 0;
     let partiallyPaid = 0;
     let pending = 0;
-    monthRows.forEach((r) => {
+    dateRows.forEach((r) => {
       if (r.status === 'paid') paid += 1;
       else if (r.status === 'partially_paid') partiallyPaid += 1;
       else pending += 1;
     });
-    return { total: monthRows.length, paid, partiallyPaid, pending };
-  }, [monthRows]);
+    return { total: dateRows.length, paid, partiallyPaid, pending };
+  }, [dateRows]);
 
+  // Quick filter (Today / This Week / This Month) clears the calendar range.
   const changeDateFilter = (value: DateFilter) => {
     setDateFilter(value);
+    setFromDate('');
+    setToDate('');
     setPage(1);
+  };
+
+  // Picking a calendar date resets the quick filter to "All Dates".
+  const changeFromDate = (v: string) => {
+    setFromDate(v);
+    setDateFilter('all');
+    setPage(1);
+  };
+  const changeToDate = (v: string) => {
+    setToDate(v);
+    setDateFilter('all');
+    setPage(1);
+  };
+  const clearDateRange = () => {
+    setFromDate('');
+    setToDate('');
   };
 
   // -------------------------------------------------------------------------
@@ -654,13 +743,24 @@ export default function BillingListScreen() {
 
               <ToolbarDropdown
                 label="All Dates"
-                options={dateOptions}
+                options={DATE_FILTERS}
                 value={dateFilter}
                 onChange={changeDateFilter}
                 colors={colors}
                 isOpen={openDropdown === 'date'}
                 onToggle={() => setOpenDropdown((d) => (d === 'date' ? null : 'date'))}
               />
+              <DateInput label="From" value={fromDate} onChange={changeFromDate} max={toDate || undefined} colors={colors} />
+              <DateInput label="To" value={toDate} onChange={changeToDate} min={fromDate || undefined} colors={colors} />
+              {customRangeActive && (
+                <Pressable
+                  onPress={clearDateRange}
+                  style={[styles.clearDateBtn, { borderColor: colors.border, borderRadius: colors.radius }]}
+                >
+                  <Feather name="x" size={14} color={colors.mutedForeground} />
+                  <Text style={{ fontFamily: FONT_FAMILY, fontSize: 13, color: colors.foreground }}>Clear</Text>
+                </Pressable>
+              )}
               <ToolbarDropdown
                 label="All Status"
                 options={STATUS_FILTERS}
@@ -682,7 +782,7 @@ export default function BillingListScreen() {
 
             {/* Table */}
             <View style={[styles.tableCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
-              {isLoading ? (
+              {isTableLoading ? (
                 <ActivityIndicator style={{ margin: 40 }} color={colors.primary} />
               ) : isError ? (
                 <View style={styles.errorBox}>
@@ -695,8 +795,14 @@ export default function BillingListScreen() {
               ) : filteredRows.length === 0 ? (
                 <EmptyState
                   icon="file-text"
-                  title={searchText ? 'No matching bills' : 'No bills yet'}
-                  subtitle={searchText ? 'Try a different invoice number or customer name.' : 'Bills you create from New Bill will show up here.'}
+                  title={searchText || customRangeActive ? 'No matching bills' : 'No bills yet'}
+                  subtitle={
+                    customRangeActive
+                      ? 'No bills found in the selected dates.'
+                      : searchText
+                        ? 'Try a different invoice number or customer name.'
+                        : 'Bills you create from New Bill will show up here.'
+                  }
                 />
               ) : (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -721,7 +827,7 @@ export default function BillingListScreen() {
             </View>
 
             {/* Pagination */}
-            {!isLoading && !isError && total > LIMIT && (
+            {!isLoading && !isError && !customRangeActive && total > LIMIT && (
               <View style={[styles.paginationBar, { borderTopColor: colors.border, borderTopWidth: 1, marginTop: 4 }]}>
                 <Pressable
                   disabled={page <= 1}
@@ -933,6 +1039,7 @@ const styles = StyleSheet.create({
   dropdownTrigger: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10, minWidth: 150 },
   dropdownMenu: { position: 'absolute', top: 44, left: 0, right: 0, borderWidth: 1, paddingVertical: 4, zIndex: 20, elevation: 6 },
   dropdownItem: { paddingHorizontal: 12, paddingVertical: 9 },
+  clearDateBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, paddingHorizontal: 12, height: 40 },
   exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 11 },
 
   tableCard: { borderWidth: 1, overflow: 'hidden' },
