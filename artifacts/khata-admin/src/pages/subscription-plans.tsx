@@ -70,6 +70,10 @@ const FEATURE_KEYS: {
     key: "advancedReports",
     label: "Advanced Reports",
   },
+  {
+    key: "transport",
+    label: "Transport & Online Deliveries",
+  },
 ]
 
 /* ============================================================
@@ -178,6 +182,7 @@ const EMPTY_CREATE_FORM = {
     aiChat: false,
     aiReminder: false,
     advancedReports: false,
+    transport: false,
   },
 
   is_active: true,
