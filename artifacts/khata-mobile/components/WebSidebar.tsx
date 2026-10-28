@@ -21,8 +21,9 @@ type LeafItem = {
   // If set, this item is only shown to owners or to staff whose saved
   // permissions include this key as true.
   requires?: 'view_reports' | 'manage_customers' | 'add_entry' | 'delete_entry';
+  requiresFeature?: 'transport' | 'aiChat' | 'aiReminder' | 'advancedReports';
 };
-type HybridItem = { key: string; label: string; icon: keyof typeof Feather.glyphMap; path: string; children: LeafItem[] };
+type HybridItem = { key: string; label: string; icon: keyof typeof Feather.glyphMap; path: string; children: LeafItem[]; requiresFeature?: 'transport' | 'aiChat' | 'aiReminder' | 'advancedReports'; };
 type NavEntry = LeafItem | HybridItem;
 
 const NAV_ITEMS: NavEntry[] = [
@@ -55,6 +56,7 @@ const NAV_ITEMS: NavEntry[] = [
     label: 'Transport',
     icon: 'truck',
     path: '#',
+    requiresFeature: 'transport', 
     children: [
       { key: 'deliveries', label: 'Deliveries', icon: 'map-pin', path: '/delivery-list' },
       { key: 'drivers', label: 'Drivers', icon: 'users', path: '/driver-list' },
@@ -84,6 +86,15 @@ export function WebSidebar() {
     return !!user?.permissions?.[requires];
   };
 
+  // Plan features (comes from business/subscription plan)
+const planFeatures: Record<string, boolean> =
+  (business as any)?.plan_features ?? (business as any)?.features ?? {};
+
+const hasFeature = (feature?: string) => {
+  if (!feature) return true;
+  return Boolean(planFeatures[feature]);
+};
+
   // Filter leaf items by permission, then drop any group whose children
   // all got filtered out (so "Products" never shows as an empty dropdown
   // for an employee with no product permissions).
@@ -102,7 +113,7 @@ export function WebSidebar() {
       return acc;
     }, []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOwner, user]);
+  }, [isOwner, user, planFeatures]);
 
   const initialExpanded: Record<string, boolean> = {};
   navItems.forEach((item) => {

@@ -21,6 +21,7 @@ type SubInfo = {
   billingCycle: string;
   status: string;
   trialEndDate: string | null;
+  features?: Record<string, boolean>;
 } | undefined;
 
 // Shared response formatter — keeps the GET list / POST / GET :id / PUT :id
@@ -49,6 +50,7 @@ function formatBusiness(b: any, sub?: SubInfo) {
     is_active: b.isActive,
     // ⚠️ No "free" fallback — Free plan does not exist anymore.
     plan: sub?.plan ?? null,
+    plan_features: sub?.features ?? {},
     billing_cycle: sub?.billingCycle ?? null,
     subscription_status: sub?.status ?? null,
     trial_end_date: sub?.trialEndDate ?? null,
@@ -56,8 +58,19 @@ function formatBusiness(b: any, sub?: SubInfo) {
   };
 }
 
+// planName -> features JSON (from subscription_plans table)
+async function getPlanFeaturesMap(): Promise<Map<string, Record<string, boolean>>> {
+  const plans = await db.select().from(subscriptionPlansTable);
+  return new Map(
+    plans.map((p: any) => [String(p.plan), (p.features ?? {}) as Record<string, boolean>])
+  );
+}
+
 // Helper to build a businessId -> SubInfo map from a list of subscription rows
-function buildSubMap(subs: any[]): Map<number, SubInfo> {
+function buildSubMap(
+  subs: any[],
+  featuresMap?: Map<string, Record<string, boolean>>
+): Map<number, SubInfo> {
   return new Map(
     subs.map((s) => [
       Number(s.businessId),
@@ -66,6 +79,7 @@ function buildSubMap(subs: any[]): Map<number, SubInfo> {
         billingCycle: s.billingCycle,
         status: s.status,
         trialEndDate: s.trialEndDate,
+        features: featuresMap?.get(String(s.plan)) ?? {},
       },
     ])
   );
