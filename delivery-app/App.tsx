@@ -13,6 +13,7 @@ import { SelectedBusinessProvider } from './src/context/SelectedBusinessContext'
 import AppNavigator from './src/navigation/AppNavigator';
 import { setBaseUrl, setAuthTokenGetter } from '@workspace/api-client-react';
 import { getDriverToken } from './src/utils/storage';
+import PushNotificationManager from './src/components/PushNotificationManager';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,6 +47,7 @@ const App: React.FC = () => {
                   <CartProvider>
                     <OrderProvider>
                       <DeliveryProvider>
+                        <PushNotificationManager />
                         <AppNavigator />
                       </DeliveryProvider>
                     </OrderProvider>

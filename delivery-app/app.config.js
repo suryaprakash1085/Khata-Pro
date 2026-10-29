@@ -23,6 +23,9 @@ export default {
       package: IS_DRIVER
         ? 'com.subasri0102.deliverypartner'
         : 'com.subasri0102.deliveryapp',
+      googleServicesFile: IS_DRIVER
+      ? './google-services.driver.json'
+      : './google-services.customer.json',
       permissions: IS_DRIVER
         ? ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION', 'ACCESS_BACKGROUND_LOCATION']
         : [],
@@ -35,14 +38,11 @@ export default {
       config: { googleMapsApiKey: MAPS_KEY  },
     },
    plugins: [
-  'expo-notifications',
-  ...(IS_DRIVER
-    ? [['expo-location', {
-        isAndroidBackgroundLocationEnabled: true,
-        locationAlwaysAndWhenInUsePermission:
-          'Delivery track panna location venum.',
-      }]]
-    : []),
+  ['expo-notifications', {
+  icon: './assets/images/notification-icon.png',
+  color: '#6C5CE7',
+  defaultChannel: 'orders',
+}],
 ],
   },
 };

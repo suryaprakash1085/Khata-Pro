@@ -42,7 +42,7 @@ import OrdersSummary from '../screens/main/OrdersSummary';
 import EditProfileScreen from '../screens/main/EditProfileScreen';
 
 import NotificationsScreen from '../screens/main/NotificationsScreen';
-
+import { navigationRef } from './navigationRef';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -479,7 +479,7 @@ export default function AppNavigator() {
   if (APP_MODE === 'driver') {
     if (driverLoading) return null;
     return (
-      <NavigationContainer linking={linking}>
+      <NavigationContainer ref={navigationRef} linking={linking}>
         {isDriverAuthenticated ? <DriverMainNavigator /> : <DriverAuthNavigator />}
       </NavigationContainer>
     );
@@ -488,7 +488,7 @@ export default function AppNavigator() {
   // Customer app
   if (loading) return null;
   return (
-    <NavigationContainer linking={linking}>
+    <NavigationContainer ref={navigationRef} linking={linking}>
       {user ? <MainStack /> : <CustomerAuthNavigator />}
     </NavigationContainer>
   );
