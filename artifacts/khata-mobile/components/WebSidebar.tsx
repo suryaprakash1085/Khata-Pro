@@ -98,22 +98,28 @@ const hasFeature = (feature?: string) => {
   // Filter leaf items by permission, then drop any group whose children
   // all got filtered out (so "Products" never shows as an empty dropdown
   // for an employee with no product permissions).
-  const navItems = useMemo(() => {
-    return NAV_ITEMS.reduce<NavEntry[]>((acc, item) => {
-      if (hasChildren(item)) {
-        const visibleChildren = item.children.filter((child) => canAccess(child.requires));
-        if (visibleChildren.length > 0) {
-          acc.push({ ...item, children: visibleChildren });
-        }
-        return acc;
-      }
-      if (canAccess(item.requires)) {
-        acc.push(item);
+const navItems = useMemo(() => {
+  return NAV_ITEMS.reduce<NavEntry[]>((acc, item) => {
+    // 1. Plan feature check (Transport, etc.)
+    if (!hasFeature(item.requiresFeature)) return acc;
+
+    if (hasChildren(item)) {
+      const visibleChildren = item.children.filter(
+        (child) => canAccess(child.requires) && hasFeature(child.requiresFeature)
+      );
+      if (visibleChildren.length > 0) {
+        acc.push({ ...item, children: visibleChildren });
       }
       return acc;
-    }, []);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOwner, user, planFeatures]);
+    }
+
+    if (canAccess(item.requires)) {
+      acc.push(item);
+    }
+    return acc;
+  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [isOwner, user, business]);
 
   const initialExpanded: Record<string, boolean> = {};
   navItems.forEach((item) => {

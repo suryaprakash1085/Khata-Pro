@@ -66,6 +66,15 @@ async function getPlanFeaturesMap(): Promise<Map<string, Record<string, boolean>
   );
 }
 
+// Features for ONE plan (used by single-business endpoints)
+async function getFeaturesForPlan(plan: string): Promise<Record<string, boolean>> {
+  const [p] = await db
+    .select({ features: subscriptionPlansTable.features })
+    .from(subscriptionPlansTable)
+    .where(eq(subscriptionPlansTable.plan, plan as any));
+  return (p?.features ?? {}) as Record<string, boolean>;
+}
+
 // Helper to build a businessId -> SubInfo map from a list of subscription rows
 function buildSubMap(
   subs: any[],
@@ -83,6 +92,34 @@ function buildSubMap(
       },
     ])
   );
+}
+
+// Loads all subscriptions + plan features and returns the businessId -> SubInfo map
+async function loadSubMap(): Promise<Map<number, SubInfo>> {
+  const [subs, featuresMap] = await Promise.all([
+    db.select().from(subscriptionsTable),
+    getPlanFeaturesMap(),
+  ]);
+  return buildSubMap(subs, featuresMap);
+}
+
+// Loads the SubInfo (with plan features) for ONE business
+async function loadSubInfoForBusiness(businessId: number): Promise<SubInfo> {
+  const [sub] = await db
+    .select()
+    .from(subscriptionsTable)
+    .where(eq(subscriptionsTable.businessId, businessId));
+
+  if (!sub) return undefined;
+
+  const features = await getFeaturesForPlan(sub.plan);
+  return {
+    plan: sub.plan,
+    billingCycle: sub.billingCycle,
+    status: sub.status,
+    trialEndDate: sub.trialEndDate,
+    features,
+  };
 }
 
 // GET /businesses
@@ -114,8 +151,8 @@ router.get("/businesses", requireAuth, async (req, res): Promise<void> => {
     db.select({ count: count() }).from(businessesTable).where(conditions.length ? and(...conditions) : undefined),
   ]);
 
-  const subs = await db.select().from(subscriptionsTable);
-  const subMap = buildSubMap(subs);
+  // ✅ FIX: now includes plan features
+  const subMap = await loadSubMap();
 
   const data = businesses.map((b: any) => formatBusiness(b, subMap.get(Number(b.id))));
 
@@ -200,6 +237,8 @@ router.post("/businesses", requireAuth, async (req, res): Promise<void> => {
       billingCycle: sub.billingCycle,
       status: sub.status,
       trialEndDate: sub.trialEndDate,
+      // ✅ FIX: include plan features
+      features: ((planConfig as any).features ?? {}) as Record<string, boolean>,
     })
   );
 });
@@ -213,15 +252,11 @@ router.get("/businesses/:id", requireAuth, async (req, res): Promise<void> => {
     res.status(404).json({ error: "Business not found" });
     return;
   }
-  const [sub] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.businessId, Number(biz.id)));
-  res.json(
-    formatBusiness(
-      biz,
-      sub
-        ? { plan: sub.plan, billingCycle: sub.billingCycle, status: sub.status, trialEndDate: sub.trialEndDate }
-        : undefined
-    )
-  );
+
+  // ✅ FIX: now includes plan features
+  const subInfo = await loadSubInfoForBusiness(Number(biz.id));
+
+  res.json(formatBusiness(biz, subInfo));
 });
 
 // PUT /businesses/:id
@@ -282,15 +317,10 @@ router.put("/businesses/:id", requireAuth, async (req, res): Promise<void> => {
     });
   }
 
-  const [sub] = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.businessId, Number(biz.id)));
-  res.json(
-    formatBusiness(
-      biz,
-      sub
-        ? { plan: sub.plan, billingCycle: sub.billingCycle, status: sub.status, trialEndDate: sub.trialEndDate }
-        : undefined
-    )
-  );
+  // ✅ FIX: now includes plan features
+  const subInfo = await loadSubInfoForBusiness(Number(biz.id));
+
+  res.json(formatBusiness(biz, subInfo));
 });
 
 // GET /businesses/:id/stats
@@ -421,15 +451,22 @@ router.get("/public/businesses", async (req, res): Promise<void> => {
   const offset = (page - 1) * limit;
   const search = req.query.search as string | undefined;
 
-  let query = db.select().from(businessesTable).where(eq(businessesTable.isActive, true));
+  // ✅ FIX: combine conditions with and() — calling .where() twice
+  // replaces the first condition (isActive) instead of adding to it.
+  const conditions = [eq(businessesTable.isActive, true)];
   if (search) {
-    query = (query as any).where(ilike(businessesTable.businessName, `%${search}%`));
+    conditions.push(ilike(businessesTable.businessName, `%${search}%`));
   }
 
-  const businesses = await (query as any).limit(limit).offset(offset).orderBy(desc(businessesTable.createdAt));
+  const businesses = await db
+    .select()
+    .from(businessesTable)
+    .where(and(...conditions))
+    .limit(limit)
+    .offset(offset)
+    .orderBy(desc(businessesTable.createdAt));
 
-  const subs = await db.select().from(subscriptionsTable);
-  const subMap = buildSubMap(subs);
+  const subMap = await loadSubMap();
 
   const data = businesses.map((b: any) => formatBusiness(b, subMap.get(Number(b.id))));
   res.json({ data });
@@ -490,8 +527,7 @@ router.get("/public/search", async (req, res): Promise<void> => {
     const uniqueMap = new Map(merged.map((b: any) => [Number(b.id), b]));
     const uniqueBusinesses = Array.from(uniqueMap.values());
 
-    const subs = await db.select().from(subscriptionsTable);
-    const subMap = buildSubMap(subs);
+    const subMap = await loadSubMap();
 
     const data = uniqueBusinesses.map((b: any) =>
       formatBusiness(b, subMap.get(Number(b.id)))
@@ -560,8 +596,7 @@ router.get("/public/businesses/by-category", async (req, res): Promise<void> => 
     const uniqueMap = new Map(merged.map((b: any) => [Number(b.id), b]));
     const uniqueBusinesses = Array.from(uniqueMap.values());
 
-    const subs = await db.select().from(subscriptionsTable);
-    const subMap = buildSubMap(subs);
+    const subMap = await loadSubMap();
 
     const data = uniqueBusinesses.map((b: any) =>
       formatBusiness(b, subMap.get(Number(b.id)))
