@@ -32,6 +32,7 @@ import subscriptions from "./subscriptions";
 import orderReturnsRouter from "./order-returns";
 import customerUploadsRouter from "./customer-uploads";
 import adminsettings from "./admin-settings";
+import devicesRouter from "./devices";
 
 const router: IRouter = Router();
 
@@ -66,5 +67,5 @@ router.use(subscriptions);
 router.use(orderReturnsRouter);
 router.use(customerUploadsRouter);
 router.use(adminsettings);
-
+router.use(devicesRouter);
 export default router;

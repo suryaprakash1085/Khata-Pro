@@ -330,12 +330,10 @@ router.post("/deliveries/:id/assign", requireAuth, async (req, res): Promise<voi
     statusHistoryPayload(id, existing.status, "assigned", null, "admin", `Assigned to driver ${parsed.data.driver_id}`)
   );
 
-  const [driver] = await db.select().from(driversTable).where(eq(driversTable.id, parsed.data.driver_id));
-  if (driver?.pushToken) {
-    notifyDriverOfNewDelivery(driver.pushToken, Number(delivery.id), delivery.dropAddress).catch(err =>
-      console.error("[deliveries] Failed to send assignment push notification:", err)
-    );
-  }
+   const [driver] = await db.select().from(driversTable).where(eq(driversTable.id, parsed.data.driver_id));
+  notifyDriverOfNewDelivery(parsed.data.driver_id, Number(delivery.id), delivery.dropAddress).catch(err =>
+    console.error("[deliveries] Failed to send assignment push notification:", err)
+  );
 
   const { replacement, orderRef } = await getDeliveryContext(delivery);
 

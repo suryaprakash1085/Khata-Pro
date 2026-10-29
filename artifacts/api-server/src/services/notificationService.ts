@@ -1,7 +1,9 @@
 // artifacts/api-server/src/services/notificationService.ts
-import { db, notificationsTable, customersTable } from "@workspace/db";
+// import { db, notificationsTable, customersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { sendPushNotification } from "./pushNotifications";
+// import { sendPushNotification } from "./pushNotifications";
+import { db, notificationsTable } from "@workspace/db";
+import { sendPushToUser } from "./pushNotifications";
 
 // ------------------------------------------------------------
 // DRIVER notifications (unchanged)
@@ -114,23 +116,15 @@ export async function notifyCustomer(input: NotifyCustomerInput) {
     message: input.message,
   }).returning();
 
-  // Push is a bonus — never let it break the main flow
-  try {
-    const [c] = await db
-      .select({ pushToken: customersTable.pushToken })
-      .from(customersTable)
-      .where(eq(customersTable.id, input.customerId));
-
-    if (c?.pushToken) {
-      await sendPushNotification(c.pushToken, input.title, input.message, {
-        type: input.type,
-        deliveryId: input.deliveryId ?? null,
-        orderId: input.salesOrderId ?? null,
-      });
-    }
-  } catch (err) {
-    console.error("[notifyCustomer] push failed:", err);
-  }
-
+   // Push is a bonus — never let it break the main flow (sendPushToUser never throws)
+  await sendPushToUser("customer", input.customerId, {
+    title: input.title,
+    body: input.message,
+    data: {
+      type: input.type,
+      deliveryId: input.deliveryId,
+      orderId: input.salesOrderId,
+    },
+  });
   return row;
 }
