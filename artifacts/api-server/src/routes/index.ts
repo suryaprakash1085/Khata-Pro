@@ -67,5 +67,5 @@ router.use(subscriptions);
 router.use(orderReturnsRouter);
 router.use(customerUploadsRouter);
 router.use(adminsettings);
-router.use(devicesRouter);
+router.use("/devices", devicesRouter);
 export default router;
