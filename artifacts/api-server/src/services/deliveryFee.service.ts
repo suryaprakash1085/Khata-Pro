@@ -243,6 +243,21 @@ export function computeFee(
     };
   }
 
+  if (!settings.is_active) {
+    return {
+      distance_km: round2(distanceKm),
+      free_delivery_radius,
+      per_km_charge,
+      chargeable_distance_km: 0,
+      delivery_fee: 0,
+      is_free_delivery: true,
+      deliverable: true,
+      max_delivery_radius,
+      message: null,
+    };
+  }
+
+
   if (distanceKm <= free_delivery_radius) {
     return {
       distance_km: round2(distanceKm),
