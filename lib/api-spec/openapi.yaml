@@ -3671,6 +3671,9 @@ components:
           type: number
         is_active:
           type: boolean
+        max_delivery_radius:
+          type: ["number", "null"]
+          description: Max delivery distance in KM. null = no limit.
 
     DeliveryFeeSettingsUpdate:
       type: object
@@ -3684,6 +3687,9 @@ components:
           minimum: 0
         is_active:
           type: boolean
+        max_delivery_radius:
+          type: ["number", "null"]
+          description: Max delivery distance in KM. null clears the limit; omit to leave unchanged.
 
     DeliveryFeeCalculationInput:
       type: object
@@ -3702,7 +3708,7 @@ components:
 
     DeliveryFeeCalculation:
       type: object
-      required: [distance_km, free_delivery_radius, per_km_charge, chargeable_distance_km, delivery_fee, is_free_delivery]
+      required: [distance_km, free_delivery_radius, per_km_charge, chargeable_distance_km, delivery_fee, is_free_delivery, deliverable]
       properties:
         distance_km:
           type: number
@@ -3716,6 +3722,12 @@ components:
           type: number
         is_free_delivery:
           type: boolean
+        deliverable:
+          type: boolean
+        max_delivery_radius:
+          type: ["number", "null"]
+        message:
+          type: ["string", "null"]
 
     # ── Customer ──────────────────────────────────────────────────────────────
 

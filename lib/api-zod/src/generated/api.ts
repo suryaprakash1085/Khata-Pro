@@ -686,7 +686,8 @@ export const GetPublicServiceHighlightsResponse = zod.array(GetPublicServiceHigh
 export const GetDeliveryFeeSettingsResponse = zod.object({
   "free_delivery_radius": zod.number(),
   "per_km_charge": zod.number(),
-  "is_active": zod.boolean()
+  "is_active": zod.boolean(),
+  "max_delivery_radius": zod.number().nullish().describe('Max delivery distance in KM. null = no limit.')
 })
 
 
@@ -702,13 +703,15 @@ export const updateDeliveryFeeSettingsBodyPerKmChargeMin = 0;
 export const UpdateDeliveryFeeSettingsBody = zod.object({
   "free_delivery_radius": zod.number().gt(updateDeliveryFeeSettingsBodyFreeDeliveryRadiusExclusiveMin),
   "per_km_charge": zod.number().min(updateDeliveryFeeSettingsBodyPerKmChargeMin),
-  "is_active": zod.boolean()
+  "is_active": zod.boolean(),
+  "max_delivery_radius": zod.number().nullish().describe('Max delivery distance in KM. null clears the limit; omit to leave unchanged.')
 })
 
 export const UpdateDeliveryFeeSettingsResponse = zod.object({
   "free_delivery_radius": zod.number(),
   "per_km_charge": zod.number(),
-  "is_active": zod.boolean()
+  "is_active": zod.boolean(),
+  "max_delivery_radius": zod.number().nullish().describe('Max delivery distance in KM. null = no limit.')
 })
 
 
@@ -735,7 +738,10 @@ export const CalculateDeliveryFeeResponse = zod.object({
   "per_km_charge": zod.number(),
   "chargeable_distance_km": zod.number(),
   "delivery_fee": zod.number(),
-  "is_free_delivery": zod.boolean()
+  "is_free_delivery": zod.boolean(),
+  "deliverable": zod.boolean(),
+  "max_delivery_radius": zod.number().nullish(),
+  "message": zod.string().nullish()
 })
 
 

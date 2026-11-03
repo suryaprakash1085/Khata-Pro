@@ -9,6 +9,9 @@ export interface DeliveryFeeCalculation {
   chargeable_distance_km: number;
   delivery_fee: number;
   is_free_delivery: boolean;
+  deliverable: boolean;
+  max_delivery_radius?: number | null;
+  message?: string | null;
 }
 
 export interface CalculateDeliveryFeeParams {
@@ -44,6 +47,12 @@ export class BusinessLocationMissingError extends Error {
     this.name = 'BusinessLocationMissingError';
   }
 }
+
+export function isOutOfDeliveryRange(
+  calc: DeliveryFeeCalculation | null | undefined
+): boolean {
+  return !!calc && calc.deliverable === false;
+} 
 
 
 export const deliveryFeeService = {

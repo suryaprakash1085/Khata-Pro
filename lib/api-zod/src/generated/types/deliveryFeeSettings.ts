@@ -10,4 +10,9 @@ export interface DeliveryFeeSettings {
   free_delivery_radius: number;
   per_km_charge: number;
   is_active: boolean;
+  /**
+     * Max delivery distance in KM. null = no limit.
+     * @nullable
+     */
+  max_delivery_radius?: number | null;
 }

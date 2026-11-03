@@ -1,3 +1,14 @@
+// TARGET PATH: delivery-app/src/screens/checkout/PaymentScreen.tsx
+//
+// MAX-RADIUS changes (search "MAX-RADIUS"):
+//  1. outOfRange / feeBlocked derived flags
+//  2. handlePayNow guard (stops BEFORE Razorpay opens)
+//  3. placeOrderOnBackend maps backend 422 OUT_OF_DELIVERY_RANGE to a clear message
+//  4. summary row + red message when out of range
+//  5. red banner inside the address card
+//  6. pay button disabled via feeBlocked
+//  7. rangeBanner / rangeBannerText styles
+
 import React, { useState, useContext, useEffect } from 'react';
 import {
   View,
@@ -157,48 +168,48 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
   const [orderDetails, setOrderDetails] = useState<any>(null);
-  
+
   const [feeInfo, setFeeInfo] = useState<any>(null);
-const [feeLoading, setFeeLoading] = useState<boolean>(true);
-const [feeError, setFeeError] = useState<string | null>(null);
+  const [feeLoading, setFeeLoading] = useState<boolean>(true);
+  const [feeError, setFeeError] = useState<string | null>(null);
 
-useEffect(() => {
-  let cancelled = false;
-  const loadFee = async () => {
-    setFeeLoading(true);
-    setFeeError(null);
-    try {
-      const businessId =
-        (cartItems?.[0]?.restaurantId ? Number(cartItems[0].restaurantId) : undefined) ||
-        selectedBusiness?.id ||
-        user?.business_id;
-      if (!businessId) throw new Error('Store not found.');
+  useEffect(() => {
+    let cancelled = false;
+    const loadFee = async () => {
+      setFeeLoading(true);
+      setFeeError(null);
+      try {
+        const businessId =
+          (cartItems?.[0]?.restaurantId ? Number(cartItems[0].restaurantId) : undefined) ||
+          selectedBusiness?.id ||
+          user?.business_id;
+        if (!businessId) throw new Error('Store not found.');
 
-      const result = await deliveryFeeService.calculateWithValidation({
-        businessId: Number(businessId),
-        customerLatitude: address?.latitude,
-        customerLongitude: address?.longitude,
-      });
-      if (!cancelled) setFeeInfo(result);
-    } catch (e: any) {
-      console.error('❌ Delivery fee calculation failed:', e);
-      if (!cancelled) {
-        setFeeInfo(null);
-        setFeeError(
-          e?.name === 'CustomerLocationMissingError'
-            ? 'This address has no map location. Please edit the address and use current location.'
-            : e?.message || e?.error || 'Could not calculate delivery fee.'
-        );
+        const result = await deliveryFeeService.calculateWithValidation({
+          businessId: Number(businessId),
+          customerLatitude: address?.latitude,
+          customerLongitude: address?.longitude,
+        });
+        if (!cancelled) setFeeInfo(result);
+      } catch (e: any) {
+        console.error('❌ Delivery fee calculation failed:', e);
+        if (!cancelled) {
+          setFeeInfo(null);
+          setFeeError(
+            e?.name === 'CustomerLocationMissingError'
+              ? 'This address has no map location. Please edit the address and use current location.'
+              : e?.message || e?.error || 'Could not calculate delivery fee.'
+          );
+        }
+      } finally {
+        if (!cancelled) setFeeLoading(false);
       }
-    } finally {
-      if (!cancelled) setFeeLoading(false);
-    }
-  };
-  loadFee();
-  return () => {
-    cancelled = true;
-  };
-}, [address?.latitude, address?.longitude]);
+    };
+    loadFee();
+    return () => {
+      cancelled = true;
+    };
+  }, [address?.latitude, address?.longitude]);
 
   // Layout only
   const { width } = useWindowDimensions();
@@ -224,6 +235,11 @@ useEffect(() => {
 
   const finalSubtotal = subtotal > 0 ? subtotal : totalAmount - Number(deliveryFee ?? 0) - tax;
   const finalDeliveryFee = feeInfo ? Number(feeInfo.delivery_fee) || 0 : 0;
+
+  // MAX-RADIUS: customer is beyond the shop's admin-configured max delivery radius
+  const outOfRange = feeInfo?.deliverable === false;
+  const feeBlocked = feeLoading || !!feeError || outOfRange;
+
   const finalDiscount = discount > 0 ? discount : 0;
 
   const discountedSubtotal = finalSubtotal - finalDiscount;
@@ -357,15 +373,32 @@ useEffect(() => {
 
     console.log('🚀 Creating sales order:', JSON.stringify(payload, null, 2));
 
-    const salesOrder = await createSalesOrder.mutateAsync({
-      data: payload,
-    });
+    // MAX-RADIUS: backend rejects out-of-range orders with 422 OUT_OF_DELIVERY_RANGE
+    let salesOrder;
+    try {
+      salesOrder = await createSalesOrder.mutateAsync({ data: payload });
+    } catch (err: any) {
+      const body = err?.data ?? err?.response?.data;
+      if (body?.code === 'OUT_OF_DELIVERY_RANGE') {
+        throw new Error(body.error || 'This shop does not deliver to your location.');
+      }
+      throw err;
+    }
 
     console.log('✅ Sales order created:', salesOrder);
     return salesOrder;
   };
 
   const handlePayNow = () => {
+    // MAX-RADIUS: stop BEFORE Razorpay opens, so nobody pays for an order the shop can't deliver
+    if (outOfRange) {
+      Alert.alert(
+        'Out of delivery area',
+        feeInfo?.message || 'This shop does not deliver to your location.'
+      );
+      return;
+    }
+
     if (selectedMethod === 'razorpay') {
       handleRazorpayPayment();
     } else if (selectedMethod === 'cash') {
@@ -588,6 +621,16 @@ useEffect(() => {
           <Text style={styles.addressMeta}>Phone: {address.phone || 'Not provided'}</Text>
         </View>
       </View>
+
+      {/* MAX-RADIUS: out-of-range banner */}
+      {outOfRange && (
+        <View style={styles.rangeBanner}>
+          <Icon name="alert-circle-outline" size={18} color={COLORS.danger} />
+          <Text style={styles.rangeBannerText}>
+            {feeInfo?.message || 'This shop does not deliver to your location.'} Please choose a closer address.
+          </Text>
+        </View>
+      )}
     </View>
   ) : null;
 
@@ -652,15 +695,22 @@ useEffect(() => {
         </View>
       )}
 
-     <View style={styles.summaryRow}>
-  <Text style={styles.summaryLabel}>
-    Delivery fee{feeInfo?.distance_km != null ? ` (${Number(feeInfo.distance_km).toFixed(1)} km)` : ''}
-  </Text>
-  <Text style={styles.summaryValue}>
-    {feeLoading ? 'Calculating…' : feeError ? '—' : finalDeliveryFee === 0 ? 'FREE' : `₹${finalDeliveryFee}`}
-  </Text>
-</View>
-{!!feeError && <Text style={styles.feeErrorText}>{feeError}</Text>}
+      <View style={styles.summaryRow}>
+        <Text style={styles.summaryLabel}>
+          Delivery fee{feeInfo?.distance_km != null ? ` (${Number(feeInfo.distance_km).toFixed(1)} km)` : ''}
+        </Text>
+        <Text style={styles.summaryValue}>
+          {feeLoading
+            ? 'Calculating…'
+            : feeError || outOfRange
+            ? '—'
+            : finalDeliveryFee === 0
+            ? 'FREE'
+            : `₹${finalDeliveryFee}`}
+        </Text>
+      </View>
+      {!!feeError && <Text style={styles.feeErrorText}>{feeError}</Text>}
+      {outOfRange && <Text style={styles.feeErrorText}>{feeInfo?.message}</Text>}
 
       <View style={styles.summaryRow}>
         <Text style={styles.summaryLabel}>Tax (GST {effectiveGstRate}%)</Text>
@@ -678,9 +728,9 @@ useEffect(() => {
 
   const payButton = (
     <TouchableOpacity
-     style={[styles.payButton, (isProcessing || feeLoading || !!feeError) && styles.payButtonDisabled]}
-onPress={handlePayNow}
-disabled={isProcessing || feeLoading || !!feeError}
+      style={[styles.payButton, (isProcessing || feeBlocked) && styles.payButtonDisabled]}
+      onPress={handlePayNow}
+      disabled={isProcessing || feeBlocked}
     >
       {isProcessing ? (
         <ActivityIndicator size="small" color={COLORS.white} />
@@ -830,7 +880,22 @@ const styles = StyleSheet.create({
   addressName: { fontFamily: FONT, fontSize: 17, fontWeight: '700', color: COLORS.text, marginBottom: 3 },
   addressDetail: { fontFamily: FONT, fontSize: 15, lineHeight: 21, color: COLORS.text },
   addressMeta: { fontFamily: FONT, fontSize: 14, color: COLORS.textMuted, marginTop: 3 },
-feeErrorText: { fontFamily: FONT, fontSize: 13, color: COLORS.danger, marginTop: 2 },
+  feeErrorText: { fontFamily: FONT, fontSize: 13, color: COLORS.danger, marginTop: 2 },
+
+  // MAX-RADIUS: out-of-range banner
+  rangeBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginTop: 12,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  rangeBannerText: { flex: 1, fontFamily: FONT, fontSize: 14, color: COLORS.danger },
+
   // AMOUNT
   amountCard: {
     backgroundColor: COLORS.primary,

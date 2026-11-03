@@ -12,4 +12,9 @@ export interface DeliveryFeeSettingsUpdate {
   /** @minimum 0 */
   per_km_charge: number;
   is_active: boolean;
+  /**
+     * Max delivery distance in KM. null clears the limit; omit to leave unchanged.
+     * @nullable
+     */
+  max_delivery_radius?: number | null;
 }

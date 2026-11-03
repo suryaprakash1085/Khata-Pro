@@ -13,4 +13,9 @@ export interface DeliveryFeeCalculation {
   chargeable_distance_km: number;
   delivery_fee: number;
   is_free_delivery: boolean;
+  deliverable: boolean;
+  /** @nullable */
+  max_delivery_radius?: number | null;
+  /** @nullable */
+  message?: string | null;
 }

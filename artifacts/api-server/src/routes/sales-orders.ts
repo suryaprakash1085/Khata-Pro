@@ -1,4 +1,14 @@
-import { Router, type IRouter } from "express";
+// TARGET PATH: artifacts/api-server/src/routes/sales-orders.ts
+//
+// CHANGES vs previous version (search for "MAX-RADIUS"):
+//  1. import `type Response` from express
+//  2. import OutOfDeliveryRangeError from deliveryFee.service
+//  3. resolveDeliveryFee now throws OutOfDeliveryRangeError when the customer
+//     is beyond the admin-configured max delivery radius
+//  4. new helper resolveDeliveryFeeOrReject -> sends 422 OUT_OF_DELIVERY_RANGE
+//  5. POST /sales-orders and POST /public/sales-orders use the new helper
+
+import { Router, type IRouter, type Response } from "express";
 import { requireAuth, AuthPayload } from "../middlewares/auth";
 import {
   db,
@@ -22,6 +32,7 @@ import {
   calculateDeliveryFeeForBusiness,
   ShopLocationMissingError,
   CustomerLocationMissingError,
+  OutOfDeliveryRangeError, // MAX-RADIUS
 } from "../services/deliveryFee.service";
 import { getNextDeliveryNumber } from "../services/deliveryCounter";
 import { createNewOrderNotification, syncLowStockNotification, createOrderCancelledNotification } from "../services/adminNotifications.service";
@@ -116,6 +127,16 @@ async function resolveDeliveryFee(d: {
       d.customer_latitude,
       d.customer_longitude,
     );
+
+    // MAX-RADIUS: customer is beyond the shop's admin-configured max radius.
+    if (!result.deliverable) {
+      throw new OutOfDeliveryRangeError(
+        result.message ?? "This location is outside the delivery area.",
+        result.distance_km,
+        result.max_delivery_radius ?? 0,
+      );
+    }
+
     return {
       fee: result.delivery_fee,
       distanceKm: result.distance_km,
@@ -125,6 +146,9 @@ async function resolveDeliveryFee(d: {
       lng: d.customer_longitude,
     };
   } catch (err) {
+    // MAX-RADIUS: must NOT be swallowed by the fallback below.
+    if (err instanceof OutOfDeliveryRangeError) throw err;
+
     if (err instanceof ShopLocationMissingError || err instanceof CustomerLocationMissingError) {
       console.warn(`[sales-orders] Delivery fee not calculated for business ${d.business_id}: ${err.message}`);
     } else {
@@ -138,6 +162,30 @@ async function resolveDeliveryFee(d: {
       lat: d.customer_latitude ?? null,
       lng: d.customer_longitude ?? null,
     };
+  }
+}
+
+type ResolvedDeliveryFee = Awaited<ReturnType<typeof resolveDeliveryFee>>;
+
+// MAX-RADIUS: wraps resolveDeliveryFee. If the customer is out of range it
+// sends a 422 response and returns null, so the route can simply `return`.
+async function resolveDeliveryFeeOrReject(
+  d: Parameters<typeof resolveDeliveryFee>[0],
+  res: Response,
+): Promise<ResolvedDeliveryFee | null> {
+  try {
+    return await resolveDeliveryFee(d);
+  } catch (err) {
+    if (err instanceof OutOfDeliveryRangeError) {
+      res.status(422).json({
+        error: err.message,
+        code: "OUT_OF_DELIVERY_RANGE",
+        distance_km: err.distanceKm,
+        max_delivery_radius: err.maxRadiusKm,
+      });
+      return null;
+    }
+    throw err;
   }
 }
 
@@ -272,7 +320,10 @@ router.post("/sales-orders", requireAuth, async (req, res): Promise<void> => {
   const itemsTotal = d.items.reduce((sum, it) => sum + it.qty * it.unit_price, 0);
   const tax = d.tax ?? 0;
 
-  const deliveryFeeResult = await resolveDeliveryFee(d);
+  // MAX-RADIUS: rejects with 422 OUT_OF_DELIVERY_RANGE if beyond max radius
+  const deliveryFeeResult = await resolveDeliveryFeeOrReject(d, res);
+  if (!deliveryFeeResult) return;
+
   const amount = itemsTotal + tax + deliveryFeeResult.fee;
 
   const toDateStr = (v: string | Date | null | undefined): string | undefined =>
@@ -362,7 +413,9 @@ router.post("/public/sales-orders", async (req, res): Promise<void> => {
 
     // Authoritative recalculation, ignores anything the client may have
     // precomputed and displayed in the checkout preview.
-    const deliveryFeeResult = await resolveDeliveryFee(d);
+    // MAX-RADIUS: rejects with 422 OUT_OF_DELIVERY_RANGE if beyond max radius
+    const deliveryFeeResult = await resolveDeliveryFeeOrReject(d, res);
+    if (!deliveryFeeResult) return;
 
     let promo;
     try {

@@ -1,3 +1,12 @@
+// TARGET PATH: delivery-app/src/screens/checkout/CheckoutScreen.tsx
+//
+// MAX-RADIUS changes (search "MAX-RADIUS"):
+//  1. import isOutOfDeliveryRange
+//  2. outOfRange flag
+//  3. handlePlaceOrder guard + backend 422 message mapping
+//  4. red message under the Delivery Fee row in Bill Details
+//  5. Place Order button disabled when out of range
+
 import React, { useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
@@ -18,27 +27,34 @@ import { AuthContext } from '../../context/AuthContext';
 import { AddressContext } from '../../context/AddressContext';
 import { Address } from '../../context/AddressContext';
 // Address already includes latitude?/longitude? — no local redeclaration needed.
-import { deliveryFeeService, DeliveryFeeCalculation } from '../../services/deliveryFeeService';
+// MAX-RADIUS: isOutOfDeliveryRange added
+import {
+  deliveryFeeService,
+  DeliveryFeeCalculation,
+  isOutOfDeliveryRange,
+} from '../../services/deliveryFeeService';
 // ⚠️ CONFIRM THIS PATH — must be the same base URL constant that
 // deliveryFeeService.ts uses internally to hit the backend. If your
 // project's constant lives somewhere else (e.g. '../../config', or a
 // named export like `BASE_URL`), update this import to match.
 import apiClient from '../../api/client';
 
+const DANGER = '#EF4444';
+
 export default function CheckoutScreen({ navigation, route }: any) {
   // 🔥 CRITICAL: Get ALL cart data including loading state
-  const { 
-    cartItems, 
-    clearCart, 
-    isLoading: cartLoading, 
-    refreshCart, 
-    forceRefresh 
+  const {
+    cartItems,
+    clearCart,
+    isLoading: cartLoading,
+    refreshCart,
+    forceRefresh,
   } = useContext(CartContext);
-  
+
   const { addOrder } = useContext(OrderContext);
   const { user } = useContext(AuthContext);
   const { getDefaultAddress, addresses } = useContext(AddressContext);
-  
+
   const [noContactDelivery, setNoContactDelivery] = useState<boolean>(false);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<string>('cash');
@@ -53,13 +69,16 @@ export default function CheckoutScreen({ navigation, route }: any) {
   const [deliveryFeeLoading, setDeliveryFeeLoading] = useState(false);
   const [deliveryFeeError, setDeliveryFeeError] = useState<string | null>(null);
 
+  // MAX-RADIUS: customer is beyond the shop's admin-configured max delivery radius
+  const outOfRange = isOutOfDeliveryRange(deliveryCalc);
+
   // 🔥 FIX: Load cart from AsyncStorage directly
   const loadCartDirectly = useCallback(async () => {
     try {
       console.log('🔄 Loading cart directly from AsyncStorage...');
       const AsyncStorage = require('@react-native-async-storage/async-storage').default;
       const savedCart = await AsyncStorage.getItem('cartItems');
-      
+
       if (savedCart) {
         const parsed = JSON.parse(savedCart);
         console.log('✅ Cart loaded from AsyncStorage:', parsed.length, 'items');
@@ -82,7 +101,7 @@ export default function CheckoutScreen({ navigation, route }: any) {
   useEffect(() => {
     const initializeCart = async () => {
       setIsLoading(true);
-      
+
       // First try to get from context
       if (cartItems && cartItems.length > 0) {
         console.log('✅ Cart from context:', cartItems.length, 'items');
@@ -90,7 +109,7 @@ export default function CheckoutScreen({ navigation, route }: any) {
         setIsLoading(false);
         return;
       }
-      
+
       // If context is empty, load from AsyncStorage directly
       const saved = await loadCartDirectly();
       if (saved && saved.length > 0) {
@@ -117,7 +136,7 @@ export default function CheckoutScreen({ navigation, route }: any) {
           console.error('❌ Force refresh failed:', err);
         }
       }
-      
+
       setIsLoading(false);
     };
 
@@ -197,21 +216,21 @@ export default function CheckoutScreen({ navigation, route }: any) {
     console.log('🧮 Recalculating item total...');
     console.log('📦 localCartItems:', localCartItems);
     console.log('📦 localCartItems length:', localCartItems?.length);
-    
+
     let total = 0;
-    
+
     if (!localCartItems || localCartItems.length === 0) {
       console.log('⚠️ No items in localCartItems');
       return 0;
     }
-    
+
     localCartItems.forEach((item: any, index: number) => {
       const price = typeof item.price === 'number' ? item.price : parseFloat(item.price) || 0;
       const quantity = typeof item.quantity === 'number' ? item.quantity : parseInt(item.quantity) || 0;
       console.log(`📝 Item ${index + 1}: ${item.name}, Price: ${price}, Quantity: ${quantity}`);
       total += price * quantity;
     });
-    
+
     console.log('💰 Item Total:', total);
     return total;
   }, [localCartItems]);
@@ -228,7 +247,7 @@ export default function CheckoutScreen({ navigation, route }: any) {
     console.log('📊 hasItems:', hasItems);
     console.log('📊 itemTotal:', itemTotal);
     console.log('📊 localCartItems length:', localCartItems?.length);
-    
+
     return {
       hasItems,
       itemTotal,
@@ -245,17 +264,17 @@ export default function CheckoutScreen({ navigation, route }: any) {
   const onRefresh = async () => {
     setRefreshing(true);
     console.log('🔄 Pull to refresh...');
-    
+
     try {
       // Force refresh context
       await forceRefresh();
-      
+
       // Also load directly from storage
       const saved = await loadCartDirectly();
       if (saved && saved.length > 0) {
         setLocalCartItems(saved);
       }
-      
+
       console.log('✅ Refresh completed');
     } catch (err) {
       console.error('❌ Refresh failed:', err);
@@ -310,6 +329,15 @@ export default function CheckoutScreen({ navigation, route }: any) {
       Alert.alert(
         'Delivery Fee Unavailable',
         'We could not verify the delivery fee for this address. Please try selecting your address again.'
+      );
+      return;
+    }
+
+    // MAX-RADIUS: shop does not deliver this far
+    if (isOutOfDeliveryRange(deliveryCalc)) {
+      Alert.alert(
+        'Out of delivery area',
+        deliveryCalc.message || 'This shop does not deliver to your location.'
       );
       return;
     }
@@ -370,19 +398,25 @@ export default function CheckoutScreen({ navigation, route }: any) {
             text: 'Track Order',
             onPress: () => {
               navigation.navigate('OrderTracking', { orderId: order.id });
-            }
+            },
           },
           {
             text: 'OK',
             onPress: () => {
               navigation.navigate('Orders');
-            }
-          }
+            },
+          },
         ]
       );
     } catch (err: any) {
       console.error('❌ Failed to place order:', err);
-      Alert.alert('Order Failed', err.message || 'Something went wrong placing your order.');
+      // MAX-RADIUS: backend answers 422 OUT_OF_DELIVERY_RANGE with a readable message
+      const body = err?.response?.data ?? err?.data;
+      if (body?.code === 'OUT_OF_DELIVERY_RANGE') {
+        Alert.alert('Out of delivery area', body.error || 'This shop does not deliver to your location.');
+      } else {
+        Alert.alert('Order Failed', body?.error || err.message || 'Something went wrong placing your order.');
+      }
     } finally {
       setIsPlacingOrder(false);
     }
@@ -429,7 +463,7 @@ export default function CheckoutScreen({ navigation, route }: any) {
           <Icon name="checkmark-circle" size={80} color={colors.success} />
           <Text style={styles.emptyTitle}>Order Placed!</Text>
           <Text style={styles.emptySubtitle}>Your order has been placed successfully</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.viewOrdersButton}
             onPress={() => navigation.navigate('Orders')}
           >
@@ -457,7 +491,7 @@ export default function CheckoutScreen({ navigation, route }: any) {
           <Icon name="cart-outline" size={80} color={colors.gray} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>Cart is Empty</Text>
           <Text style={styles.emptySubtitle}>Add items to your cart before checkout</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.viewOrdersButton}
             onPress={() => navigation.navigate('Home')}
           >
@@ -470,7 +504,7 @@ export default function CheckoutScreen({ navigation, route }: any) {
 
   return (
     <View style={styles.container}>
-      <ScrollView 
+      <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -515,13 +549,13 @@ export default function CheckoutScreen({ navigation, route }: any) {
                 To place your order now, log in to your existing account or sign up.
               </Text>
               <View style={styles.accountButtons}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.accountButton}
                   onPress={() => navigation.navigate('Login')}
                 >
                   <Text style={styles.accountButtonText}>LOG IN</Text>
                 </TouchableOpacity>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[styles.accountButton, styles.signupButton]}
                   onPress={() => navigation.navigate('Signup')}
                 >
@@ -542,7 +576,7 @@ export default function CheckoutScreen({ navigation, route }: any) {
               <Text style={styles.changeText}>Change</Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.addressCard}
             onPress={() => navigation.navigate('Address')}
           >
@@ -567,7 +601,7 @@ export default function CheckoutScreen({ navigation, route }: any) {
               <Text style={styles.changeText}>Change</Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.paymentCard}
             onPress={() => navigation.navigate('Payment', { totalAmount: total })}
           >
@@ -628,7 +662,9 @@ export default function CheckoutScreen({ navigation, route }: any) {
               <Text style={styles.billLabel}>
                 Delivery Fee{deliveryCalc ? ` (${deliveryCalc.distance_km} KM)` : ''}
               </Text>
-              {deliveryCalc?.is_free_delivery ? (
+              {outOfRange ? (
+                <Text style={[styles.billValue, { color: DANGER }]}>—</Text>
+              ) : deliveryCalc?.is_free_delivery ? (
                 <Text style={[styles.billValue, { color: colors.success }]}>FREE</Text>
               ) : (
                 <Text style={styles.billValue}>
@@ -636,6 +672,14 @@ export default function CheckoutScreen({ navigation, route }: any) {
                 </Text>
               )}
             </View>
+
+            {/* MAX-RADIUS: out-of-range message */}
+            {outOfRange && (
+              <Text style={styles.rangeErrorText}>
+                {deliveryCalc?.message || 'This shop does not deliver to your location.'} Please choose a closer address.
+              </Text>
+            )}
+
             <View style={styles.billRow}>
               <Text style={styles.billLabel}>Platform Fee</Text>
               <Text style={styles.billValue}>₹{platformFee}</Text>
@@ -656,14 +700,16 @@ export default function CheckoutScreen({ navigation, route }: any) {
       {localCartItems && localCartItems.length > 0 && (
         <View style={styles.footer}>
           <TouchableOpacity
-            style={styles.placeOrderButton}
+            style={[styles.placeOrderButton, outOfRange && styles.placeOrderButtonDisabled]}
             onPress={handlePlaceOrder}
-            disabled={isPlacingOrder}
+            disabled={isPlacingOrder || outOfRange}
           >
             {isPlacingOrder ? (
               <ActivityIndicator color={colors.white} size="small" />
             ) : (
-              <Text style={styles.placeOrderText}>Place Order • ₹{total}</Text>
+              <Text style={styles.placeOrderText}>
+                {outOfRange ? 'Out of delivery area' : `Place Order • ₹${total}`}
+              </Text>
             )}
           </TouchableOpacity>
         </View>
@@ -860,6 +906,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
   },
+  // MAX-RADIUS
+  rangeErrorText: {
+    fontSize: 12,
+    color: DANGER,
+    paddingBottom: 6,
+  },
   totalRow: {
     borderTopWidth: 1,
     borderTopColor: colors.border,
@@ -888,6 +940,10 @@ const styles = StyleSheet.create({
     height: 50,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // MAX-RADIUS
+  placeOrderButtonDisabled: {
+    backgroundColor: '#C9C5DA',
   },
   placeOrderText: {
     color: colors.white,

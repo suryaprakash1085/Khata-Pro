@@ -16,6 +16,8 @@ export const deliveryFeeSettingsTable = pgTable("delivery_fee_settings", {
   // money-safe decimal, matches the precision style already used for sales_orders.amount
   perKmCharge: decimal("per_km_charge", { precision: 8, scale: 2 }).notNull().default("2"),
   isActive: boolean("is_active").notNull().default(true),
+    // Optional max distance (km) the shop delivers to. NULL = no limit.
+  maxDeliveryRadius: decimal("max_delivery_radius", { precision: 6, scale: 2 }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => ({

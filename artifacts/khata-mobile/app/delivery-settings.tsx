@@ -2,6 +2,13 @@
 //
 // Uses the Orval-generated hooks from @workspace/api-client-react
 // (GET /api/delivery-fees/settings, PUT /api/delivery-fees/settings).
+//
+// MAX-RADIUS changes (search "MAX-RADIUS"):
+//  1. maxRadius state (empty string = no limit)
+//  2. loaded from data.max_delivery_radius
+//  3. validation + sent in the PUT payload (null clears the limit)
+//  4. new "Maximum Delivery Radius" field
+//  5. policy card row, dynamic example, "Not deliverable" rows in the table
 
 import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Switch, ScrollView, ActivityIndicator, Platform, Alert } from 'react-native';
@@ -22,6 +29,8 @@ const GREEN = '#16A34A';
 const GREEN_BG = '#F0FDF4';
 const BLUE = '#2563EB';
 const BLUE_BG = '#EFF6FF';
+const RED = '#DC2626';
+const RED_BG = '#FEF2F2';
 
 function computeExampleFee(distance: number, radius: number, perKm: number) {
   if (distance <= radius) return 0;
@@ -36,6 +45,8 @@ export default function DeliverySettingsScreen() {
 
   const [radius, setRadius] = useState('5');
   const [perKm, setPerKm] = useState('2');
+  // MAX-RADIUS: empty string = no limit
+  const [maxRadius, setMaxRadius] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [savedMessage, setSavedMessage] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -50,6 +61,12 @@ export default function DeliverySettingsScreen() {
     if (data) {
       setRadius(String(data.free_delivery_radius));
       setPerKm(String(data.per_km_charge));
+      // MAX-RADIUS
+      setMaxRadius(
+        data.max_delivery_radius !== null && data.max_delivery_radius !== undefined
+          ? String(data.max_delivery_radius)
+          : ''
+      );
       setIsActive(data.is_active);
     }
   }, [data]);
@@ -79,11 +96,24 @@ export default function DeliverySettingsScreen() {
       setFieldError('Additional Delivery Charge must be a valid non-negative number.');
       return;
     }
+
+    // MAX-RADIUS: empty = no limit (sent as null so the backend clears it)
+    const maxRadiusValue = maxRadius.trim() === '' ? null : parseFloat(maxRadius);
+    if (maxRadiusValue !== null && (Number.isNaN(maxRadiusValue) || maxRadiusValue <= 0)) {
+      setFieldError('Maximum Delivery Radius must be a number greater than 0, or leave it empty for no limit.');
+      return;
+    }
+    if (maxRadiusValue !== null && maxRadiusValue < radiusNum) {
+      setFieldError('Maximum Delivery Radius cannot be less than the Free Delivery Radius.');
+      return;
+    }
+
     setFieldError(null);
     updateSettings({
       data: {
         free_delivery_radius: radiusNum,
         per_km_charge: perKmNum,
+        max_delivery_radius: maxRadiusValue,
         is_active: isActive,
       },
     });
@@ -107,10 +137,20 @@ export default function DeliverySettingsScreen() {
 
   const radiusNum = parseFloat(radius) || 0;
   const perKmNum = parseFloat(perKm) || 0;
-  const exampleDistance = radiusNum + 3; // matches the "3 KM extra" example pattern
+
+  // MAX-RADIUS: null = no limit
+  const parsedMax = maxRadius.trim() === '' ? null : parseFloat(maxRadius);
+  const maxRadiusNum = parsedMax !== null && !Number.isNaN(parsedMax) && parsedMax > 0 ? parsedMax : null;
+
+  // example stays inside the deliverable range when a limit is set
+  const exampleDistance = maxRadiusNum !== null ? Math.min(radiusNum + 3, maxRadiusNum) : radiusNum + 3;
+  const extraKm = Math.max(0, Math.ceil(exampleDistance - radiusNum));
   const exampleFee = computeExampleFee(exampleDistance, radiusNum, perKmNum);
 
-  const examples = [2, 5, 6, 8, 10, 12.5];
+  const baseExamples = [2, 5, 6, 8, 10, 12.5];
+  const examples = Array.from(
+    new Set(maxRadiusNum !== null ? [...baseExamples, maxRadiusNum + 5] : baseExamples)
+  ).sort((a, b) => a - b);
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={{ padding: 24 }}>
@@ -162,6 +202,28 @@ export default function DeliverySettingsScreen() {
               </View>
             </View>
             <Text style={styles.fieldHelper}>Charge applied for each additional kilometer beyond the free delivery radius.</Text>
+          </View>
+
+          {/* MAX-RADIUS: new field */}
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>Maximum Delivery Radius</Text>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={[styles.input, !isOwner && styles.inputDisabled]}
+                keyboardType="numeric"
+                value={maxRadius}
+                placeholder="No limit"
+                placeholderTextColor={TEXT_MUTED}
+                onChangeText={isOwner ? setMaxRadius : undefined}
+                editable={isOwner}
+              />
+              <View style={styles.inputSuffix}>
+                <Text style={styles.inputSuffixText}>KM</Text>
+              </View>
+            </View>
+            <Text style={styles.fieldHelper}>
+              Customers farther than this distance from your shop cannot place orders. Leave empty for no limit.
+            </Text>
           </View>
 
           <View style={styles.field}>
@@ -237,12 +299,25 @@ export default function DeliverySettingsScreen() {
             </View>
           </View>
 
+          {/* MAX-RADIUS: only when a limit is set */}
+          {maxRadiusNum !== null && (
+            <View style={styles.policyRow}>
+              <View style={[styles.policyIcon, { backgroundColor: RED_BG }]}>
+                <Feather name="map-pin" size={18} color={RED} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.policyTitle}>Delivery available up to {maxRadiusNum} KM</Text>
+                <Text style={styles.policySubtitle}>Orders beyond {maxRadiusNum} KM are not accepted.</Text>
+              </View>
+            </View>
+          )}
+
           <View style={styles.exampleBox}>
             <Text style={styles.exampleLabel}>Example</Text>
             <Text style={styles.exampleMain}>
               {exampleDistance} KM delivery → ₹{exampleFee} delivery fee
             </Text>
-            <Text style={styles.exampleSub}>(3 KM extra × ₹{perKmNum} = ₹{exampleFee})</Text>
+            <Text style={styles.exampleSub}>({extraKm} KM extra × ₹{perKmNum} = ₹{exampleFee})</Text>
           </View>
         </View>
 
@@ -259,17 +334,21 @@ export default function DeliverySettingsScreen() {
               <Text style={[styles.tableHeaderCell, { flex: 1.3 }]}>Chargeable Distance</Text>
               <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Delivery Fee</Text>
             </View>
-            {examples.map((dist) => {
-              const chargeable = dist <= radiusNum ? 0 : Math.ceil(dist - radiusNum);
+            {examples.map((dist, i) => {
+              // MAX-RADIUS: beyond the limit => not deliverable
+              const isBlocked = maxRadiusNum !== null && dist > maxRadiusNum;
+              const isFree = !isBlocked && dist <= radiusNum;
+              const chargeable = isBlocked || isFree ? 0 : Math.ceil(dist - radiusNum);
               const fee = chargeable * perKmNum;
-              const isFree = dist <= radiusNum;
               return (
-                <View key={dist} style={styles.tableRow}>
+                <View key={`${dist}-${i}`} style={styles.tableRow}>
                   <Text style={[styles.tableCell, { flex: 1 }]}>
                     {dist} KM{Number.isInteger(dist) ? '' : ' (Rounded Up)'}
                   </Text>
-                  <Text style={[styles.tableCell, { flex: 1.3 }]}>{chargeable} KM</Text>
-                  {isFree ? (
+                  <Text style={[styles.tableCell, { flex: 1.3 }]}>{isBlocked ? '—' : `${chargeable} KM`}</Text>
+                  {isBlocked ? (
+                    <Text style={[styles.tableCell, { flex: 1, color: RED, fontWeight: '700' }]}>Not deliverable</Text>
+                  ) : isFree ? (
                     <View style={{ flex: 1 }}>
                       <Text style={styles.freeBadge}>FREE</Text>
                     </View>
@@ -332,5 +411,5 @@ const styles = StyleSheet.create({
   tableCell: { fontSize: 13, color: TEXT_DARK, fontFamily: 'Times New Roman' },
   freeBadge: { color: GREEN, backgroundColor: GREEN_BG, fontSize: 11, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, alignSelf: 'flex-start', fontFamily: 'Times New Roman' },
   tableFootnote: { fontSize: 11, color: TEXT_MUTED, marginTop: 10, fontFamily: 'Times New Roman' },
-  errorText: { color: '#DC2626', fontSize: 13, marginTop: 8, fontFamily: 'Times New Roman' },
+  errorText: { color: RED, fontSize: 13, marginTop: 8, fontFamily: 'Times New Roman' },
 });

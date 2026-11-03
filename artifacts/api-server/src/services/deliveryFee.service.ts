@@ -1,6 +1,3 @@
-// TARGET PATH: artifacts/api-server/src/services/deliveryFee.service.ts
-// NEW FILE
-//
 // Single source of truth for delivery-fee calculation. Routes call into
 // this — the formula must never be duplicated in a controller/component
 // (spec section 7).
@@ -11,6 +8,8 @@ import { eq } from "drizzle-orm";
 export interface DeliveryFeeSettingsDTO {
   free_delivery_radius: number;
   per_km_charge: number;
+  /** Max distance the shop delivers to. null = no limit. */
+  max_delivery_radius: number | null;
   is_active: boolean;
 }
 
@@ -21,6 +20,9 @@ export interface DeliveryCalculationResult {
   chargeable_distance_km: number;
   delivery_fee: number;
   is_free_delivery: boolean;
+  deliverable: boolean;
+  max_delivery_radius: number | null;
+  message: string | null;
 }
 
 export class DeliveryFeeValidationError extends Error {
@@ -46,6 +48,18 @@ export class CustomerLocationMissingError extends Error {
   }
 }
 
+/** Thrown at order-creation time when the customer is beyond the shop's max delivery radius. */
+export class OutOfDeliveryRangeError extends Error {
+  distanceKm: number;
+  maxRadiusKm: number;
+  constructor(message: string, distanceKm: number, maxRadiusKm: number) {
+    super(message);
+    this.name = "OutOfDeliveryRangeError";
+    this.distanceKm = distanceKm;
+    this.maxRadiusKm = maxRadiusKm;
+  }
+}
+
 const DEFAULT_FREE_RADIUS = 5;
 const DEFAULT_PER_KM_CHARGE = 2;
 const MAX_REASONABLE_RADIUS_KM = 200; // sanity ceiling for validation
@@ -58,14 +72,17 @@ function formatSettings(row: typeof deliveryFeeSettingsTable.$inferSelect): Deli
   return {
     free_delivery_radius: toNumber(row.freeDeliveryRadius),
     per_km_charge: toNumber(row.perKmCharge),
+    max_delivery_radius:
+      row.maxDeliveryRadius === null || row.maxDeliveryRadius === undefined
+        ? null
+        : toNumber(row.maxDeliveryRadius),
     is_active: row.isActive,
   };
 }
 
 /**
  * Returns the business's delivery-fee settings, creating the row with
- * spec-mandated defaults (5 km free, ₹2/km, active) if none exists yet.
- * This is the ONLY place default settings get created.
+ * defaults (5 km free, ₹2/km, active, NO max limit) if none exists yet.
  */
 export async function getOrCreateSettings(businessId: number): Promise<DeliveryFeeSettingsDTO> {
   const [existing] = await db
@@ -89,24 +106,31 @@ export async function getOrCreateSettings(businessId: number): Promise<DeliveryF
 }
 
 /**
- * Validates and persists updated settings for a business. Assumes the
- * caller has already resolved+authorized businessId — this function trusts
- * it completely, same as it trusts nothing else in the payload.
+ * Validates and persists updated settings for a business.
+ * max_delivery_radius: number = set limit, null = remove limit,
+ * undefined (omitted) = leave unchanged.
  */
 export async function updateSettings(
   businessId: number,
-  input: { free_delivery_radius: unknown; per_km_charge: unknown; is_active: unknown }
+  input: {
+    free_delivery_radius: unknown;
+    per_km_charge: unknown;
+    max_delivery_radius?: unknown;
+    is_active: unknown;
+  }
 ): Promise<DeliveryFeeSettingsDTO> {
   const radius = validateRadius(input.free_delivery_radius);
   const perKm = validatePerKmCharge(input.per_km_charge);
+
+  let maxRadius: number | null | undefined = undefined;
+  if (input.max_delivery_radius !== undefined) {
+    maxRadius = validateMaxRadius(input.max_delivery_radius, radius);
+  }
 
   if (typeof input.is_active !== "boolean") {
     throw new DeliveryFeeValidationError("is_active must be a boolean");
   }
 
-  // Ensure a row exists first (get-or-create), then update it — keeps this
-  // function usable both for "first save" and "edit" without a separate
-  // create path.
   await getOrCreateSettings(businessId);
 
   const [updated] = await db
@@ -115,6 +139,9 @@ export async function updateSettings(
       freeDeliveryRadius: String(radius),
       perKmCharge: String(perKm),
       isActive: input.is_active,
+      ...(maxRadius !== undefined && {
+        maxDeliveryRadius: maxRadius === null ? null : String(maxRadius),
+      }),
     })
     .where(eq(deliveryFeeSettingsTable.businessId, businessId))
     .returning();
@@ -136,6 +163,24 @@ function validateRadius(value: unknown): number {
   return num;
 }
 
+function validateMaxRadius(value: unknown, freeRadius: number): number | null {
+  if (value === null) return null; // admin cleared the limit
+  const num = typeof value === "number" ? value : NaN;
+  if (Number.isNaN(num) || !Number.isFinite(num)) {
+    throw new DeliveryFeeValidationError("max_delivery_radius must be a valid number or empty");
+  }
+  if (num <= 0) {
+    throw new DeliveryFeeValidationError("max_delivery_radius must be greater than 0");
+  }
+  if (num > MAX_REASONABLE_RADIUS_KM) {
+    throw new DeliveryFeeValidationError(`max_delivery_radius must be ${MAX_REASONABLE_RADIUS_KM} km or less`);
+  }
+  if (num < freeRadius) {
+    throw new DeliveryFeeValidationError("max_delivery_radius cannot be less than free_delivery_radius");
+  }
+  return num;
+}
+
 function validatePerKmCharge(value: unknown): number {
   const num = typeof value === "number" ? value : NaN;
   if (Number.isNaN(num) || !Number.isFinite(num)) {
@@ -149,8 +194,6 @@ function validatePerKmCharge(value: unknown): number {
 
 /**
  * Haversine great-circle distance in km between two lat/lng points.
- * Structured as its own function so a real road-distance/maps provider can
- * be swapped in later without touching the fee formula below.
  */
 export function calculateDistanceKm(
   lat1: number,
@@ -176,15 +219,29 @@ export function calculateDistanceKm(
  * THE delivery-fee formula. Called by both the calculate-preview endpoint
  * and order creation — never re-implement this elsewhere.
  *
- * Rule: distance <= free_delivery_radius => free. Otherwise, chargeable
- * distance = (distance - free_delivery_radius) rounded UP to the next whole
- * km, times per_km_charge.
+ * 1. If the admin set a max_delivery_radius and distance exceeds it => not deliverable.
+ * 2. distance <= free_delivery_radius => free.
+ * 3. Otherwise chargeable = ceil(distance - free_delivery_radius) km × per_km_charge.
  */
 export function computeFee(
   distanceKm: number,
   settings: DeliveryFeeSettingsDTO
 ): DeliveryCalculationResult {
-  const { free_delivery_radius, per_km_charge } = settings;
+  const { free_delivery_radius, per_km_charge, max_delivery_radius } = settings;
+
+  if (max_delivery_radius !== null && distanceKm > max_delivery_radius) {
+    return {
+      distance_km: round2(distanceKm),
+      free_delivery_radius,
+      per_km_charge,
+      chargeable_distance_km: 0,
+      delivery_fee: 0,
+      is_free_delivery: false,
+      deliverable: false,
+      max_delivery_radius,
+      message: `Sorry, this shop delivers only within ${max_delivery_radius} KM. Your location is ${round2(distanceKm)} KM away.`,
+    };
+  }
 
   if (distanceKm <= free_delivery_radius) {
     return {
@@ -194,6 +251,9 @@ export function computeFee(
       chargeable_distance_km: 0,
       delivery_fee: 0,
       is_free_delivery: true,
+      deliverable: true,
+      max_delivery_radius,
+      message: null,
     };
   }
 
@@ -208,6 +268,9 @@ export function computeFee(
     chargeable_distance_km: chargeableDistanceKm,
     delivery_fee: round2(fee),
     is_free_delivery: false,
+    deliverable: true,
+    max_delivery_radius,
+    message: null,
   };
 }
 
@@ -217,10 +280,8 @@ function round2(n: number): number {
 
 /**
  * End-to-end: resolve shop location + settings for a business, validate
- * customer coordinates, compute distance, compute fee. Throws
- * ShopLocationMissingError / CustomerLocationMissingError /
- * DeliveryFeeValidationError as appropriate — routes translate those to
- * the right HTTP status.
+ * customer coordinates, compute distance, compute fee. Does NOT throw for
+ * out-of-range; it returns deliverable:false. Order creation decides to reject.
  */
 export async function calculateDeliveryFeeForBusiness(
   businessId: number,

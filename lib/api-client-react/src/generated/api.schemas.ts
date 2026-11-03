@@ -345,6 +345,11 @@ export interface DeliveryFeeSettings {
   free_delivery_radius: number;
   per_km_charge: number;
   is_active: boolean;
+  /**
+     * Max delivery distance in KM. null = no limit.
+     * @nullable
+     */
+  max_delivery_radius?: number | null;
 }
 
 export interface DeliveryFeeSettingsUpdate {
@@ -353,6 +358,11 @@ export interface DeliveryFeeSettingsUpdate {
   /** @minimum 0 */
   per_km_charge: number;
   is_active: boolean;
+  /**
+     * Max delivery distance in KM. null clears the limit; omit to leave unchanged.
+     * @nullable
+     */
+  max_delivery_radius?: number | null;
 }
 
 export interface DeliveryFeeCalculationInput {
@@ -376,6 +386,11 @@ export interface DeliveryFeeCalculation {
   chargeable_distance_km: number;
   delivery_fee: number;
   is_free_delivery: boolean;
+  deliverable: boolean;
+  /** @nullable */
+  max_delivery_radius?: number | null;
+  /** @nullable */
+  message?: string | null;
 }
 
 export type CustomerOpeningBalanceType = typeof CustomerOpeningBalanceType[keyof typeof CustomerOpeningBalanceType];
