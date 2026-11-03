@@ -1,13 +1,15 @@
 // TARGET PATH: delivery-app/src/screens/checkout/PaymentScreen.tsx
 //
 // MAX-RADIUS changes (search "MAX-RADIUS"):
-//  1. outOfRange / feeBlocked derived flags
-//  2. handlePayNow guard (stops BEFORE Razorpay opens)
-//  3. placeOrderOnBackend maps backend 422 OUT_OF_DELIVERY_RANGE to a clear message
-//  4. summary row + red message when out of range
-//  5. red banner inside the address card
-//  6. pay button disabled via feeBlocked
-//  7. rangeBanner / rangeBannerText styles
+//  1. OUT_OF_RANGE_MSG constant (one fixed message used everywhere)
+//  2. loadFee catch: backend 422 OUT_OF_DELIVERY_RANGE -> treated as outOfRange (not a generic error)
+//  3. outOfRange / feeBlocked derived flags
+//  4. handlePayNow guard (stops BEFORE Razorpay opens)
+//  5. placeOrderOnBackend maps backend 422 to the same message
+//  6. summary row + red message when out of range
+//  7. red banner inside the address card
+//  8. pay button disabled + label changes when out of range
+//  9. rangeBanner / rangeBannerText styles
 
 import React, { useState, useContext, useEffect } from 'react';
 import {
@@ -49,6 +51,9 @@ const COLORS = {
 };
 
 const FONT = Platform.select({ ios: 'Times New Roman', android: 'serif', default: 'Times New Roman' });
+
+// MAX-RADIUS: single message shown everywhere when customer is beyond the shop's max delivery radius
+const OUT_OF_RANGE_MSG = 'This location is not available for online delivery.';
 
 // Kept for the Razorpay checkout theme
 const THEME_COLOR = COLORS.primary;
@@ -194,12 +199,20 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
       } catch (e: any) {
         console.error('❌ Delivery fee calculation failed:', e);
         if (!cancelled) {
-          setFeeInfo(null);
-          setFeeError(
-            e?.name === 'CustomerLocationMissingError'
-              ? 'This address has no map location. Please edit the address and use current location.'
-              : e?.message || e?.error || 'Could not calculate delivery fee.'
-          );
+          // MAX-RADIUS: backend may reject out-of-range with 422 OUT_OF_DELIVERY_RANGE.
+          // Treat that as "out of range" (not a generic error) so the right message + disabled button show.
+          const body = e?.data ?? e?.response?.data ?? e;
+          if (body?.code === 'OUT_OF_DELIVERY_RANGE') {
+            setFeeInfo({ deliverable: false });
+            setFeeError(null);
+          } else {
+            setFeeInfo(null);
+            setFeeError(
+              e?.name === 'CustomerLocationMissingError'
+                ? 'This address has no map location. Please edit the address and use current location.'
+                : e?.message || e?.error || 'Could not calculate delivery fee.'
+            );
+          }
         }
       } finally {
         if (!cancelled) setFeeLoading(false);
@@ -380,7 +393,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
     } catch (err: any) {
       const body = err?.data ?? err?.response?.data;
       if (body?.code === 'OUT_OF_DELIVERY_RANGE') {
-        throw new Error(body.error || 'This shop does not deliver to your location.');
+        throw new Error(OUT_OF_RANGE_MSG);
       }
       throw err;
     }
@@ -392,10 +405,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
   const handlePayNow = () => {
     // MAX-RADIUS: stop BEFORE Razorpay opens, so nobody pays for an order the shop can't deliver
     if (outOfRange) {
-      Alert.alert(
-        'Out of delivery area',
-        feeInfo?.message || 'This shop does not deliver to your location.'
-      );
+      Alert.alert('Out of delivery area', OUT_OF_RANGE_MSG);
       return;
     }
 
@@ -626,9 +636,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
       {outOfRange && (
         <View style={styles.rangeBanner}>
           <Icon name="alert-circle-outline" size={18} color={COLORS.danger} />
-          <Text style={styles.rangeBannerText}>
-            {feeInfo?.message || 'This shop does not deliver to your location.'} Please choose a closer address.
-          </Text>
+          <Text style={styles.rangeBannerText}>{OUT_OF_RANGE_MSG} Please choose a closer address.</Text>
         </View>
       )}
     </View>
@@ -710,7 +718,7 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
         </Text>
       </View>
       {!!feeError && <Text style={styles.feeErrorText}>{feeError}</Text>}
-      {outOfRange && <Text style={styles.feeErrorText}>{feeInfo?.message}</Text>}
+      {outOfRange && <Text style={styles.feeErrorText}>{OUT_OF_RANGE_MSG}</Text>}
 
       <View style={styles.summaryRow}>
         <Text style={styles.summaryLabel}>Tax (GST {effectiveGstRate}%)</Text>
@@ -736,7 +744,11 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation, route }) => {
         <ActivityIndicator size="small" color={COLORS.white} />
       ) : (
         <Text style={styles.payButtonText}>
-          {selectedMethod === 'cash' ? `Place order ₹${displayTotal}` : `Pay ₹${displayTotal}`}
+          {outOfRange
+            ? 'Not available for delivery'
+            : selectedMethod === 'cash'
+            ? `Place order ₹${displayTotal}`
+            : `Pay ₹${displayTotal}`}
         </Text>
       )}
     </TouchableOpacity>
