@@ -21,7 +21,8 @@ import {
   useCreateVendor,
   getListPurchasesQueryKey,
 } from '@workspace/api-client-react';
-import { FormField } from '@/components/FormField';
+import { VendorFormFields } from '@/components/VendorFormFields';
+import { useVendorForm, validateVendorForm, buildVendorPayload, getApiErrorInfo } from '@/lib/vendorForm';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { BarcodeSvg } from '@/components/BarcodeSvg';
 import { BarcodeLabelPrintModal } from '@/components/BarcodeLabelPrintModal';
@@ -219,15 +220,21 @@ export default function AddProductScreen() {
   // Vendor field + inline "create vendor" form
   const [vendor, setVendor] = useState('');
   const [isVendorModalVisible, setVendorModalVisible] = useState(false);
-  const [newVendorName, setNewVendorName] = useState('');
-  const [newVendorPhone, setNewVendorPhone] = useState('');
-  const [newVendorAddress, setNewVendorAddress] = useState('');
   const [vendorError, setVendorError] = useState<string | null>(null);
+  const vendorForm = useVendorForm();
+
+  const closeVendorModal = () => {
+    setVendorModalVisible(false);
+    setVendorError(null);
+    vendorForm.reset();
+  };
 
   const handleCreateVendor = () => {
     setVendorError(null);
-    if (newVendorName.trim().length < 2) {
-      setVendorError('Enter vendor name');
+    const errs = validateVendorForm(vendorForm.values, { requirePhone: false });
+    if (Object.keys(errs).length > 0) {
+      vendorForm.setErrors(errs);
+      setVendorError('Please fix the highlighted fields');
       return;
     }
     if (!business?.id) {
@@ -235,27 +242,21 @@ export default function AddProductScreen() {
       return;
     }
     createVendor.mutate(
-      {
-        data: {
-          business_id: business.id,
-          name: newVendorName.trim(),
-          phone: newVendorPhone.trim() || undefined,
-          address: newVendorAddress.trim() || undefined,
-        },
-      },
+      { data: buildVendorPayload(vendorForm.values, business.id) as any },
       {
         onSuccess: (created: any) => {
           queryClient.invalidateQueries({
             queryKey: getListVendorsQueryKey({ business_id: business.id }),
             exact: false,
           });
-          setVendor(created?.name ?? newVendorName.trim());
-          setNewVendorName('');
-          setNewVendorPhone('');
-          setNewVendorAddress('');
-          setVendorModalVisible(false);
+          setVendor(created?.name ?? vendorForm.values.name.trim());
+          closeVendorModal();
         },
-        onError: () => setVendorError('Could not save vendor. Please try again.'),
+        onError: (err: any) => {
+          const info = getApiErrorInfo(err);
+          if (info.field) vendorForm.setErrors({ [info.field]: info.message } as any);
+          setVendorError(info.message);
+        },
       }
     );
   };
@@ -1054,9 +1055,9 @@ export default function AddProductScreen() {
       </KeyboardAwareScrollViewCompat>
 
       {/* ---- Create Vendor modal ---- */}
-      <Modal visible={isVendorModalVisible} transparent animationType="fade" onRequestClose={() => setVendorModalVisible(false)}>
+      <Modal visible={isVendorModalVisible} transparent animationType="fade" onRequestClose={closeVendorModal}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { maxHeight: '90%' }]}>
             <Text style={styles.modalTitle}>Add Vendor</Text>
 
             {vendorError ? (
@@ -1065,43 +1066,27 @@ export default function AddProductScreen() {
               </View>
             ) : null}
 
-            <FormField
-              layout="stack"
-              label="Vendor Name"
-              required
-              placeholder="Enter vendor name"
-              value={newVendorName}
-              onChangeText={setNewVendorName}
-            />
-            <View style={{ height: 12 }} />
-            <FormField
-              layout="stack"
-              label="Phone Number"
-              placeholder="Enter phone number"
-              keyboardType="phone-pad"
-              value={newVendorPhone}
-              onChangeText={setNewVendorPhone}
-            />
-            <View style={{ height: 12 }} />
-            <FormField
-              layout="stack"
-              label="Address"
-              placeholder="Enter address"
-              value={newVendorAddress}
-              onChangeText={setNewVendorAddress}
-            />
+            <ScrollView keyboardShouldPersistTaps="handled" style={{ flexGrow: 0 }}>
+              <VendorFormFields
+                layout="stack"
+                collapsible
+                autoFocusName
+                values={vendorForm.values}
+                errors={vendorForm.errors}
+                onChange={vendorForm.onChange}
+              />
+            </ScrollView>
 
             <View style={styles.modalButtons}>
-              <TouchableOpacity
-                onPress={() => {
-                  setVendorModalVisible(false);
-                  setVendorError(null);
-                }}
-                style={styles.modalCancelBtn}
-              >
+              <TouchableOpacity onPress={closeVendorModal} style={styles.modalCancelBtn}>
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
-              <PrimaryButton label="Save Vendor" onPress={handleCreateVendor} style={styles.saveBtn} />
+              <PrimaryButton
+                label="Save Vendor"
+                onPress={handleCreateVendor}
+                loading={createVendor.isPending}
+                style={styles.saveBtn}
+              />
             </View>
           </View>
         </View>

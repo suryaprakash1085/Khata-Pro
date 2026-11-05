@@ -4119,14 +4119,33 @@ components:
           type: integer
         name:
           type: string
+        company_name:
+          type: ["string", "null"]
         phone:
+          type: ["string", "null"]
+        alternate_phone:
           type: ["string", "null"]
         email:
           type: ["string", "null"]
         address:
           type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        pincode:
+          type: ["string", "null"]
         gst_number:
           type: ["string", "null"]
+        pan_number:
+          type: ["string", "null"]
+        opening_balance:
+          type: number
+        opening_balance_type:
+          type: string
+          enum: [payable, receivable]
+        payment_terms_days:
+          type: integer
         created_at:
           type: string
           format: date-time
@@ -4139,28 +4158,75 @@ components:
           type: integer
         name:
           type: string
+        company_name:
+          type: string
         phone:
+          type: string
+        alternate_phone:
           type: string
         email:
           type: string
         address:
           type: string
+        city:
+          type: string
+        state:
+          type: string
+        pincode:
+          type: string
         gst_number:
           type: string
+        pan_number:
+          type: string
+        opening_balance:
+          type: number
+          minimum: 0
+          default: 0
+        opening_balance_type:
+          type: string
+          enum: [payable, receivable]
+          default: payable
+        payment_terms_days:
+          type: integer
+          minimum: 0
+          maximum: 365
+          default: 0
 
     VendorUpdate:
       type: object
       properties:
         name:
           type: string
+        company_name:
+          type: string
         phone:
+          type: string
+        alternate_phone:
           type: string
         email:
           type: string
         address:
           type: string
+        city:
+          type: string
+        state:
+          type: string
+        pincode:
+          type: string
         gst_number:
           type: string
+        pan_number:
+          type: string
+        opening_balance:
+          type: number
+          minimum: 0
+        opening_balance_type:
+          type: string
+          enum: [payable, receivable]
+        payment_terms_days:
+          type: integer
+          minimum: 0
+          maximum: 365
 
     VendorListResponse:
       type: object

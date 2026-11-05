@@ -747,36 +747,103 @@ export interface PromotionListResponse {
   limit: number;
 }
 
+export type VendorOpeningBalanceType = typeof VendorOpeningBalanceType[keyof typeof VendorOpeningBalanceType];
+
+
+export const VendorOpeningBalanceType = {
+  payable: 'payable',
+  receivable: 'receivable',
+} as const;
+
 export interface Vendor {
   id: number;
   business_id: number;
   name: string;
   /** @nullable */
+  company_name?: string | null;
+  /** @nullable */
   phone?: string | null;
+  /** @nullable */
+  alternate_phone?: string | null;
   /** @nullable */
   email?: string | null;
   /** @nullable */
   address?: string | null;
   /** @nullable */
+  city?: string | null;
+  /** @nullable */
+  state?: string | null;
+  /** @nullable */
+  pincode?: string | null;
+  /** @nullable */
   gst_number?: string | null;
+  /** @nullable */
+  pan_number?: string | null;
+  opening_balance?: number;
+  opening_balance_type?: VendorOpeningBalanceType;
+  payment_terms_days?: number;
   created_at: string;
 }
+
+export type VendorInputOpeningBalanceType = typeof VendorInputOpeningBalanceType[keyof typeof VendorInputOpeningBalanceType];
+
+
+export const VendorInputOpeningBalanceType = {
+  payable: 'payable',
+  receivable: 'receivable',
+} as const;
 
 export interface VendorInput {
   business_id: number;
   name: string;
+  company_name?: string;
   phone?: string;
+  alternate_phone?: string;
   email?: string;
   address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
   gst_number?: string;
+  pan_number?: string;
+  /** @minimum 0 */
+  opening_balance?: number;
+  opening_balance_type?: VendorInputOpeningBalanceType;
+  /**
+     * @minimum 0
+     * @maximum 365
+     */
+  payment_terms_days?: number;
 }
+
+export type VendorUpdateOpeningBalanceType = typeof VendorUpdateOpeningBalanceType[keyof typeof VendorUpdateOpeningBalanceType];
+
+
+export const VendorUpdateOpeningBalanceType = {
+  payable: 'payable',
+  receivable: 'receivable',
+} as const;
 
 export interface VendorUpdate {
   name?: string;
+  company_name?: string;
   phone?: string;
+  alternate_phone?: string;
   email?: string;
   address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
   gst_number?: string;
+  pan_number?: string;
+  /** @minimum 0 */
+  opening_balance?: number;
+  opening_balance_type?: VendorUpdateOpeningBalanceType;
+  /**
+     * @minimum 0
+     * @maximum 365
+     */
+  payment_terms_days?: number;
 }
 
 export interface VendorListResponse {

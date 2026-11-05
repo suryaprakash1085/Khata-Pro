@@ -6,8 +6,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
 import { useColors } from '@/hooks/useColors';
 import { useBusiness } from '@/contexts/BusinessContext';
-import { useCreateCustomer, CustomerInputCategory } from '@workspace/api-client-react';
+import { useCreateCustomer, useCreateVendor, CustomerInputCategory } from '@workspace/api-client-react';
 import { Ionicons } from '@expo/vector-icons';
+import { VendorFormFields } from '@/components/VendorFormFields';
+import { useVendorForm, validateVendorForm, buildVendorPayload, getApiErrorInfo } from '@/lib/vendorForm';
 
 const FONT_FAMILY = 'Times New Roman';
 const LABEL_WIDTH = 150;
@@ -19,30 +21,59 @@ export default function AddCustomerScreen() {
   const { business } = useBusiness();
   const queryClient = useQueryClient();
 
+  // Customer fields
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  // NOTE: the API schema only has `category: customer | supplier` — there is no
-  // separate "vendor" enum value. We send `supplier` to the backend but label
-  // everything "Vendor" in the UI, since that's what Yoga wants shown.
+  // The Type toggle is only UI now: Customer -> customers table, Vendor -> vendors table.
   const [category, setCategory] = useState<CustomerInputCategory>(CustomerInputCategory.customer);
   const [error, setError] = useState<string | null>(null);
 
+  // Vendor fields (shared form + validation)
+  const vendorForm = useVendorForm();
+
   const isVendor = category === CustomerInputCategory.supplier;
   const createCustomer = useCreateCustomer();
+  const createVendor = useCreateVendor();
+  const isSaving = createCustomer.isPending || createVendor.isPending;
 
   const handleSave = () => {
     setError(null);
+    if (!business?.id) return;
+
+    // ---------- Vendor ----------
+    if (isVendor) {
+      const errs = validateVendorForm(vendorForm.values, { requirePhone: true });
+      if (Object.keys(errs).length > 0) {
+        vendorForm.setErrors(errs);
+        setError('Please fix the highlighted fields');
+        return;
+      }
+      createVendor.mutate(
+        { data: buildVendorPayload(vendorForm.values, business.id) as any },
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['/api/vendors'], exact: false });
+            router.back();
+          },
+          onError: (err: any) => {
+            const info = getApiErrorInfo(err);
+            if (info.field) vendorForm.setErrors({ [info.field]: info.message } as any);
+            setError(info.message);
+          },
+        },
+      );
+      return;
+    }
+
+    // ---------- Customer (unchanged) ----------
     if (name.trim().length < 2) {
-      setError(isVendor ? 'Enter the vendor name' : 'Enter the customer name');
+      setError('Enter the customer name');
       return;
     }
     if (phone.replace(/[^\d]/g, '').length < 10) {
       setError('Enter a valid phone number');
       return;
     }
-    if (!business?.id) return;
-
     createCustomer.mutate(
       {
         data: {
@@ -50,7 +81,6 @@ export default function AddCustomerScreen() {
           name: name.trim(),
           phone: phone.trim(),
           category,
-          ...(isVendor ? { address: address.trim() || undefined } : {}),
         },
       },
       {
@@ -59,8 +89,7 @@ export default function AddCustomerScreen() {
           queryClient.invalidateQueries({ predicate: (q) => typeof q.queryKey[0] === 'string' && (q.queryKey[0] as string).includes('/stats') });
           router.back();
         },
-        onError: () =>
-          setError(isVendor ? 'Could not save vendor. Please try again.' : 'Could not save customer. Please try again.'),
+        onError: () => setError('Could not save customer. Please try again.'),
       },
     );
   };
@@ -80,7 +109,10 @@ export default function AddCustomerScreen() {
             return (
               <Pressable
                 key={c}
-                onPress={() => setCategory(c)}
+                onPress={() => {
+                  setCategory(c);
+                  setError(null);
+                }}
                 style={[
                   styles.typeChip,
                   {
@@ -89,12 +121,7 @@ export default function AddCustomerScreen() {
                   },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.typeChipText,
-                    { color: active ? '#FFFFFF' : colors.foreground, fontFamily: FONT_FAMILY },
-                  ]}
-                >
+                <Text style={[styles.typeChipText, { color: active ? '#FFFFFF' : colors.foreground, fontFamily: FONT_FAMILY }]}>
                   {c === 'customer' ? 'Customer' : 'Vendor'}
                 </Text>
               </Pressable>
@@ -104,54 +131,47 @@ export default function AddCustomerScreen() {
       </View>
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-      {/* Name */}
-      <View style={styles.row}>
-        <Text style={[styles.label, { color: colors.mutedForeground, width: LABEL_WIDTH, fontFamily: FONT_FAMILY }]}>
-          {isVendor ? 'Vendor name' : 'Customer name'} <Text style={{ color: colors.destructive }}>*</Text>
-        </Text>
-        <TextInput
-          value={name}
-          onChangeText={setName}
-          placeholder={isVendor ? 'Sri Balaji Traders' : 'Ramesh Kumar'}
-          placeholderTextColor={colors.mutedForeground}
-          autoFocus
-          style={[
-            styles.input,
-            { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background, fontFamily: FONT_FAMILY },
-          ]}
-        />
-      </View>
-      <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-      {/* Phone */}
-      <View style={styles.row}>
-        <Text style={[styles.label, { color: colors.mutedForeground, width: LABEL_WIDTH, fontFamily: FONT_FAMILY }]}>
-          Phone number <Text style={{ color: colors.destructive }}>*</Text>
-        </Text>
-        <TextInput
-          value={phone}
-          onChangeText={setPhone}
-          placeholder="98765 43210"
-          placeholderTextColor={colors.mutedForeground}
-          keyboardType="phone-pad"
-          style={[
-            styles.input,
-            { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background, fontFamily: FONT_FAMILY },
-          ]}
-        />
-      </View>
-
-      {/* Address — vendor only */}
       {isVendor ? (
+        <VendorFormFields
+          layout="row"
+          values={vendorForm.values}
+          errors={vendorForm.errors}
+          onChange={vendorForm.onChange}
+          phoneRequired
+          autoFocusName
+        />
+      ) : (
         <>
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          {/* Name */}
           <View style={styles.row}>
-            <Text style={[styles.label, { color: colors.mutedForeground, width: LABEL_WIDTH, fontFamily: FONT_FAMILY }]}>Address</Text>
+            <Text style={[styles.label, { color: colors.mutedForeground, width: LABEL_WIDTH, fontFamily: FONT_FAMILY }]}>
+              Customer name <Text style={{ color: colors.destructive }}>*</Text>
+            </Text>
             <TextInput
-              value={address}
-              onChangeText={setAddress}
-              placeholder="Shop no, street, city"
+              value={name}
+              onChangeText={setName}
+              placeholder="Ramesh Kumar"
               placeholderTextColor={colors.mutedForeground}
+              autoFocus
+              style={[
+                styles.input,
+                { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background, fontFamily: FONT_FAMILY },
+              ]}
+            />
+          </View>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+          {/* Phone */}
+          <View style={styles.row}>
+            <Text style={[styles.label, { color: colors.mutedForeground, width: LABEL_WIDTH, fontFamily: FONT_FAMILY }]}>
+              Phone number <Text style={{ color: colors.destructive }}>*</Text>
+            </Text>
+            <TextInput
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="98765 43210"
+              placeholderTextColor={colors.mutedForeground}
+              keyboardType="phone-pad"
               style={[
                 styles.input,
                 { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background, fontFamily: FONT_FAMILY },
@@ -159,7 +179,7 @@ export default function AddCustomerScreen() {
             />
           </View>
         </>
-      ) : null}
+      )}
 
       {error ? (
         <View style={styles.errorRow}>
@@ -170,11 +190,11 @@ export default function AddCustomerScreen() {
 
       <Pressable
         onPress={handleSave}
-        disabled={createCustomer.isPending}
-        style={[styles.saveButton, { backgroundColor: PURPLE, opacity: createCustomer.isPending ? 0.7 : 1 }]}
+        disabled={isSaving}
+        style={[styles.saveButton, { backgroundColor: PURPLE, opacity: isSaving ? 0.7 : 1 }]}
       >
         <Text style={[styles.saveButtonText, { color: '#FFFFFF', fontFamily: FONT_FAMILY }]}>
-          {createCustomer.isPending ? 'Saving…' : isVendor ? 'Save vendor' : 'Save customer'}
+          {isSaving ? 'Saving…' : isVendor ? 'Save vendor' : 'Save customer'}
         </Text>
       </Pressable>
     </KeyboardAwareScrollViewCompat>

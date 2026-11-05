@@ -5,12 +5,27 @@
  * KhataPro CRM API — digital ledger platform for small businesses
  * OpenAPI spec version: 0.1.0
  */
+import type { VendorInputOpeningBalanceType } from './vendorInputOpeningBalanceType';
 
 export interface VendorInput {
   business_id: number;
   name: string;
+  company_name?: string;
   phone?: string;
+  alternate_phone?: string;
   email?: string;
   address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
   gst_number?: string;
+  pan_number?: string;
+  /** @minimum 0 */
+  opening_balance?: number;
+  opening_balance_type?: VendorInputOpeningBalanceType;
+  /**
+     * @minimum 0
+     * @maximum 365
+     */
+  payment_terms_days?: number;
 }

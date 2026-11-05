@@ -1341,10 +1341,19 @@ export const ListVendorsResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
   "name": zod.string(),
+  "company_name": zod.string().nullish(),
   "phone": zod.string().nullish(),
+  "alternate_phone": zod.string().nullish(),
   "email": zod.string().nullish(),
   "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "pincode": zod.string().nullish(),
   "gst_number": zod.string().nullish(),
+  "pan_number": zod.string().nullish(),
+  "opening_balance": zod.number().optional(),
+  "opening_balance_type": zod.enum(['payable', 'receivable']).optional(),
+  "payment_terms_days": zod.number().optional(),
   "created_at": zod.coerce.date()
 })),
   "total": zod.number(),
@@ -1356,23 +1365,51 @@ export const ListVendorsResponse = zod.object({
 /**
  * @summary Create a vendor
  */
+export const createVendorBodyOpeningBalanceDefault = 0;
+export const createVendorBodyOpeningBalanceMin = 0;
+
+export const createVendorBodyOpeningBalanceTypeDefault = `payable`;
+export const createVendorBodyPaymentTermsDaysDefault = 0;
+export const createVendorBodyPaymentTermsDaysMin = 0;
+export const createVendorBodyPaymentTermsDaysMax = 365;
+
+
+
 export const CreateVendorBody = zod.object({
   "business_id": zod.number(),
   "name": zod.string(),
+  "company_name": zod.string().optional(),
   "phone": zod.string().optional(),
+  "alternate_phone": zod.string().optional(),
   "email": zod.string().optional(),
   "address": zod.string().optional(),
-  "gst_number": zod.string().optional()
+  "city": zod.string().optional(),
+  "state": zod.string().optional(),
+  "pincode": zod.string().optional(),
+  "gst_number": zod.string().optional(),
+  "pan_number": zod.string().optional(),
+  "opening_balance": zod.number().min(createVendorBodyOpeningBalanceMin).default(createVendorBodyOpeningBalanceDefault),
+  "opening_balance_type": zod.enum(['payable', 'receivable']).default(createVendorBodyOpeningBalanceTypeDefault),
+  "payment_terms_days": zod.number().min(createVendorBodyPaymentTermsDaysMin).max(createVendorBodyPaymentTermsDaysMax).default(createVendorBodyPaymentTermsDaysDefault)
 })
 
 export const CreateVendorResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
   "name": zod.string(),
+  "company_name": zod.string().nullish(),
   "phone": zod.string().nullish(),
+  "alternate_phone": zod.string().nullish(),
   "email": zod.string().nullish(),
   "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "pincode": zod.string().nullish(),
   "gst_number": zod.string().nullish(),
+  "pan_number": zod.string().nullish(),
+  "opening_balance": zod.number().optional(),
+  "opening_balance_type": zod.enum(['payable', 'receivable']).optional(),
+  "payment_terms_days": zod.number().optional(),
   "created_at": zod.coerce.date()
 })
 
@@ -1388,10 +1425,19 @@ export const GetVendorResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
   "name": zod.string(),
+  "company_name": zod.string().nullish(),
   "phone": zod.string().nullish(),
+  "alternate_phone": zod.string().nullish(),
   "email": zod.string().nullish(),
   "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "pincode": zod.string().nullish(),
   "gst_number": zod.string().nullish(),
+  "pan_number": zod.string().nullish(),
+  "opening_balance": zod.number().optional(),
+  "opening_balance_type": zod.enum(['payable', 'receivable']).optional(),
+  "payment_terms_days": zod.number().optional(),
   "created_at": zod.coerce.date()
 })
 
@@ -1403,22 +1449,47 @@ export const UpdateVendorParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const updateVendorBodyOpeningBalanceMin = 0;
+
+export const updateVendorBodyPaymentTermsDaysMin = 0;
+export const updateVendorBodyPaymentTermsDaysMax = 365;
+
+
+
 export const UpdateVendorBody = zod.object({
   "name": zod.string().optional(),
+  "company_name": zod.string().optional(),
   "phone": zod.string().optional(),
+  "alternate_phone": zod.string().optional(),
   "email": zod.string().optional(),
   "address": zod.string().optional(),
-  "gst_number": zod.string().optional()
+  "city": zod.string().optional(),
+  "state": zod.string().optional(),
+  "pincode": zod.string().optional(),
+  "gst_number": zod.string().optional(),
+  "pan_number": zod.string().optional(),
+  "opening_balance": zod.number().min(updateVendorBodyOpeningBalanceMin).optional(),
+  "opening_balance_type": zod.enum(['payable', 'receivable']).optional(),
+  "payment_terms_days": zod.number().min(updateVendorBodyPaymentTermsDaysMin).max(updateVendorBodyPaymentTermsDaysMax).optional()
 })
 
 export const UpdateVendorResponse = zod.object({
   "id": zod.number(),
   "business_id": zod.number(),
   "name": zod.string(),
+  "company_name": zod.string().nullish(),
   "phone": zod.string().nullish(),
+  "alternate_phone": zod.string().nullish(),
   "email": zod.string().nullish(),
   "address": zod.string().nullish(),
+  "city": zod.string().nullish(),
+  "state": zod.string().nullish(),
+  "pincode": zod.string().nullish(),
   "gst_number": zod.string().nullish(),
+  "pan_number": zod.string().nullish(),
+  "opening_balance": zod.number().optional(),
+  "opening_balance_type": zod.enum(['payable', 'receivable']).optional(),
+  "payment_terms_days": zod.number().optional(),
   "created_at": zod.coerce.date()
 })
 
