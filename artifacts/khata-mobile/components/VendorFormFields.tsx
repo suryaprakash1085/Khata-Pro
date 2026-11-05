@@ -5,7 +5,6 @@ import { useColors } from '@/hooks/useColors';
 import {
   GST_STATE_CODES,
   INDIAN_STATES,
-  PAYMENT_TERMS_OPTIONS,
   type VendorFormErrors,
   type VendorFormValues,
 } from '@/lib/vendorForm';
@@ -298,47 +297,6 @@ export function VendorFormFields({ values, errors, onChange, layout, collapsible
               maxLength={6}
               style={inputStyle(errors.pincode)}
             />
-          </Field>
-
-          <SectionTitle title="ACCOUNT" isRow={isRow} />
-          <Field
-            label="Opening balance (₹)"
-            error={errors.openingBalance}
-            hint="Payable = you owe the vendor. Receivable = the vendor owes you."
-            isRow={isRow}
-          >
-            <TextInput
-              value={values.openingBalance}
-              onChangeText={(t) => onChange({ openingBalance: t.replace(/[^0-9.]/g, '') })}
-              placeholder="0.00"
-              placeholderTextColor={colors.mutedForeground}
-              keyboardType="decimal-pad"
-              style={inputStyle(errors.openingBalance)}
-            />
-            <View style={[styles.chipsRow, { marginTop: 8 }]}>
-              <Chip
-                label="Payable (To Pay)"
-                active={values.openingBalanceType === 'payable'}
-                onPress={() => onChange({ openingBalanceType: 'payable' })}
-              />
-              <Chip
-                label="Receivable (To Receive)"
-                active={values.openingBalanceType === 'receivable'}
-                onPress={() => onChange({ openingBalanceType: 'receivable' })}
-              />
-            </View>
-          </Field>
-          <Field label="Payment terms" hint="Credit days allowed by this vendor." isRow={isRow}>
-            <View style={styles.chipsRow}>
-              {PAYMENT_TERMS_OPTIONS.map((o) => (
-                <Chip
-                  key={o.days}
-                  label={o.label}
-                  active={values.paymentTermsDays === o.days}
-                  onPress={() => onChange({ paymentTermsDays: o.days })}
-                />
-              ))}
-            </View>
           </Field>
         </>
       ) : null}

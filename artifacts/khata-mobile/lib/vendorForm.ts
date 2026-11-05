@@ -112,9 +112,6 @@ export function buildVendorPayload(v: VendorFormValues, businessId: number) {
     pincode: opt(v.pincode),
     gst_number: opt(v.gstNumber)?.toUpperCase(),
     pan_number: opt(v.panNumber)?.toUpperCase(),
-    opening_balance: parseFloat(v.openingBalance) || 0,
-    opening_balance_type: v.openingBalanceType,
-    payment_terms_days: v.paymentTermsDays,
   };
 }
 
