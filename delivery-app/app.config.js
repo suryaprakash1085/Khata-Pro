@@ -26,7 +26,7 @@ export default {
     android: {
       package: IS_DRIVER
         ? 'com.subasri0102.deliverypartner'
-        : 'com.subasri0102.deliveryapp',
+        : 'com.subasri0102.khataadelivery',
       adaptiveIcon: {
         foregroundImage: `${ICON_DIR}/icon.png`,
         backgroundColor: IS_DRIVER ? '#FFFFFF' : '#2D2A8C',
@@ -43,7 +43,7 @@ export default {
       icon: `${ICON_DIR}/icon.png`,
       bundleIdentifier: IS_DRIVER
         ? 'com.subasri0102.deliverypartner'
-        : 'com.subasri0102.deliveryapp',
+        : 'com.subasri0102.khataadelivery',
       config: { googleMapsApiKey: MAPS_KEY },
     },
     plugins: [
